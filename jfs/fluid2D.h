@@ -2,6 +2,8 @@
 #define FLUID2D_H
 #include "jfs_inline.h"
 
+#include <jfs/fluidBase.h>
+
 namespace jfs {
 
 struct Force2D {
@@ -21,7 +23,7 @@ struct Source2D {
     float strength;
 };
 
-class fluid2D {
+class fluid2D : public fluidBase {
     public:
         void initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
 
