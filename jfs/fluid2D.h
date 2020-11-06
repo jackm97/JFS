@@ -8,6 +8,11 @@
 namespace jfs {
 
 class fluid2D : public grid2D, public fluidBase {
+    public:
+        void initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
+
+        void resetFluid();
+        
     protected:
 
         fluid2D(){}
@@ -15,10 +20,6 @@ class fluid2D : public grid2D, public fluidBase {
         void interpolateForce(const std::vector<Force> forces);
         
         void interpolateSource( const std::vector<Source> sources);
-
-        void initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
-
-        void resetFluid();
 
         ~fluid2D(){}
 };

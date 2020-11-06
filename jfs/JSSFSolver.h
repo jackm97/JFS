@@ -21,10 +21,6 @@ class JSSFSolver : public fluid2D {
         JSSFSolver(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc=0, float diff=0, float diss=0);
 
         void initialize(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc=0, float diff=0, float diss=0);
-        
-        void changeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
-        
-        void reset( );
 
         void calcNextStep( );
 
