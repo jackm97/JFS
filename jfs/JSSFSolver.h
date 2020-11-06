@@ -3,54 +3,35 @@
 
 #include "jfs_inline.h"
 
+#include <jfs/fluid2D.h>
+
 #include <Eigen/Eigen>
 #include <Eigen/Sparse>
 
 namespace jfs {
 
-typedef enum {
-    ZERO,
-    PERIODIC
-} BOUND_TYPE;
-
 typedef Eigen::SparseLU< Eigen::SparseMatrix<float> > genSolver; // can solve both boundary conditions
 typedef Eigen::SimplicialLDLT< Eigen::SparseMatrix<float> > fastZeroSolver; // solves zero bounds quickly
 
 template <class LinearSolver=genSolver>
-class JSSFSolver {
+class JSSFSolver : protected fluid2D {
     public:
-        Eigen::VectorXf S;
-        
         JSSFSolver();
 
-        JSSFSolver(unsigned int N, float L, float D, BOUND_TYPE BOUND, float dt);
+        JSSFSolver(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc=0, float diff=0, float diss=0);
 
-        void initialize(unsigned int N, float L, float D, BOUND_TYPE BOUND, float dt);
+        void initialize(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc=0, float diff=0, float diss=0);
 
-        void calcNextStep(const Eigen::SparseMatrix<float> &force, const Eigen::SparseMatrix<float> &source, float dt);
+        void calcNextStep();
 
-        void projection2D(Eigen::VectorXf &dst, const Eigen::VectorXf &src);
+        void calcNextStep(const std::vector<Force2D> forces, const std::vector<Source2D> sources);
+
+        void getImage(Eigen::VectorXf &image);
+
+        float visc; // fluid viscosity
+        float diff; // particle diffusion
+        float diss; // particle dissipation
     private:
-        unsigned int N; // num pixels/voxels per side
-        float L; // grid side length
-        float D; // pixel/voxel size
-        BOUND_TYPE BOUND;
-        float dt;
-        
-        Eigen::VectorXf U; 
-        Eigen::VectorXf U0;
-        Eigen::VectorXf UTemp;
-        Eigen::VectorXf S0;
-        Eigen::VectorXf STemp;
-        Eigen::VectorXf X;
-        Eigen::VectorXf X0;
-        Eigen::VectorXf XTemp;
-
-        Eigen::SparseMatrix<float> LAPLACE;
-        Eigen::SparseMatrix<float> VEC_LAPLACE;
-        Eigen::SparseMatrix<float> DIV;
-        Eigen::SparseMatrix<float> GRAD;
-
         LinearSolver diffuseSolveU;
         LinearSolver diffuseSolveS;
         LinearSolver projectSolve;
@@ -60,36 +41,17 @@ class JSSFSolver {
         Eigen::VectorXf sol; // solution to A*x=b linear equation solve
         Eigen::VectorXf solVec; // solution to A*x=b linear equation solve
 
-        // Runge-Kutta Stuff
-        Eigen::VectorXf k1;
-        Eigen::VectorXf k2;
-
-        // Linear Interp Stuff
-        Eigen::VectorXf ij0;
-        Eigen::SparseMatrix<float> linInterp;
-        Eigen::SparseMatrix<float> linInterpVec;
-
-        void setXGrid2D();
-
         void addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt);
 
-        void transport2D(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims);
+        void transport(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims);
 
         void particleTrace(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt);
 
-        void diffuse2D(Eigen::VectorXf &dst, const Eigen::VectorXf &src, float dt, int dims);
+        void projection(Eigen::VectorXf &dst, const Eigen::VectorXf &src);
 
-        void dissipate2D(Eigen::VectorXf &dst, const Eigen::VectorXf &src, float dt);
+        void diffuse(Eigen::VectorXf &dst, const Eigen::VectorXf &src, float dt, int dims);
 
-        void satisfyBC(Eigen::VectorXf &u);
-
-        void Laplace2D(Eigen::SparseMatrix<float> &dst, unsigned int dims);
-
-        void div2D(Eigen::SparseMatrix<float> &dst);
-
-        void grad2D(Eigen::SparseMatrix<float> &dst);
-
-        void calcLinInterp2D(Eigen::SparseMatrix<float> &dst, const Eigen::VectorXf &ij0, int dims);
+        void dissipate(Eigen::VectorXf &dst, const Eigen::VectorXf &src, float dt);
 };
 } // namespace jfs
 

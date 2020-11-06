@@ -8,3 +8,5 @@
 
 #define JFS_STATIC
 #define JFS_INLINE
+
+#include <jfs/jfs_typedefs.h>

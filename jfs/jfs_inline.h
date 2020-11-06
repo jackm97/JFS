@@ -7,3 +7,5 @@
 #else
 #  define JFS_INLINE
 #endif
+
+#include <jfs/jfs_typedefs.h>
