@@ -14,15 +14,19 @@ typedef Eigen::SparseLU< Eigen::SparseMatrix<float> > genSolver; // can solve bo
 typedef Eigen::SimplicialLDLT< Eigen::SparseMatrix<float> > fastZeroSolver; // solves zero bounds quickly
 
 template <class LinearSolver=genSolver>
-class JSSFSolver : protected fluid2D {
+class JSSFSolver : public fluid2D {
     public:
         JSSFSolver();
 
         JSSFSolver(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc=0, float diff=0, float diss=0);
 
         void initialize(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc=0, float diff=0, float diss=0);
+        
+        void changeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
+        
+        void reset( );
 
-        void calcNextStep();
+        void calcNextStep( );
 
         void calcNextStep(const std::vector<Force2D> forces, const std::vector<Source2D> sources);
 

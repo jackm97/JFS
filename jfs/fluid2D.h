@@ -24,7 +24,7 @@ struct Source2D {
 };
 
 class fluid2D : public fluidBase {
-    public:
+    protected:
         void initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
 
         void resetFluid();

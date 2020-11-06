@@ -39,6 +39,18 @@ JFS_INLINE void JSSFSolver<LinearSolver>::initialize(unsigned int N, float L, BO
 }
 
 template <class LinearSolver>
+JFS_INLINE void JSSFSolver<LinearSolver>::changeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
+{
+    initializeFluid(N, L, BOUND, dt);
+}
+
+template <class LinearSolver>
+JFS_INLINE void JSSFSolver<LinearSolver>::reset()
+{
+    resetFluid();
+}
+
+template <class LinearSolver>
 JFS_INLINE void JSSFSolver<LinearSolver>::calcNextStep()
 {
     addForce(U, U0, F, dt);
