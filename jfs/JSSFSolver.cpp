@@ -18,7 +18,7 @@ JFS_INLINE void JSSFSolver<LinearSolver>::initialize(unsigned int N, float L, BO
     this->diff = diff;
     this->diss = diss;
 
-    initializeFluid(N, L, BOUND, dt);
+    initializeGrid(N, L, BOUND, dt);
 
     projectSolve.compute(LAPLACE);
 
@@ -29,7 +29,7 @@ JFS_INLINE void JSSFSolver<LinearSolver>::initialize(unsigned int N, float L, BO
 
     I = Eigen::SparseMatrix<float> (N*N*3,N*N*3);
     I.setIdentity();
-    A = (I - diff * dt * LAPLACE3);
+    A = (I - diff * dt * LAPLACEX);
     diffuseSolveS.compute(A);
 
     b.resize(N*N*3);
@@ -41,7 +41,7 @@ JFS_INLINE void JSSFSolver<LinearSolver>::initialize(unsigned int N, float L, BO
 template <class LinearSolver>
 JFS_INLINE void JSSFSolver<LinearSolver>::changeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
 {
-    initializeFluid(N, L, BOUND, dt);
+    initializeGrid(N, L, BOUND, dt);
 }
 
 template <class LinearSolver>
@@ -68,7 +68,7 @@ JFS_INLINE void JSSFSolver<LinearSolver>::calcNextStep()
 }
 
 template <class LinearSolver>
-JFS_INLINE void JSSFSolver<LinearSolver>::calcNextStep(const std::vector<Force2D> forces, const std::vector<Source2D> sources)
+JFS_INLINE void JSSFSolver<LinearSolver>::calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
 {
     interpolateForce(forces);
     interpolateSource(sources);

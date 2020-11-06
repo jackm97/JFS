@@ -28,9 +28,11 @@ class JSSFSolver : public fluid2D {
 
         void calcNextStep( );
 
-        void calcNextStep(const std::vector<Force2D> forces, const std::vector<Source2D> sources);
+        void calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
 
         void getImage(Eigen::VectorXf &image);
+
+        ~JSSFSolver(){}
 
         float visc; // fluid viscosity
         float diff; // particle diffusion

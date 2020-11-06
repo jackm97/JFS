@@ -31,11 +31,14 @@ set(JFS_SOURCE_DIR ${PROJECT_SOURCE_DIR}/jfs)
 
 add_definitions(-DJFS_STATIC)
 
-add_library(jfs STATIC ${JFS_SOURCE_DIR}/fluid2D.cpp ${JFS_SOURCE_DIR}/JSSFSolver.cpp)
+add_library(jfs STATIC ${JFS_SOURCE_DIR}/grid2D.cpp ${JFS_SOURCE_DIR}/fluid2D.cpp ${JFS_SOURCE_DIR}/JSSFSolver.cpp)
 
 set(JFS_HEADERS ${JFS_SOURCE_DIR}/static_build/jfs_inline.h
                 ${JFS_SOURCE_DIR}/JSSFSolver.h
-                ${JFS_SOURCE_DIR}/fluid2D.h)
+                ${JFS_SOURCE_DIR}/fluid2D.h
+                ${JFS_SOURCE_DIR}/fluidBase.h
+                ${JFS_SOURCE_DIR}/grid2D.h
+                ${JFS_SOURCE_DIR}/gridBase.h)
 
 install(TARGETS jfs DESTINATION ${INSTALL_PATH}/lib)
 install(FILES ${JFS_HEADERS} DESTINATION ${INSTALL_PATH}/include/jfs)
