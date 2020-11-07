@@ -70,22 +70,6 @@ JFS_INLINE void JSSFSolver<LinearSolver>::calcNextStep(const std::vector<Force> 
 }
 
 template <class LinearSolver>
-JFS_INLINE void JSSFSolver<LinearSolver>::getImage(Eigen::VectorXf &image)
-{
-    if (image.rows() != N*N*3)
-        image.resize(N*N*3);
-
-    for (int i=0; i < N; i++)
-        for (int j=0; j < N; j++)
-        {
-            image(N*3*j + 0 + i*3) = S(0*N*N + N*j + i);
-            image(N*3*j + 1 + i*3) = S(1*N*N + N*j + i);
-            image(N*3*j + 2 + i*3) = S(2*N*N + N*j + i);
-        }
-    image = (image.array() <= 1.).select(image, 1.);
-}
-
-template <class LinearSolver>
 JFS_INLINE void JSSFSolver<LinearSolver>::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt)
 {
     dst = src + dt * force ;

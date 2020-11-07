@@ -9,7 +9,9 @@ class fluidBase {
         virtual void initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt){}
 
         virtual void resetFluid(){}
-        
+
+        virtual void getImage(Eigen::VectorXf img){}
+
     protected:
         Eigen::VectorXf U; 
         Eigen::VectorXf U0;

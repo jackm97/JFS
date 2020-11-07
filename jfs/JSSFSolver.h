@@ -26,8 +26,6 @@ class JSSFSolver : public fluid2D {
 
         void calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
 
-        void getImage(Eigen::VectorXf &image);
-
         ~JSSFSolver(){}
 
         float visc; // fluid viscosity

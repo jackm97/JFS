@@ -12,7 +12,9 @@ class fluid2D : public grid2D, public fluidBase {
         void initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
 
         void resetFluid();
-        
+
+        void getImage(Eigen::VectorXf &img);
+
     protected:
 
         fluid2D(){}
