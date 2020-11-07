@@ -12,6 +12,10 @@ class fluidBase {
 
         virtual void getImage(Eigen::VectorXf img){}
 
+        virtual void calcNextStep( );
+
+        virtual void calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
+
     protected:
         Eigen::VectorXf U; 
         Eigen::VectorXf U0;
