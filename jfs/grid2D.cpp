@@ -20,9 +20,32 @@ JFS_INLINE void grid2D::setXGrid()
 
 JFS_INLINE void grid2D::satisfyBC(Eigen::VectorXf &u)
 {
-    if (BOUND == PERIODIC) return;
-
     int i,j;
+    if (BOUND == PERIODIC)
+    for (int idx=0; idx < N; idx++)
+    {
+        // top
+        i = idx;
+        j = N-1;
+        u(N*N*1 + N*j + i) = u(N*N*1 + N*(j-(N-1)) + i);
+
+        // bottom
+        i = idx;
+        j = 0;
+        u(N*N*1 + N*j + i) = u(N*N*1 + N*(j+(N-1)) + i);
+
+        // left
+        j = idx;
+        i = N-1;
+        u(N*N*0 + N*j + i) = u(N*N*0 + N*j + (i-(N-1)));
+
+        // right
+        j = idx;
+        i = 0;
+        u(N*N*0 + N*j + i) = u(N*N*0 + N*j + (i+(N-1)));
+    }
+
+    else if (BOUND == ZERO)
     for (int idx=0; idx < N; idx++)
     {
         // top
@@ -343,10 +366,13 @@ JFS_INLINE void grid2D::calcLinInterp(Eigen::SparseMatrix<float> &dst, const Eig
                         break;
                     
                     case PERIODIC:
-                        i0 = (i0 < 0) ? (N-1+i0):i0;
-                        i0 = (i0 > (N-1)) ? (i0 - (N-1)):i0;
-                        j0 = (j0 < 0) ? (N-1+j0):j0;
-                        j0 = (j0 > (N-1)) ? (j0 - (N-1)):j0;
+                        while (i0 < 0 || i0 > N-1 || j0 < 0 || j0 > N-1)
+                        {
+                            i0 = (i0 < 0) ? (N-1+i0):i0;
+                            i0 = (i0 > (N-1)) ? (i0 - (N-1)):i0;
+                            j0 = (j0 < 0) ? (N-1+j0):j0;
+                            j0 = (j0 > (N-1)) ? (j0 - (N-1)):j0;
+                        }
                         break;
                 }
 
@@ -364,12 +390,20 @@ JFS_INLINE void grid2D::calcLinInterp(Eigen::SparseMatrix<float> &dst, const Eig
                     jMat = field*dims*N*N + dim*N*N + j0_floor*N + i0_floor;
                     part = (i0_ceil - i0)*(j0_ceil - j0);
                     tripletList.push_back(T(iMat, jMat, std::abs(part)));
+                    if (jMat > N*N*dims*fields-1 || jMat < 0)
+                    {
+                        printf("NO!\n");
+                    }
                     
                     jMat = field*dims*N*N + dim*N*N + j0_ceil*N + i0_floor;
                     if (j0_ceil < N)
                     {
                         part = (i0_ceil - i0)*(j0_floor - j0);
                         tripletList.push_back(T(iMat, jMat, std::abs(part)));
+                    if (jMat > N*N*dims*fields-1 || jMat < 0)
+                    {
+                        printf("NO!\n");
+                    }
                     }
                     
                     jMat = field*dims*N*N + dim*N*N + j0_floor*N + i0_ceil;
@@ -377,6 +411,10 @@ JFS_INLINE void grid2D::calcLinInterp(Eigen::SparseMatrix<float> &dst, const Eig
                     {
                         part = (i0_floor - i0)*(j0_ceil - j0);
                         tripletList.push_back(T(iMat, jMat, std::abs(part)));
+                    if (jMat > N*N*dims*fields-1 || jMat < 0)
+                    {
+                        printf("NO!\n");
+                    }
                     }
                     
                     jMat = field*dims*N*N + dim*N*N + j0_ceil*N + i0_ceil;
@@ -384,6 +422,10 @@ JFS_INLINE void grid2D::calcLinInterp(Eigen::SparseMatrix<float> &dst, const Eig
                     {
                         part = (i0_floor - i0)*(j0_floor - j0);
                         tripletList.push_back(T(iMat, jMat, std::abs(part)));
+                    if (jMat > N*N*dims*fields-1 || jMat < 0)
+                    {
+                        printf("NO!\n");
+                    }
                     }
                 }
             }
