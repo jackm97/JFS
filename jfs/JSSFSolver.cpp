@@ -1,4 +1,5 @@
 #include <jfs/JSSFSolver.h>
+#include <iostream>
 
 namespace jfs {
 
@@ -20,17 +21,20 @@ JFS_INLINE void JSSFSolver<LinearSolver>::initialize(unsigned int N, float L, BO
 
     initializeGrid(N, L, BOUND, dt);
 
+    SparseMatrix I(N*N*2,N*N*2);
+    I.setIdentity();
+    ADifU = (I - visc * dt * VEC_LAPLACE);
+    diffuseSolveU.compute(ADifU);
+    if (N < 5) std::cout << VEC_LAPLACE.rows() << std::endl;
+
+    I = SparseMatrix (N*N*3,N*N*3);
+    I.setIdentity();
+    ADifS = (I - diff * dt * LAPLACEX);
+    diffuseSolveS.compute(ADifS);
+    if (N < 5) std::cout << LAPLACEX.rows() << std::endl;
+
     projectSolve.compute(LAPLACE);
-
-    Eigen::SparseMatrix<float> I(N*N*2,N*N*2), A(N*N*2,N*N*2);
-    I.setIdentity();
-    A = (I - visc * dt * VEC_LAPLACE);
-    diffuseSolveU.compute(A);
-
-    I = Eigen::SparseMatrix<float> (N*N*3,N*N*3);
-    I.setIdentity();
-    A = (I - diff * dt * LAPLACEX);
-    diffuseSolveS.compute(A);
+    if (N < 5) std::cout << LAPLACE.rows() << std::endl;
 
     b.resize(N*N*3);
     bVec.resize(N*N*2);
@@ -82,7 +86,7 @@ JFS_INLINE void JSSFSolver<LinearSolver>::transport(Eigen::VectorXf &dst, const 
 
     ij0 = (1/D * X0.array() - .5);
 
-    Eigen::SparseMatrix<float> *linInterpPtr;
+    SparseMatrix *linInterpPtr;
     int fields;
 
     switch (dims)
@@ -115,19 +119,16 @@ JFS_INLINE void JSSFSolver<LinearSolver>::particleTrace(Eigen::VectorXf &X0, con
 template <class LinearSolver>
 JFS_INLINE void JSSFSolver<LinearSolver>::diffuse(Eigen::VectorXf &dst, const Eigen::VectorXf &src, float dt, int dims)
 {
-    LinearSolver* LinSolvePtr; 
     switch (dims)
     {
     case 1:
-        LinSolvePtr = &diffuseSolveS;
+        dst = (diffuseSolveS).solve(src);
         break;
     
     case 2:
-        LinSolvePtr = &diffuseSolveU;
+        dst = (diffuseSolveU).solve(src);
         break;
     }
-
-    dst = (*LinSolvePtr).solve(src);
 }
 
 template <class LinearSolver>
@@ -150,6 +151,7 @@ JFS_INLINE void JSSFSolver<LinearSolver>::dissipate(Eigen::VectorXf &dst, const 
 #ifdef JFS_STATIC
 template class JSSFSolver<>;
 template class JSSFSolver<fastZeroSolver>;
+template class JSSFSolver<iterativeSolver>;
 #endif
 
 } // namespace jfs

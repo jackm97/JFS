@@ -10,8 +10,9 @@
 
 namespace jfs {
 
-typedef Eigen::SparseLU< Eigen::SparseMatrix<float> > genSolver; // can solve both boundary conditions
-typedef Eigen::SimplicialLDLT< Eigen::SparseMatrix<float> > fastZeroSolver; // solves zero bounds quickly
+typedef Eigen::SparseLU< SparseMatrix > genSolver; // can solve both boundary conditions
+typedef Eigen::SimplicialLDLT< SparseMatrix > fastZeroSolver; // solves zero bounds quickly
+typedef Eigen::ConjugateGradient< SparseMatrix, Eigen::Upper|Eigen::Lower > iterativeSolver; // iterative solver, great for parallelization
 
 template <class LinearSolver=genSolver>
 class JSSFSolver : public fluid2D {
@@ -32,7 +33,9 @@ class JSSFSolver : public fluid2D {
         float diff; // particle diffusion
         float diss; // particle dissipation
     private:
+        SparseMatrix ADifU;
         LinearSolver diffuseSolveU;
+        SparseMatrix ADifS;
         LinearSolver diffuseSolveS;
         LinearSolver projectSolve;
 
