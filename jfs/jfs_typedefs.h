@@ -17,6 +17,7 @@ typedef enum {
 } FIELD_TYPE;
 
 typedef Eigen::Vector3f ColorRGB;
+typedef Eigen::SparseMatrix<float> SparseMatrix;
 
 struct Force {
     float x=0;
