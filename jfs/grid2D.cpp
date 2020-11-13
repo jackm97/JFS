@@ -71,7 +71,7 @@ JFS_INLINE void grid2D::satisfyBC(Eigen::VectorXf &u)
 }
 
 
-JFS_INLINE void grid2D::Laplace(Eigen::SparseMatrix<float> &dst, unsigned int dims, unsigned int fields)
+JFS_INLINE void grid2D::Laplace(SparseMatrix &dst, unsigned int dims, unsigned int fields)
 {
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
@@ -154,13 +154,13 @@ JFS_INLINE void grid2D::Laplace(Eigen::SparseMatrix<float> &dst, unsigned int di
             }
         }
     }
-    dst = Eigen::SparseMatrix<float>(N*N*dims*fields,N*N*dims*fields);
+    dst = SparseMatrix(N*N*dims*fields,N*N*dims*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(D*D) * dst;
 }
 
 
-JFS_INLINE void grid2D::div(Eigen::SparseMatrix<float> &dst, unsigned int fields)
+JFS_INLINE void grid2D::div(SparseMatrix &dst, unsigned int fields)
 {
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
@@ -243,13 +243,13 @@ JFS_INLINE void grid2D::div(Eigen::SparseMatrix<float> &dst, unsigned int fields
             }
         }
     }
-    dst = Eigen::SparseMatrix<float>(N*N*fields,N*N*2*fields);
+    dst = SparseMatrix(N*N*fields,N*N*2*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(2*D) * dst;
 }
 
 
-JFS_INLINE void grid2D::grad(Eigen::SparseMatrix<float> &dst, unsigned int fields)
+JFS_INLINE void grid2D::grad(SparseMatrix &dst, unsigned int fields)
 {
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
@@ -335,13 +335,13 @@ JFS_INLINE void grid2D::grad(Eigen::SparseMatrix<float> &dst, unsigned int field
         }
     }
 
-    dst = Eigen::SparseMatrix<float>(N*N*2*fields,N*N*fields);
+    dst = SparseMatrix(N*N*2*fields,N*N*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(2*D) * dst;
 }
 
 
-JFS_INLINE void grid2D::calcLinInterp(Eigen::SparseMatrix<float> &dst, const Eigen::VectorXf &ij0, int dims, unsigned int fields)
+JFS_INLINE void grid2D::calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &ij0, int dims, unsigned int fields)
 {
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
@@ -432,7 +432,7 @@ JFS_INLINE void grid2D::calcLinInterp(Eigen::SparseMatrix<float> &dst, const Eig
         }        
     }
 
-    dst = Eigen::SparseMatrix<float>(N*N*dims*fields,N*N*dims*fields);
+    dst = SparseMatrix(N*N*dims*fields,N*N*dims*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
 }
 
