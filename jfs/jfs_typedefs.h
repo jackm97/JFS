@@ -1,5 +1,5 @@
-#ifndef BOUNDTYPES_H
-#define BOUNDTYPES_H
+#ifndef JFS_TYPEDEFS_H
+#define JFS_TYPEDEFS_H
 
 #include <Eigen/Eigen>
 #include <Eigen/Sparse>
