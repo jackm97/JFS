@@ -21,7 +21,6 @@ class gridBase {
         SparseMatrix LAPLACEX; // scalar laplace extended for x concatenated fields
         SparseMatrix VEC_LAPLACE;
         SparseMatrix DIV;
-        SparseMatrix DIVX; // divergence extended for x concatenated fields
         SparseMatrix GRAD;
 
         // Linear Interp Stuff

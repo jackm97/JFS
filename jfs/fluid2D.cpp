@@ -22,10 +22,9 @@ JFS_INLINE void fluid2D::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUN
     SFTemp.resize(3*N*N);
 
     Laplace(LAPLACE, 1);
-    Laplace(LAPLACEX, 1, 3);
+    Laplace(LAPLACEX, 1, 3); // sources have three color channels
     Laplace(VEC_LAPLACE, 2);
     div(DIV);
-    div(DIVX,3);
     grad(GRAD);
 
     ij0.resize(N*N*2);
@@ -89,9 +88,12 @@ JFS_INLINE void fluid2D::interpolateForce(const std::vector<Force> forces)
         for (int dim=0; dim < dims; dim++)
         {
             FTemp(N*N*dim + N*j0 + i0) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i));
-            FTemp(N*N*dim + N*j0 + (i0+1)) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i));
-            FTemp(N*N*dim + N*(j0+1) + i0) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i));
-            FTemp(N*N*dim + N*(j0+1) + (i0+1)) += fArr[dim]*std::abs((j0 - j)*(i0 - i));
+            if (i0 < (N-1))
+                FTemp(N*N*dim + N*j0 + (i0+1)) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i));
+            if (j0 < (N-1))
+                FTemp(N*N*dim + N*(j0+1) + i0) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i));
+            if (i0 < (N-1) && j0 < (N-1))
+                FTemp(N*N*dim + N*(j0+1) + (i0+1)) += fArr[dim]*std::abs((j0 - j)*(i0 - i));
         }
     }
     F = FTemp.sparseView();
@@ -111,20 +113,19 @@ JFS_INLINE void fluid2D::interpolateSource(const std::vector<Source> sources)
         int i0 = std::floor(i);
         int j0 = std::floor(j);
 
-        int dims = 1;
         for (int c=0; c < 3; c++)
         {
-            float fArr[1] = {source.color(c) * source.strength};
-            for (int dim=0; dim < dims; dim++)
-            {
-                SFTemp(c*N*N*dims + N*N*dim + N*j0 + i0) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i));
-                SFTemp(c*N*N*dims + N*N*dim + N*j0 + (i0+1)) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i));
-                SFTemp(c*N*N*dims + N*N*dim + N*(j0+1) + i0) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i));
-                SFTemp(c*N*N*dims + N*N*dim + N*(j0+1) + (i0+1)) += fArr[dim]*std::abs((j0 - j)*(i0 - i));
-            }
-            SF = SFTemp.sparseView();
+            float cval = {source.color(c) * source.strength};
+            SFTemp(c*N*N + N*j0 + i0) += cval*std::abs((j0+1 - j)*(i0+1 - i));
+            if (i0 < (N-1))
+                SFTemp(c*N*N + N*j0 + (i0+1)) += cval*std::abs((j0+1 - j)*(i0 - i));
+            if (j0 < (N-1))
+                SFTemp(c*N*N + N*(j0+1) + i0) += cval*std::abs((j0 - j)*(i0+1 - i));
+            if (i0 < (N-1) && j0 < (N-1))            
+                SFTemp(c*N*N + N*(j0+1) + (i0+1)) += cval*std::abs((j0 - j)*(i0 - i));
         }
     }
+    SF = SFTemp.sparseView();
 }
 
 } // namespace jfs

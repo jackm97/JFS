@@ -33,9 +33,9 @@ class JSSFSolver : public fluid2D {
         float diff; // particle diffusion
         float diss; // particle dissipation
     private:
-        SparseMatrix ADifU;
+        SparseMatrix ADifU; // ADifU*x = b for diffuseSolveU
         LinearSolver diffuseSolveU;
-        SparseMatrix ADifS;
+        SparseMatrix ADifS; // ADifS*x = b for diffuseSolveS
         LinearSolver diffuseSolveS;
         LinearSolver projectSolve;
 
