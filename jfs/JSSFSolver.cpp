@@ -4,9 +4,6 @@
 namespace jfs {
 
 template <class LinearSolver>
-JFS_INLINE JSSFSolver<LinearSolver>::JSSFSolver(){}
-
-template <class LinearSolver>
 JFS_INLINE JSSFSolver<LinearSolver>::JSSFSolver(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc, float diff, float diss)
 {
     initialize(N, L, BOUND, dt, visc, diff, diss);
@@ -19,7 +16,7 @@ JFS_INLINE void JSSFSolver<LinearSolver>::initialize(unsigned int N, float L, BO
     this->diff = diff;
     this->diss = diss;
 
-    initializeGrid(N, L, BOUND, dt);
+    initializeFluid(N, L, BOUND, dt);
 
     SparseMatrix I(N*N*2,N*N*2);
     I.setIdentity();
@@ -68,9 +65,7 @@ JFS_INLINE void JSSFSolver<LinearSolver>::calcNextStep(const std::vector<Force> 
     calcNextStep();
 
     F.setZero();
-    FTemp.setZero();
     SF.setZero();
-    SFTemp.setZero();
 }
 
 template <class LinearSolver>

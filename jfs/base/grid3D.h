@@ -6,9 +6,9 @@
 
 namespace jfs {
 
-class grid2D: public gridBase {
+class grid3D: public gridBase {
     protected:
-        grid2D(){}
+        grid3D(){}
 
         void setXGrid();
 
@@ -22,12 +22,12 @@ class grid2D: public gridBase {
 
         void calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &ij0, int dims, unsigned int fields=1);
 
-        ~grid2D(){}
+        ~grid3D(){}
 };
 } // namespace jfs
 
 #ifndef JFS_STATIC
-#   include <jfs/grid2D.cpp>
+#   include <jfs/grid3D.cpp>
 #endif
 
 #endif

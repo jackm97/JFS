@@ -1,4 +1,4 @@
-#include <jfs/grid2D.h>
+#include <jfs/base/grid2D.h>
 
 namespace jfs {
 
@@ -17,6 +17,24 @@ JFS_INLINE void grid2D::setXGrid()
     }
 }
 
+JFS_INLINE void grid2D::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
+{
+
+    initializeGridProperties(N, L, BOUND, dt);
+
+    X.resize(N*N*2);
+    setXGrid();
+
+    Laplace(LAPLACE, 1);
+    Laplace(VEC_LAPLACE, 2);
+    div(DIV);
+    grad(GRAD);
+
+    ij0.resize(N*N*2);
+    linInterp.resize(N*N,N*N);
+    linInterpVec.resize(N*N*2,N*N*2);
+}
+
 
 JFS_INLINE void grid2D::satisfyBC(Eigen::VectorXf &u)
 {
@@ -27,22 +45,26 @@ JFS_INLINE void grid2D::satisfyBC(Eigen::VectorXf &u)
         // top
         i = idx;
         j = N-1;
+        u(N*N*0 + N*j + i) = u(N*N*0 + N*(j-(N-1)) + i);
         u(N*N*1 + N*j + i) = u(N*N*1 + N*(j-(N-1)) + i);
 
         // bottom
         i = idx;
         j = 0;
+        u(N*N*0 + N*j + i) = u(N*N*0 + N*(j+(N-1)) + i);
         u(N*N*1 + N*j + i) = u(N*N*1 + N*(j+(N-1)) + i);
 
         // left
         j = idx;
         i = N-1;
         u(N*N*0 + N*j + i) = u(N*N*0 + N*j + (i-(N-1)));
+        u(N*N*1 + N*j + i) = u(N*N*1 + N*j + (i-(N-1)));
 
         // right
         j = idx;
         i = 0;
         u(N*N*0 + N*j + i) = u(N*N*0 + N*j + (i+(N-1)));
+        u(N*N*1 + N*j + i) = u(N*N*1 + N*j + (i+(N-1)));
     }
 
     else if (BOUND == ZERO)
@@ -267,7 +289,7 @@ JFS_INLINE void grid2D::grad(SparseMatrix &dst, unsigned int fields)
                 int jMat = iMat;
 
                 int dim = 0;
-                iMat = field*dims*N*N + dim*N*N + j*N + i;
+                iMat = field*2*N*N + dim*N*N + j*N + i;
                 
                 //x+h,y
                 jMat = field*dims*N*N + j*N + (i+1);
@@ -300,7 +322,7 @@ JFS_INLINE void grid2D::grad(SparseMatrix &dst, unsigned int fields)
                     tripletList.push_back(T(iMat,jMat,-1.f));
 
                 dim = 1;
-                iMat = field*dims*N*N + dim*N*N + j*N + i;
+                iMat = field*2*N*N + dim*N*N + j*N + i;
                 
                 //x,y+h
                 jMat = field*dims*N*N + (j+1)*N + i;
@@ -390,20 +412,20 @@ JFS_INLINE void grid2D::calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &
                     jMat = field*dims*N*N + dim*N*N + j0_floor*N + i0_floor;
                     part = (i0_ceil - i0)*(j0_ceil - j0);
                     tripletList.push_back(T(iMat, jMat, std::abs(part)));
-                    if (jMat > N*N*dims*fields-1 || jMat < 0)
-                    {
-                        printf("NO!\n");
-                    }
+                    // if (jMat > N*N*dims*fields-1 || jMat < 0)
+                    // {
+                    //     printf("NO!\n");
+                    // }
                     
                     jMat = field*dims*N*N + dim*N*N + j0_ceil*N + i0_floor;
                     if (j0_ceil < N)
                     {
                         part = (i0_ceil - i0)*(j0_floor - j0);
                         tripletList.push_back(T(iMat, jMat, std::abs(part)));
-                    if (jMat > N*N*dims*fields-1 || jMat < 0)
-                    {
-                        printf("NO!\n");
-                    }
+                    // if (jMat > N*N*dims*fields-1 || jMat < 0)
+                    // {
+                    //     printf("NO!\n");
+                    // }
                     }
                     
                     jMat = field*dims*N*N + dim*N*N + j0_floor*N + i0_ceil;
@@ -411,10 +433,10 @@ JFS_INLINE void grid2D::calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &
                     {
                         part = (i0_floor - i0)*(j0_ceil - j0);
                         tripletList.push_back(T(iMat, jMat, std::abs(part)));
-                    if (jMat > N*N*dims*fields-1 || jMat < 0)
-                    {
-                        printf("NO!\n");
-                    }
+                    // if (jMat > N*N*dims*fields-1 || jMat < 0)
+                    // {
+                    //     printf("NO!\n");
+                    // }
                     }
                     
                     jMat = field*dims*N*N + dim*N*N + j0_ceil*N + i0_ceil;
@@ -422,10 +444,10 @@ JFS_INLINE void grid2D::calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &
                     {
                         part = (i0_floor - i0)*(j0_floor - j0);
                         tripletList.push_back(T(iMat, jMat, std::abs(part)));
-                    if (jMat > N*N*dims*fields-1 || jMat < 0)
-                    {
-                        printf("NO!\n");
-                    }
+                    // if (jMat > N*N*dims*fields-1 || jMat < 0)
+                    // {
+                    //     printf("NO!\n");
+                    // }
                     }
                 }
             }

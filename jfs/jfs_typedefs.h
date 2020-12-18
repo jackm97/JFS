@@ -26,6 +26,7 @@ struct Force {
 
     float Fx=0;
     float Fy=0;
+    float Fz=0;
 };
 
 struct Source {

@@ -3,7 +3,7 @@
 
 #include "jfs_inline.h"
 
-#include <jfs/fluid2D.h>
+#include <jfs/base/fluid2D.h>
 
 #include <Eigen/Eigen>
 #include <Eigen/Sparse>
@@ -12,18 +12,16 @@ namespace jfs {
 
 typedef Eigen::SparseLU< SparseMatrix > genSolver; // can solve both boundary conditions
 typedef Eigen::SimplicialLDLT< SparseMatrix > fastZeroSolver; // solves zero bounds quickly
-typedef Eigen::ConjugateGradient< SparseMatrix, Eigen::Upper|Eigen::Lower > iterativeSolver; // iterative solver, great for parallelization
+typedef Eigen::ConjugateGradient< SparseMatrix, Eigen::Lower|Eigen::Upper > iterativeSolver; // iterative solver, great for parallelization
 
 template <class LinearSolver=genSolver>
 class JSSFSolver : public fluid2D {
     public:
-        JSSFSolver();
+        JSSFSolver(){}
 
         JSSFSolver(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc=0, float diff=0, float diss=0);
 
         void initialize(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc=0, float diff=0, float diss=0);
-
-        void calcNextStep( );
 
         void calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
 
@@ -43,6 +41,10 @@ class JSSFSolver : public fluid2D {
         Eigen::VectorXf bVec; // b in A*x=b linear equation solve
         Eigen::VectorXf sol; // solution to A*x=b linear equation solve
         Eigen::VectorXf solVec; // solution to A*x=b linear equation solve
+
+        Eigen::VectorXf X0; // position values of particle at X at time t - dt
+
+        void calcNextStep( );
 
         void addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt);
 

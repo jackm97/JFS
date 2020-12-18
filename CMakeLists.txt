@@ -29,17 +29,32 @@ include_directories(${PROJECT_SOURCE_DIR}
 
 set(JFS_SOURCE_DIR ${PROJECT_SOURCE_DIR}/jfs)
 
-add_definitions(-DJFS_STATIC)
-
-add_library(jfs STATIC ${JFS_SOURCE_DIR}/grid2D.cpp ${JFS_SOURCE_DIR}/fluid2D.cpp ${JFS_SOURCE_DIR}/JSSFSolver.cpp)
-
-set(JFS_HEADERS ${JFS_SOURCE_DIR}/static_build/jfs_inline.h
+# Header Files
+set(JFS_HEADERS_BASE ${JFS_SOURCE_DIR}/base/fluid2D.h
+                    ${JFS_SOURCE_DIR}/base/fluidBase.h
+                    ${JFS_SOURCE_DIR}/base/grid2D.h
+                    ${JFS_SOURCE_DIR}/base/gridBase.h)
+set(JFS_HEADERS_TOP ${JFS_SOURCE_DIR}/static_build/jfs_inline.h
                 ${JFS_SOURCE_DIR}/JSSFSolver.h
-                ${JFS_SOURCE_DIR}/fluid2D.h
-                ${JFS_SOURCE_DIR}/fluidBase.h
-                ${JFS_SOURCE_DIR}/grid2D.h
-                ${JFS_SOURCE_DIR}/gridBase.h)
+                ${JFS_SOURCE_DIR}/LBMSolver.h)
 
+# Source Files
+set(JFS_SRC_BASE ${JFS_SOURCE_DIR}/base/fluid2D.cpp
+                    ${JFS_SOURCE_DIR}/base/grid2D.cpp
+                    ${JFS_SOURCE_DIR}/base/gridBase.cpp)
+
+set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolver.cpp
+                ${JFS_SOURCE_DIR}/LBMSolver.cpp)
+
+
+# Add Library
+add_definitions(-DJFS_STATIC)
+add_library(jfs STATIC ${JFS_SRC_BASE} ${JFS_SRC_TOP})
+
+# Installation of jfs files
 install(TARGETS jfs DESTINATION ${INSTALL_PATH}/lib)
-install(FILES ${JFS_HEADERS} DESTINATION ${INSTALL_PATH}/include/jfs)
+install(FILES ${JFS_HEADERS_TOP} DESTINATION ${INSTALL_PATH}/include/jfs)
+install(FILES ${JFS_HEADERS_BASE} DESTINATION ${INSTALL_PATH}/include/jfs/base)
+
+# Installation of dependencies
 install(DIRECTORY ${EIGEN_PATH}/Eigen DESTINATION ${INSTALL_PATH}/include/jfs)
