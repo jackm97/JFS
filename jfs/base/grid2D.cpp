@@ -458,5 +458,40 @@ JFS_INLINE void grid2D::calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
 }
 
+JFS_INLINE void grid2D::backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims)
+{
+    sourceTrace(X0, X, u, -dt);
+
+    ij0 = (1/D * X0.array() - .5);
+
+    SparseMatrix *linInterpPtr;
+    int fields;
+
+    switch (dims)
+    {
+    case 1:
+        linInterpPtr = &linInterp;
+        fields = 3;
+        break;
+
+    case 2:
+        linInterpPtr = &linInterpVec;
+        fields = 1;
+        break;
+    }
+
+    calcLinInterp(*linInterpPtr, ij0, dims, fields);
+
+    dst = *linInterpPtr * src;
+}
+
+JFS_INLINE void grid2D::sourceTrace(Eigen::VectorXf &X0, const Eigen::VectorXf &X, const Eigen::VectorXf &u, float dt)
+{
+    ij0 = 1/D * ( (X + 1/2 * (D * X)) + dt/2 * u ).array() - .5;
+    
+    calcLinInterp(linInterpVec, ij0, 2);
+    X0 = X + dt * ( linInterpVec * u );
+}
+
 } // namespace jfs
 

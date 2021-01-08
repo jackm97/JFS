@@ -224,12 +224,9 @@ JFS_INLINE void LBMSolver::transport(Eigen::VectorXf &dst, const Eigen::VectorXf
     dst = *linInterpPtr * src;
 }
 
-JFS_INLINE void LBMSolver::particleTrace(Eigen::VectorXf &X0, const Eigen::VectorXf &X, const Eigen::VectorXf &u, float dt)
+JFS_INLINE void LBMSolver::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt)
 {
-    ij0 = 1/D * ( (X + 1/2 * (dt * X)) + dt/2 * u ).array() - .5;
-    
-    calcLinInterp(linInterpVec, ij0, 2);
-    X0 = X + dt * ( linInterpVec * u );
+    dst = src + dt * force ;
 }
 
 JFS_INLINE float LBMSolver::calc_fbari(int i, int j, int k)

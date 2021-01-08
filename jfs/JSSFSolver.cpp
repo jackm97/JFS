@@ -43,12 +43,12 @@ template <class LinearSolver>
 JFS_INLINE void JSSFSolver<LinearSolver>::calcNextStep()
 {
     addForce(U, U0, F, dt);
-    transport(U0, U, U, dt, 2);
+    backstream(U0, U, U, dt, 2);
     diffuse(U, U0, dt, 2);
     projection(U0, U);
 
     addForce(S, S0, SF, dt);
-    transport(S0, S, U0, dt, 1);
+    backstream(S0, S, U0, dt, 1);
     diffuse(S, S0, dt, 1);
     dissipate(S0, S, dt);
     S = S0;
@@ -74,41 +74,15 @@ JFS_INLINE void JSSFSolver<LinearSolver>::addForce(Eigen::VectorXf &dst, const E
     dst = src + dt * force ;
 }
 
-template <class LinearSolver>
-JFS_INLINE void JSSFSolver<LinearSolver>::transport(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims)
-{
-    particleTrace(X0, X, u, -dt);
+    if (failedStep) resetFluid();
 
-    ij0 = (1/D * X0.array() - .5);
-
-    SparseMatrix *linInterpPtr;
-    int fields;
-
-    switch (dims)
-    {
-    case 1:
-        linInterpPtr = &linInterp;
-        fields = 3;
-        break;
-
-    case 2:
-        linInterpPtr = &linInterpVec;
-        fields = 1;
-        break;
+    return failedStep;
     }
 
-    calcLinInterp(*linInterpPtr, ij0, dims, fields);
-
-    dst = *linInterpPtr * src;
-}
-
 template <class LinearSolver>
-JFS_INLINE void JSSFSolver<LinearSolver>::particleTrace(Eigen::VectorXf &X0, const Eigen::VectorXf &X, const Eigen::VectorXf &u, float dt)
+JFS_INLINE void JSSFSolver<LinearSolver>::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt)
 {
-    ij0 = 1/D * ( (X + 1/2 * (dt * X)) + dt/2 * u ).array() - .5;
-    
-    calcLinInterp(linInterpVec, ij0, 2);
-    X0 = X + dt * ( linInterpVec * u );
+    dst = src + dt * force ;
 }
 
 template <class LinearSolver>
