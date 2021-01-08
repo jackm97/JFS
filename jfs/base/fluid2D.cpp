@@ -41,9 +41,9 @@ JFS_INLINE void fluid2D::getImage(Eigen::VectorXf &image)
     for (int i=0; i < N; i++)
         for (int j=0; j < N; j++)
         {
-            image(N*3*j + 0 + i*3) = 1e3 * abs(U(0*N*N + N*j + i));
-            image(N*3*j + 1 + i*3) = 1e3 * abs(U(1*N*N + N*j + i));
-            image(N*3*j + 2 + i*3) = 0;
+            image(N*3*j + 0 + i*3) = S(0*N*N + N*j + i);
+            image(N*3*j + 1 + i*3) = S(1*N*N + N*j + i);
+            image(N*3*j + 2 + i*3) = S(2*N*N + N*j + i);
         }
     image = (image.array() <= 1.).select(image, 1.);
 }
