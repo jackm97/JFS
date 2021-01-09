@@ -11,7 +11,8 @@ class fluidBase {
 
         virtual void getImage(Eigen::VectorXf img){}
 
-        virtual void calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources){}
+        // returns true if the step failed
+        virtual bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources){return false;}
 
         ~fluidBase(){}
 
@@ -27,7 +28,8 @@ class fluidBase {
 
         SparseMatrix LAPLACEX; // scalar laplace extended for x concatenated fields
 
-        virtual void calcNextStep( ){}
+        // returns true if the step failed
+        virtual bool calcNextStep( ){return false;}
         
         virtual void initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dt){}
 

@@ -23,7 +23,7 @@ class JSSFSolver : public fluid2D {
 
         void initialize(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc=0, float diff=0, float diss=0);
 
-        void calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
+        bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
 
         ~JSSFSolver(){}
 
@@ -42,9 +42,7 @@ class JSSFSolver : public fluid2D {
         Eigen::VectorXf sol; // solution to A*x=b linear equation solve
         Eigen::VectorXf solVec; // solution to A*x=b linear equation solve
 
-        Eigen::VectorXf X0; // position values of particle at X at time t - dt
-
-        void calcNextStep( );
+        bool calcNextStep( );
 
         void addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt);
 

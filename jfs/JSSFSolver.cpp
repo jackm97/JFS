@@ -22,16 +22,13 @@ JFS_INLINE void JSSFSolver<LinearSolver>::initialize(unsigned int N, float L, BO
     I.setIdentity();
     ADifU = (I - visc * dt * VEC_LAPLACE);
     diffuseSolveU.compute(ADifU);
-    if (N < 5) std::cout << VEC_LAPLACE.rows() << std::endl;
 
     I = SparseMatrix (N*N*3,N*N*3);
     I.setIdentity();
     ADifS = (I - diff * dt * LAPLACEX);
     diffuseSolveS.compute(ADifS);
-    if (N < 5) std::cout << LAPLACEX.rows() << std::endl;
 
     projectSolve.compute(LAPLACE);
-    if (N < 5) std::cout << LAPLACE.rows() << std::endl;
 
     b.resize(N*N*3);
     bVec.resize(N*N*2);
@@ -40,7 +37,7 @@ JFS_INLINE void JSSFSolver<LinearSolver>::initialize(unsigned int N, float L, BO
 }
 
 template <class LinearSolver>
-JFS_INLINE void JSSFSolver<LinearSolver>::calcNextStep()
+JFS_INLINE bool JSSFSolver<LinearSolver>::calcNextStep()
 {
     addForce(U, U0, F, dt);
     backstream(U0, U, U, dt, 2);
@@ -54,30 +51,35 @@ JFS_INLINE void JSSFSolver<LinearSolver>::calcNextStep()
     S = S0;
 
     satisfyBC(U0);
+
+    return false;
 }
 
 template <class LinearSolver>
-JFS_INLINE void JSSFSolver<LinearSolver>::calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
+JFS_INLINE bool JSSFSolver<LinearSolver>::calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
 {
-    interpolateForce(forces);
-    interpolateSource(sources);
+    bool failedStep = false;
 
-    calcNextStep();
+    try
+    {
+        interpolateForce(forces);
+        interpolateSource(sources);
 
-    F.setZero();
-    SF.setZero();
-}
+        failedStep = calcNextStep();
 
-template <class LinearSolver>
-JFS_INLINE void JSSFSolver<LinearSolver>::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt)
-{
-    dst = src + dt * force ;
-}
+        F.setZero();
+        SF.setZero();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        failedStep = true;
+    }
 
     if (failedStep) resetFluid();
 
     return failedStep;
-    }
+}
 
 template <class LinearSolver>
 JFS_INLINE void JSSFSolver<LinearSolver>::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt)

@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <vector>
 
 namespace jfs {
 
@@ -12,16 +13,14 @@ JFS_INLINE LBMSolver::LBMSolver(unsigned int N, float L, float fps, float rho0, 
 
 JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, float fps, float rho0, float visc, float us)
 {
-    
     this->fps = fps;
-    this->visc = visc;
     this->rho0 = rho0;
+    this->visc = visc;
     this->us = us;
-
-    // float dtFrame = 1/fps;
-    // uref = urefL/dtFrame * dx * dtL;
-
-    uref = .5*us;
+    
+    // lattice scaling stuff
+    cs = 1/std::sqrt(3);
+    uref = urefL/cs * us;
 
     initializeFluid(N, L, ZERO, dt);
 }
@@ -31,15 +30,17 @@ JFS_INLINE void LBMSolver::initializeFluid(unsigned int N, float L, BOUND_TYPE B
 {
 
     initializeGrid(N, L, BOUND, dt);
+    
+    viscL = urefL/(uref * dx) * visc;
+    tau = (3*viscL + .5);
+    this->dt = urefL/uref * dx * dtL;
 
     U.resize(N*N*2);
-    Ub.resize(N*N*2);
-
-    F.resize(N*N*2);
-    Fb.resize(N*N*2);
     
     S.resize(3*N*N);
     SF.resize(3*N*N);
+
+    F.resize(N*N*2);
 
     f.resize(9*N*N);
     rho.resize(N*N);
@@ -51,14 +52,6 @@ JFS_INLINE void LBMSolver::initializeFluid(unsigned int N, float L, BOUND_TYPE B
 JFS_INLINE void LBMSolver::resetFluid()
 {
     U.setZero();
-    for (int i=0; i < N; i++)
-    {
-        U(N*N*1 + N*(N-2) + i) = -.001 * us;
-    }
-    Ub.setZero();
-
-    F.setZero();
-    Fb.setZero();
 
     S.setZero();
     S0 = S;
@@ -72,6 +65,9 @@ JFS_INLINE void LBMSolver::resetFluid()
         for (int k=0; k < N; k++)
             for (int i=0; i < 9; i++)
                 f(N*N*i + N*k + j) = calc_fbari(i, j, k);
+
+    T = 0;
+    frame = 0;
 }
 
 JFS_INLINE void LBMSolver::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
@@ -87,119 +83,120 @@ JFS_INLINE void LBMSolver::initializeGrid(unsigned int N, float L, BOUND_TYPE BO
     linInterpVec.resize(N*N*2,N*N*2);
 }
 
-JFS_INLINE void LBMSolver::calcNextStep()
+JFS_INLINE bool LBMSolver::calcNextStep()
 {
     static Eigen::VectorXf f0;
-    static int count = 0;
-
-    count +=1;
 
     f0 = f;
-
-    float viscL = urefL/(uref * dx) * visc;
-    float tau = 1/(3*viscL + .5);
 
     float fi;
     float fbari;
     float fiStar;
     float Omegai;
     float Fi;
-    // adj_uref();
-    addBoundaryForces(Ub, U, (urefL/uref * dx * dtL));
-    for (int j=0; j<N; j++)
+
+    while (T < 1/fps*(frame+1))
+    {
         for (int k=0; k<N; k++)
-            for (int i=0; i<9; i++)
+        {
+            for (int j=0; j<N; j++)
             {
-                fi = f(N*N*i + N*k + j);
-
-                int cix = c[i](0);
-                int ciy = c[i](1);
-
-                fbari = calc_fbari(i, j, k);
-
-                if ((k-ciy) >= 0 && (k-ciy) < N && (j-cix) >= 0 && (j-cix) < N)
-                    fiStar = f0(N*N*i + N*(k-ciy) + (j-cix));
-                else
+                for (int i=0; i<9; i++)
                 {
-                    switch (i)
+
+                    int cix = c[i](0);
+                    int ciy = c[i](1);
+
+                    if ((k-ciy) >= 0 && (k-ciy) < N && (j-cix) >= 0 && (j-cix) < N)
+                        fiStar = f0(N*N*i + N*(k-ciy) + (j-cix));
+                    else
                     {
-                    case 1:
-                        fiStar = f0(N*N*2 + N*k + j);
-                        break;
-                    case 2:
-                        fiStar = f0(N*N*1 + N*k + j);
-                        break;
-                    case 3:
-                        fiStar = f0(N*N*4 + N*k + j);
-                        break;
-                    case 4:
-                        fiStar = f0(N*N*3 + N*k + j);
-                        break;
-                    case 5:
-                        fiStar = f0(N*N*8 + N*k + j);
-                        break;
-                    case 6:
-                        fiStar = f0(N*N*7 + N*k + j);
-                        break;
-                    case 7:
-                        fiStar = f0(N*N*6 + N*k + j);
-                        break;
-                    case 8:
-                        fiStar = f0(N*N*5 + N*k + j);
-                        break;
+                        switch (i)
+                        {
+                        case 1:
+                            fiStar = f0(N*N*2 + N*k + j);
+                            break;
+                        case 2:
+                            fiStar = f0(N*N*1 + N*k + j);
+                            break;
+                        case 3:
+                            fiStar = f0(N*N*4 + N*k + j);
+                            break;
+                        case 4:
+                            fiStar = f0(N*N*3 + N*k + j);
+                            break;
+                        case 5:
+                            fiStar = f0(N*N*8 + N*k + j);
+                            break;
+                        case 6:
+                            fiStar = f0(N*N*7 + N*k + j);
+                            break;
+                        case 7:
+                            fiStar = f0(N*N*6 + N*k + j);
+                            break;
+                        case 8:
+                            fiStar = f0(N*N*5 + N*k + j);
+                            break;
+                        }
                     }
+
+                    f(N*N*i + N*k + j) = fiStar; 
                 }
-                
-                    
-                Fi = calc_Fi(i, j, k);
 
-                Omegai = -(fi - fbari)/tau;
+                calcPhysicalVals(j, k);
 
-                f(N*N*i + N*k + j) = fiStar + Omegai + Fi;
-                // std::cout << fiStar << std::endl;
-                // std::cout << Omegai << std::endl;
-                // std::cout << Fi << std::endl;
-                // std::cout << fbari << std::endl;
-                // std::cout << i << "," << j << "," << k << std::endl;
+                for (int i=0; i <9; i++)
+                { 
+                    fi = f(N*N*i + N*k + j);
+
+                    fbari = calc_fbari(i, j, k);            
+                        
+                    Fi = calc_Fi(i, j, k);
+
+                    Omegai = -(fi - fbari)/tau;
+
+                    f(N*N*i + N*k + j) = fi + Omegai + Fi;
+                }
             }
+        }
 
-    calcPhysicalVals();
-    Ub = U;
-    satisfyBC(Ub);
-    // std::cout << (rho.array() < 0).sum() << std::endl;
-    std::cout << (urefL/uref * U).array().abs().maxCoeff() << std::endl;
-    // std::cout << F.toDense().array().abs().maxCoeff() << std::endl;
-    // std::cout << Fb.toDense().array().abs().maxCoeff() << std::endl;
-    // std::cout << U(N*N*0 + N*32 + 32) << "," <<  U(N*N*1 + N*32 + 32) << std::endl;
+        bool badStep = Eigen::isinf(U.array()).any() || Eigen::isnan(U.array()).any();
+        if (badStep) return true;
 
-    // addForce(S, S0, SF, urefL/uref * dx * dtL);
-    // transport(S0, S, U, urefL/uref * dx * dtL, 1);
+        addForce(S, S0, SF, dt);
+        backstream(S0, S, U, dt, 1);
 
-    dt += urefL/uref * dx * dtL;
+        T += dt;
+    }
 
-    if (dt >= 1/fps)
-        dt = 0;
+    frame += 1;
+
+    return false;
 }
 
-JFS_INLINE void LBMSolver::calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
+JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
 {
-    interpolateForce(forces);
-    interpolateSource(sources);
 
-    calcNextStep();
+    bool failedStep = false;
+    try
+    {    
+        interpolateForce(forces);
+        interpolateSource(sources);
 
-    F.setZero();
-    SF.setZero();
-}
+        failedStep = calcNextStep();
 
-JFS_INLINE void LBMSolver::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt)
-{
-    dst = src + dt * force ;
-}
+        F.setZero();
+        SF.setZero();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        failedStep = true;
+    }
 
-JFS_INLINE void LBMSolver::transport(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims)
+    if (failedStep) resetFluid();
 
-    ij0 = (1/D * X0.array() - .5);
+    return failedStep;
 }
 
 JFS_INLINE void LBMSolver::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt)
@@ -212,8 +209,6 @@ JFS_INLINE float LBMSolver::calc_fbari(int i, int j, int k)
     float fbari;
     float rhoP = rho(N*k + j); // rho at point P -> (j,k)
     float wi = w[i];
-
-    float cs = urefL/uref * us; // speed of sound in LBM units
 
     Eigen::Vector2f u, ci;
 
@@ -228,21 +223,17 @@ JFS_INLINE float LBMSolver::calc_fbari(int i, int j, int k)
 
 JFS_INLINE float LBMSolver::calc_Fi(int i, int j, int k)
 {
-    float viscL = urefL/(uref * dx) * visc;
-    float tau = 1/(3*viscL + .5); // relaxation time
     float wi = w[i];
-
-    float cs = urefL/uref * us; // speed of sound in LBM units
 
     Eigen::Vector2f u, ci, FP;
 
     u = {U(N*N*0 + N*k + j), U(N*N*1 + N*k + j)};
     u = urefL/uref * u;
     ci = c[i];
-    FP = {F.coeff(N*N*0 + N*k + j) + Fb.coeff(N*N*0 + N*k + j), F.coeff(N*N*1 + N*k + j) + Fb.coeff(N*N*1 + N*k + j)};
-    FP /= ( rho0/dx * std::pow(uref/urefL,2) );
+    FP = {F.coeff(N*N*0 + N*k + j), F.coeff(N*N*1 + N*k + j)};
+    FP = ( 1/rho0 * dx * std::pow(urefL/uref,2) ) * FP;
 
-    float Fi = (1 - 1/(2*tau)) * wi *
+    float Fi = (1 - tau/2) * wi *
                 ( (1/std::pow(cs,2))*(ci - u) + (ci.dot(u)/std::pow(cs,4)) * ci ).dot(FP);
 
     return Fi;
@@ -306,23 +297,27 @@ JFS_INLINE void LBMSolver::calcPhysicalVals()
             }
 
             rho(N*k + j) = rho0 * rhoP;
-            U(N*N*0 + N*k + j) = urefL/uref * (momentumP(0)/rhoP);
-            U(N*N*1 + N*k + j) = urefL/uref * (momentumP(1)/rhoP);
+            U(N*N*0 + N*k + j) = uref/urefL * (momentumP(0)/rhoP);
+            U(N*N*1 + N*k + j) = uref/urefL * (momentumP(1)/rhoP);
         }
 }
 
-void LBMSolver::addBoundaryForces(Eigen::VectorXf &Ub, Eigen::VectorXf &U, float dt)
+JFS_INLINE void LBMSolver::calcPhysicalVals(int j, int k)
 {
-    Fb.setZero();
-    for (int j=0; j<N; j++)
-        for (int k=0; k<N; k++)
-        {
-            float imp = rho(N*k +j) * (Ub(N*N*0 + N*k +j) - U(N*N*0 + N*k +j)) / dt;
-            Fb.insert(N*N*0 + N*k + j) = imp;
+    float rhoP;
+    Eigen::Vector2f momentumP;
 
-            imp = rho(N*k +j) * (Ub(N*N*1 + N*k +j) - U(N*N*1 + N*k +j)) / dt;
-            Fb.insert(N*N*1 + N*k + j) = imp;
-        }
+    rhoP = 0;
+    momentumP = {0, 0};
+    for (int i=0; i<9; i++)
+    {
+        rhoP += f(N*N*i + N*k +j);
+        momentumP += c[i] * f(N*N*i + N*k +j);
+    }
+
+    rho(N*k + j) = rho0 * rhoP;
+    U(N*N*0 + N*k + j) = uref/urefL * (momentumP(0)/rhoP);
+    U(N*N*1 + N*k + j) = uref/urefL * (momentumP(1)/rhoP);
 }
 
 } // namespace jfs
