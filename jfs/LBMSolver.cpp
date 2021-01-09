@@ -198,30 +198,8 @@ JFS_INLINE void LBMSolver::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf 
 }
 
 JFS_INLINE void LBMSolver::transport(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims)
-{
-    particleTrace(X0, X, u, -dt);
 
     ij0 = (1/D * X0.array() - .5);
-
-    SparseMatrix *linInterpPtr;
-    int fields;
-
-    switch (dims)
-    {
-    case 1:
-        linInterpPtr = &linInterp;
-        fields = 3;
-        break;
-
-    case 2:
-        linInterpPtr = &linInterpVec;
-        fields = 1;
-        break;
-    }
-
-    calcLinInterp(*linInterpPtr, ij0, dims, fields);
-
-    dst = *linInterpPtr * src;
 }
 
 JFS_INLINE void LBMSolver::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt)

@@ -48,10 +48,6 @@ class JSSFSolver : public fluid2D {
 
         void addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt);
 
-        void transport(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims);
-
-        void particleTrace(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt);
-
         void projection(Eigen::VectorXf &dst, const Eigen::VectorXf &src);
 
         void diffuse(Eigen::VectorXf &dst, const Eigen::VectorXf &src, float dt, int dims);

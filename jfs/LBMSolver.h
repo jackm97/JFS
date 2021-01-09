@@ -77,10 +77,6 @@ class LBMSolver : public fluid2D {
 
         void addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt);
 
-        void transport(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims);
-
-        void particleTrace(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt);
-
         // calcs fbar for the ith velocity at the grid position (j,k)
         float calc_fbari(int i, int j, int k);
 
