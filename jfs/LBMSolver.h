@@ -69,10 +69,11 @@ class LBMSolver : public fluid2D {
         float tau; // relaxation time in lattice units
         
         // calculates initial distribution values and sets up grid
-        void initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
+        // dummy_dt because dt is calculated
+        void initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dummy_dt);
 
         // calls initializeGridProperties and setXGrid
-        void initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
+        void initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dummy_dt);
 
         bool calcNextStep( );
 

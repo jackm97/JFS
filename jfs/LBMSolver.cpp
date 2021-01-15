@@ -22,14 +22,16 @@ JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, float fps, float 
     cs = 1/std::sqrt(3);
     uref = urefL/cs * us;
 
-    initializeFluid(N, L, ZERO, dt);
+    // dummy dt because it is calculated
+    float dummy_dt;
+    initializeFluid(N, L, ZERO, dummy_dt);
 }
 
 
-JFS_INLINE void LBMSolver::initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
+JFS_INLINE void LBMSolver::initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dummy_dt)
 {
 
-    initializeGrid(N, L, BOUND, dt);
+    initializeGrid(N, L, BOUND, dummy_dt);
     
     viscL = urefL/(uref * dx) * visc;
     tau = (3*viscL + .5);
@@ -70,13 +72,22 @@ JFS_INLINE void LBMSolver::resetFluid()
     frame = 0;
 }
 
-JFS_INLINE void LBMSolver::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
+JFS_INLINE void LBMSolver::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dummy_dt)
 {
 
-    initializeGridProperties(N, L, BOUND, dt);
+    initializeGridProperties(N, L, BOUND, dummy_dt);
 
     X.resize(N*N*2);
     setXGrid();
+
+    // differential operators are not
+    // used for this solver so the
+    // memory associated with them
+    // is minimized
+    LAPLACE.resize(1,1);
+    VEC_LAPLACE.resize(1,1);
+    DIV.resize(1,1);
+    GRAD.resize(1,1);
 
     ij0.resize(N*N*2);
     linInterp.resize(N*N,N*N);
@@ -87,22 +98,20 @@ JFS_INLINE bool LBMSolver::calcNextStep()
 {
     static Eigen::VectorXf f0;
 
-    f0 = f;
-
-    float fi;
-    float fbari;
-    float fiStar;
-    float Omegai;
-    float Fi;
+    T += dt;
 
     while (T < 1/fps*(frame+1))
     {
-        for (int k=0; k<N; k++)
+
+        f0 = f;
+        
+        // stream
+        for (int idx=0; idx<(N*N*9); idx++)
         {
-            for (int j=0; j<N; j++)
-            {
-                for (int i=0; i<9; i++)
-                {
+            float fiStar;
+            int i = std::floor(((float)idx)/(N*N));
+            int k = std::floor( ( (float)idx-N*N*i )/N );
+            int j = std::floor( ( (float)idx-N*N*i-N*k ) );
 
                     int cix = c[i](0);
                     int ciy = c[i](1);
@@ -141,23 +150,32 @@ JFS_INLINE bool LBMSolver::calcNextStep()
                     }
 
                     f(N*N*i + N*k + j) = fiStar; 
-                }
 
-                calcPhysicalVals(j, k);
+                    calcPhysicalVals(j, k);
+        }
+        
+        // collide
+        for (int idx=0; idx<(N*N*9); idx++)
+        {
 
-                for (int i=0; i <9; i++)
-                { 
-                    fi = f(N*N*i + N*k + j);
+            float fi;
+            float fbari;
+            float fiStar;
+            float Omegai;
+            float Fi;
+            int i = std::floor(((float)idx)/(N*N));
+            int k = std::floor( ( (float)idx-N*N*i )/N );
+            int j = std::floor( ( (float)idx-N*N*i-N*k ) ); 
+            
+            fi = f(N*N*i + N*k + j);
 
-                    fbari = calc_fbari(i, j, k);            
-                        
-                    Fi = calc_Fi(i, j, k);
+            fbari = calc_fbari(i, j, k);            
+                
+            Fi = calc_Fi(i, j, k);
 
-                    Omegai = -(fi - fbari)/tau;
+            Omegai = -(fi - fbari)/tau;
 
-                    f(N*N*i + N*k + j) = fi + Omegai + Fi;
-                }
-            }
+            f(N*N*i + N*k + j) = fi + Omegai + Fi;
         }
 
         bool badStep = Eigen::isinf(U.array()).any() || Eigen::isnan(U.array()).any();
@@ -170,6 +188,7 @@ JFS_INLINE bool LBMSolver::calcNextStep()
     }
 
     frame += 1;
+    T -= dt; // that time step never run
 
     return false;
 }
