@@ -20,6 +20,13 @@ namespace jfs {
 // can specify a scalar array such that scalar(N*N*field + N*j + i)
 // where field represents the color from 0-2. Vector quantities
 // would be indexed like vector(N*N*2*field + N*N*dim + N*j + i)
+
+typedef enum {
+    BASE = -1,
+    DIM2 = 2,
+    DIM3 = 3
+} DIMENSION_TYPE;
+
 class gridBase {
     public:
         gridBase(){}
@@ -33,7 +40,10 @@ class gridBase {
 
         ~gridBase(){}
 
-    protected:        
+    protected:
+
+        // make sure to change in child class
+        DIMENSION_TYPE dim_type = BASE;        
         
         Eigen::VectorXf X; // position values
         Eigen::VectorXf X0; // position values of particle at X at time t - dt (used for advecting quantities)
@@ -49,38 +59,38 @@ class gridBase {
         SparseMatrix linInterpVec; // vector linear interpolation matrix
 
         // set N, L, BOUND, and dt properties
-        void initializeGridProperties(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
+        virtual void initializeGridProperties(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
 
         // sets X position grid using N, L, D, and dt
-        virtual void setXGrid(){}
+        virtual void setXGrid() = 0;
 
         // calls initializeGridProperties and setXGrid
         // calculates LAPLACE, VEC_LAPLACE, DIV, and GRAD
-        virtual void initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt){}
+        virtual void initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt) = 0;
 
         // satisfy boundary conditions for based off BOUND property
         // Inputs:
         //      Eigen::VectorXf &u - velocity field to be updated
-        virtual void satisfyBC(Eigen::VectorXf &u){}
+        virtual void satisfyBC(Eigen::VectorXf &u) = 0;
 
         // calculate Laplace operator
         // Inputs:
         //      SparseMatrix &dst - destination sparse matrix for operator
         //      unsigned int dims - dims used to specify scalar vs. vector Laplace
         //      unsigned int fields - if there are multiple fields to concatenate (i.e. scalars concatenated by color channels)
-        virtual void Laplace(SparseMatrix &dst, unsigned int dims, unsigned int fields=1){}
+        virtual void Laplace(SparseMatrix &dst, unsigned int dims, unsigned int fields=1) = 0;
 
         // calculate Divergence operator
         // Inputs:
         //      SparseMatrix &dst - destination sparse matrix for operator
         //      unsigned int fields - if there are multiple fields to concatenate (i.e. mutliple vector fields concatenated)
-        virtual void div(SparseMatrix &dst, unsigned int fields=1){}
+        virtual void div(SparseMatrix &dst, unsigned int fields=1) = 0;
 
         // calculate Gradient operator
         // Inputs:
         //      SparseMatrix &dst - destination sparse matrix for operator
         //      unsigned int fields - if there are multiple fields to concatenate (i.e. scalars concatenated by color channels)
-        virtual void grad(SparseMatrix &dst, unsigned int fields=1){}
+        virtual void grad(SparseMatrix &dst, unsigned int fields=1) = 0;
 
         // calculate Interpolation operator from grid values to point
         // Inputs:
@@ -88,7 +98,7 @@ class gridBase {
         //      Eigen::VectorXf &ij0 - grid index values used to interpolate, can be floats
         //      int dims - dimensions of quantity to be interpolated
         //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual void calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &ij0, int dims, unsigned int fields=1){}
+        virtual void calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &ij0, int dims, unsigned int fields=1) = 0;
 
         // backstreams a quantity on the grid
         // Inputs:
@@ -97,7 +107,7 @@ class gridBase {
         //      Eigen::VectorXf &u - velocity used to stream quantity
         //      float dt - time step
         //      float dims - dimensions of grid quantity
-        virtual void backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims){}
+        virtual void backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims);
 
         // determines the location of a partice on a grid node at time t+dt
         // Inputs:
@@ -105,7 +115,7 @@ class gridBase {
         //      Eigen::VectorXf &X - desitination at t 
         //      Eigen::VectorXf &u - velocity used to stream quantity
         //      float dt - time step
-        virtual void sourceTrace(Eigen::VectorXf &X0, const Eigen::VectorXf &X, const Eigen::VectorXf &u, float dt){}
+        virtual void sourceTrace(Eigen::VectorXf &X0, const Eigen::VectorXf &X, const Eigen::VectorXf &u, float dt);
 };
 } // namespace jfs
 

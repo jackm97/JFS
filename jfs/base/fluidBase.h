@@ -7,12 +7,12 @@ namespace jfs {
 class fluidBase {
     public:
         fluidBase(){}
-         virtual void resetFluid(){}
+        virtual void resetFluid(){}
 
-        virtual void getImage(Eigen::VectorXf img){}
+        virtual void getImage(Eigen::VectorXf &img) = 0;
 
         // returns true if the step failed
-        virtual bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources){return false;}
+        virtual bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources) = 0;
 
         ~fluidBase(){}
 
@@ -29,13 +29,13 @@ class fluidBase {
         SparseMatrix LAPLACEX; // scalar laplace extended for x concatenated fields
 
         // returns true if the step failed
-        virtual bool calcNextStep( ){return false;}
+        virtual bool calcNextStep( ) = 0;
         
-        virtual void initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dt){}
+        virtual void initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dt) = 0;
 
-        virtual void interpolateForce(const std::vector<Force> forces){}
+        virtual void interpolateForce(const std::vector<Force> forces) = 0;
         
-        virtual void interpolateSource( const std::vector<Source> sources){}
+        virtual void interpolateSource( const std::vector<Source> sources) = 0;
 };
 } // namespace jfs
 

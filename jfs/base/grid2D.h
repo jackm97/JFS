@@ -8,8 +8,12 @@ namespace jfs {
 
 // gridBase derived class for 2D solvers
 class grid2D: public gridBase {
+    public:
+        grid2D(){dim_type = DIM2;}
+
+        ~grid2D(){}
+
     protected:
-        grid2D(){}
 
         // sets X position grid using N, L, D, and dt
         virtual void setXGrid();
@@ -48,26 +52,7 @@ class grid2D: public gridBase {
         //      Eigen::VectorXf &ij0 - grid index values used to interpolate, can be floats
         //      int dims - dimensions of quantity to be interpolated
         //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual void calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &ij0, int dims, unsigned int fields=1);
-
-        // backstreams a quantity on the grid
-        // Inputs:
-        //      Eigen::VectorXf &dst - destination grid quantity
-        //      Eigen::VectorXf &src - input grid quantity 
-        //      Eigen::VectorXf &u - velocity used to stream quantity
-        //      float dt - time step
-        //      float dims - dimensions of grid quantity
-        virtual void backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims);
-
-        // determines the location of a partice on a grid node at time t+dt
-        // Inputs:
-        //      Eigen::VectorXf &X0 - destination at t+dt (X0 is chosen because usually dt is negative)
-        //      Eigen::VectorXf &X - desitination at t 
-        //      Eigen::VectorXf &u - velocity used to stream quantity
-        //      float dt - time step
-        virtual void sourceTrace(Eigen::VectorXf &X0, const Eigen::VectorXf &X, const Eigen::VectorXf &u, float dt);        
-
-        ~grid2D(){}
+        virtual void calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &ij0, int dims, unsigned int fields=1);       
 };
 } // namespace jfs
 

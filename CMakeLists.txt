@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.13.0)
 project(jfs VERSION 0.1.0)
 
 #####################################################################
@@ -30,20 +30,28 @@ include_directories(${PROJECT_SOURCE_DIR}
 set(JFS_SOURCE_DIR ${PROJECT_SOURCE_DIR}/jfs)
 
 # Header Files
-set(JFS_HEADERS_BASE ${JFS_SOURCE_DIR}/base/fluid2D.h
-                    ${JFS_SOURCE_DIR}/base/fluidBase.h
-                    ${JFS_SOURCE_DIR}/base/grid2D.h
-                    ${JFS_SOURCE_DIR}/base/gridBase.h)
-set(JFS_HEADERS_TOP ${JFS_SOURCE_DIR}/static_build/jfs_inline.h
-                ${JFS_SOURCE_DIR}/JSSFSolver.h
-                ${JFS_SOURCE_DIR}/LBMSolver.h)
+set(JFS_HEADERS_BASE    ${JFS_SOURCE_DIR}/base/fluid2D.h
+                        ${JFS_SOURCE_DIR}/base/fluid3D.h
+                        ${JFS_SOURCE_DIR}/base/fluidBase.h
+                        ${JFS_SOURCE_DIR}/base/grid2D.h
+                        ${JFS_SOURCE_DIR}/base/grid3D.h
+                        ${JFS_SOURCE_DIR}/base/gridBase.h)
+
+set(JFS_HEADERS_TOP     ${JFS_SOURCE_DIR}/static_build/jfs_inline.h
+                        ${JFS_SOURCE_DIR}/JSSFSolver.h
+                        ${JFS_SOURCE_DIR}/JSSFSolver3D.h
+                        ${JFS_SOURCE_DIR}/LBMSolver.h)
+
 
 # Source Files
-set(JFS_SRC_BASE ${JFS_SOURCE_DIR}/base/fluid2D.cpp
+set(JFS_SRC_BASE    ${JFS_SOURCE_DIR}/base/fluid2D.cpp
+                    ${JFS_SOURCE_DIR}/base/fluid3D.cpp
                     ${JFS_SOURCE_DIR}/base/grid2D.cpp
+                    ${JFS_SOURCE_DIR}/base/grid3D.cpp
                     ${JFS_SOURCE_DIR}/base/gridBase.cpp)
 
 set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolver.cpp
+                ${JFS_SOURCE_DIR}/JSSFSolver3D.cpp
                 ${JFS_SOURCE_DIR}/LBMSolver.cpp)
 
 
@@ -58,3 +66,8 @@ install(FILES ${JFS_HEADERS_BASE} DESTINATION ${INSTALL_PATH}/include/jfs/base)
 
 # Installation of dependencies
 install(DIRECTORY ${EIGEN_PATH}/Eigen DESTINATION ${INSTALL_PATH}/include/jfs)
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(jfs PRIVATE OpenMP::OpenMP_CXX)
+endif()
