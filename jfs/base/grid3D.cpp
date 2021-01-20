@@ -67,33 +67,33 @@ JFS_INLINE void grid3D::satisfyBC(Eigen::VectorXf &u)
             u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*k + N*(j+(N-1)) + i);
 
             // left
-            j = idx1;
             i = 0;
+            j = idx1;
             k = idx2;
             u(N*N*N*0 + N*N*k + N*j + i) = u(N*N*N*0 + N*N*k + N*j + (i+(N-1)));
             u(N*N*N*1 + N*N*k + N*j + i) = u(N*N*N*1 + N*N*k + N*j + (i+(N-1)));
             u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*k + N*j + (i+(N-1)));
 
             // right
-            j = idx1;
             i = N-1;
+            j = idx1;
             k = idx2;
             u(N*N*N*0 + N*N*k + N*j + i) = u(N*N*N*0 + N*N*k + N*j + (i-(N-1)));
             u(N*N*N*1 + N*N*k + N*j + i) = u(N*N*N*1 + N*N*k + N*j + (i-(N-1)));
             u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*k + N*j + (i-(N-1)));
 
             // back
-            k = 0;
             i = idx1;
             j = idx2;
+            k = 0;
             u(N*N*N*0 + N*N*k + N*j + i) = u(N*N*N*0 + N*N*(k+(N-1)) + N*j + i);
             u(N*N*N*1 + N*N*k + N*j + i) = u(N*N*N*1 + N*N*(k+(N-1)) + N*j + i);
             u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*(k+(N-1)) + N*j + i);
 
             // front
-            k = N-1;
             i = idx1;
             j = idx2;
+            k = N-1;
             u(N*N*N*0 + N*N*k + N*j + i) = u(N*N*N*0 + N*N*(k-(N-1)) + N*j + i);
             u(N*N*N*1 + N*N*k + N*j + i) = u(N*N*N*1 + N*N*(k-(N-1)) + N*j + i);
             u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*(k-(N-1)) + N*j + i);
@@ -116,27 +116,27 @@ JFS_INLINE void grid3D::satisfyBC(Eigen::VectorXf &u)
             u(N*N*N*1 + N*N*k + N*j + i) = 0;
 
             // left
-            j = idx1;
             i = 0;
+            j = idx1;
             k = idx2;
             u(N*N*N*0 + N*N*k + N*j + i) = 0;
 
             // right
-            j = idx1;
             i = N-1;
+            j = idx1;
             k = idx2;
             u(N*N*N*0 + N*N*k + N*j + i) = 0;
 
             // back
-            k = 0;
             i = idx1;
             j = idx2;
+            k = 0;
             u(N*N*N*2 + N*N*k + N*j + i) = 0;
 
             // front
-            k = N-1;
             i = idx1;
             j = idx2;
+            k = N-1;
             u(N*N*N*2 + N*N*k + N*j + i) = 0;
         }
 }
@@ -501,10 +501,10 @@ JFS_INLINE void grid3D::grad(SparseMatrix &dst, unsigned int fields)
 
                             case PERIODIC:
                                 jMat = field*dims*N*N*N + (N-2)*N*N + j*N + i;
-                                tripletList.push_back(T(iMat,jMat,1.f)); 
+                                tripletList.push_back(T(iMat,jMat,-1.f)); 
                         }
                     else
-                        tripletList.push_back(T(iMat,jMat,1.f));
+                        tripletList.push_back(T(iMat,jMat,-1.f));
                 }
             }
         }
@@ -541,8 +541,8 @@ JFS_INLINE void grid3D::calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &
                             i0 = (i0 > (N-1)) ? (N-1):i0;
                             j0 = (j0 < 0) ? 0:j0;
                             j0 = (j0 > (N-1)) ? (N-1):j0;
-                            k0 = (j0 < 0) ? 0:j0;
-                            k0 = (j0 > (N-1)) ? (N-1):j0;
+                            k0 = (k0 < 0) ? 0:k0;
+                            k0 = (k0 > (N-1)) ? (N-1):k0;
                             break;
                         
                         case PERIODIC:
