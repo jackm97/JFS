@@ -160,7 +160,6 @@ JFS_INLINE bool LBMSolver::calcNextStep()
 
             float fi;
             float fbari;
-            float fiStar;
             float Omegai;
             float Fi;
             int i = std::floor(((float)idx)/(N*N));
