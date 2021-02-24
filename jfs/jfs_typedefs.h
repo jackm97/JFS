@@ -18,6 +18,7 @@ typedef enum {
 
 typedef Eigen::Vector3f ColorRGB;
 typedef Eigen::SparseMatrix<float> SparseMatrix;
+typedef Eigen::SparseMatrix<float, Eigen::RowMajor> SparseMatrix_RowMajor;
 
 struct Force {
     float x=0;

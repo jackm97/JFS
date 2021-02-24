@@ -2,37 +2,15 @@
 
 namespace jfs {
 
-JFS_INLINE void grid2D::setXGrid()
-{
-    for (int i = 0; i < N; i++)
-    {
-        for (int j = 0; j < N; j++)
-        {
-            int dim = 0;
-            X(dim*N*N + j*N + i) = D*(i+.5);
-            
-            dim = 1;
-            X(dim*N*N + j*N + i) = D*(j+.5);
-        }
-    }
-}
-
 JFS_INLINE void grid2D::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
 {
 
     initializeGridProperties(N, L, BOUND, dt);
 
-    X.resize(N*N*2);
-    setXGrid();
-
     Laplace(LAPLACE, 1);
     Laplace(VEC_LAPLACE, 2);
     div(DIV);
     grad(GRAD);
-
-    ij0.resize(N*N*2);
-    linInterp.resize(N*N,N*N);
-    linInterpVec.resize(N*N*2,N*N*2);
 }
 
 
@@ -362,100 +340,146 @@ JFS_INLINE void grid2D::grad(SparseMatrix &dst, unsigned int fields)
     dst = 1.f/(2*D) * dst;
 }
 
-
-JFS_INLINE void grid2D::calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &ij0, int dims, unsigned int fields)
+JFS_INLINE void grid2D::backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &ufield, float dt, int dims, int fields)
 {
-    typedef Eigen::Triplet<float> T;
-    std::vector<T> tripletList;
-    tripletList.reserve(N*N*4*dims);
-    
-    for (int field=0; field < fields; field++)
+    for (int index = 0; index < N*N; index++)
     {
-        for (int i = 0; i < N; i++)
+        int j = std::floor(index/N);
+        int i = index - N*j;
+        Eigen::VectorXf X(2);
+        X(0) = D*(i + .5);
+        X(1) = D*(j + .5);
+
+        X = sourceTrace(X, ufield, 2, -dt);
+
+        Eigen::VectorXf interp_indices = (X.array())/D - .5;
+
+        Eigen::VectorXf interp_quant = calcLinInterp(interp_indices, src, dims, fields);
+
+        Eigen::VectorXi insert_indices(2);
+        insert_indices(0) = i;
+        insert_indices(1) = j;
+
+        insertIntoField(insert_indices, interp_quant, dst, dims, fields);
+    }
+}
+
+JFS_INLINE Eigen::VectorXf grid2D::indexField(Eigen::VectorXi indices, const Eigen::VectorXf &src, int dims, int fields)
+{
+    int i = indices(0);
+    int j = indices(1);
+
+    Eigen::VectorXf indexed_quant(dims*fields);
+
+    for (int f = 0; f < fields; f++)
+    {
+        for (int d = 0; d < dims; d++)
         {
-            for (int j = 0; j < N; j++)
-            {
-                float i0 = ij0(0*N*N + N*j + i);
-                float j0 = ij0(1*N*N + N*j + i);
-
-                switch (BOUND)
-                {
-                    case ZERO:
-                        i0 = (i0 < 0) ? 0:i0;
-                        i0 = (i0 > (N-1)) ? (N-1):i0;
-                        j0 = (j0 < 0) ? 0:j0;
-                        j0 = (j0 > (N-1)) ? (N-1):j0;
-                        break;
-                    
-                    case PERIODIC:
-                        while (i0 < 0 || i0 > N-1 || j0 < 0 || j0 > N-1)
-                        {
-                            i0 = (i0 < 0) ? (N-1+i0):i0;
-                            i0 = (i0 > (N-1)) ? (i0 - (N-1)):i0;
-                            j0 = (j0 < 0) ? (N-1+j0):j0;
-                            j0 = (j0 > (N-1)) ? (j0 - (N-1)):j0;
-                        }
-                        break;
-                }
-
-                int i0_floor = (int) i0;
-                int j0_floor = (int) j0;
-                int i0_ceil = i0_floor + 1;
-                int j0_ceil = j0_floor + 1;
-                int iMat, jMat, iref, jref;
-                float part;
-
-                for (int dim = 0; dim < dims; dim++)
-                {
-                    iMat = field*dims*N*N + dim*N*N + j*N + i;
-                    
-                    jMat = field*dims*N*N + dim*N*N + j0_floor*N + i0_floor;
-                    part = (i0_ceil - i0)*(j0_ceil - j0);
-                    tripletList.push_back(T(iMat, jMat, std::abs(part)));
-                    // if (jMat > N*N*dims*fields-1 || jMat < 0)
-                    // {
-                    //     printf("NO!\n");
-                    // }
-                    
-                    jMat = field*dims*N*N + dim*N*N + j0_ceil*N + i0_floor;
-                    if (j0_ceil < N)
-                    {
-                        part = (i0_ceil - i0)*(j0_floor - j0);
-                        tripletList.push_back(T(iMat, jMat, std::abs(part)));
-                    // if (jMat > N*N*dims*fields-1 || jMat < 0)
-                    // {
-                    //     printf("NO!\n");
-                    // }
-                    }
-                    
-                    jMat = field*dims*N*N + dim*N*N + j0_floor*N + i0_ceil;
-                    if (i0_ceil < N)
-                    {
-                        part = (i0_floor - i0)*(j0_ceil - j0);
-                        tripletList.push_back(T(iMat, jMat, std::abs(part)));
-                    // if (jMat > N*N*dims*fields-1 || jMat < 0)
-                    // {
-                    //     printf("NO!\n");
-                    // }
-                    }
-                    
-                    jMat = field*dims*N*N + dim*N*N + j0_ceil*N + i0_ceil;
-                    if (i0_ceil < N && j0_ceil < N)
-                    {
-                        part = (i0_floor - i0)*(j0_floor - j0);
-                        tripletList.push_back(T(iMat, jMat, std::abs(part)));
-                    // if (jMat > N*N*dims*fields-1 || jMat < 0)
-                    // {
-                    //     printf("NO!\n");
-                    // }
-                    }
-                }
-            }
-        }        
+            indexed_quant(dims*f + d) = src(N*N*dims*f + N*N*d + N*j + i);
+        }
     }
 
-    dst = SparseMatrix(N*N*dims*fields,N*N*dims*fields);
-    dst.setFromTriplets(tripletList.begin(), tripletList.end());
+    return indexed_quant;
+}
+
+JFS_INLINE void grid2D::insertIntoField(Eigen::VectorXi indices, Eigen::VectorXf q, Eigen::VectorXf &dst, int dims, int fields)
+{
+    int i = indices(0);
+    int j = indices(1);
+
+    for (int f = 0; f < fields; f++)
+    {
+        for (int d = 0; d < dims; d++)
+        {
+            dst(N*N*dims*f + N*N*d + N*j + i) = q(dims*f + d);
+        }
+    }
+}
+
+
+JFS_INLINE Eigen::VectorXf grid2D::calcLinInterp(Eigen::VectorXf interp_indices, const Eigen::VectorXf &src, int dims, unsigned int fields)
+{
+    Eigen::VectorXf interp_quant(dims*fields);
+
+    float i0 = interp_indices(0);
+    float j0 = interp_indices(1);
+
+    switch (BOUND)
+    {
+        case ZERO:
+            i0 = (i0 < 0) ? 0:i0;
+            i0 = (i0 > (N-1)) ? (N-1):i0;
+            j0 = (j0 < 0) ? 0:j0;
+            j0 = (j0 > (N-1)) ? (N-1):j0;
+            break;
+        
+        case PERIODIC:
+            while (i0 < 0 || i0 > N-1 || j0 < 0 || j0 > N-1)
+            {
+                i0 = (i0 < 0) ? (N-1+i0):i0;
+                i0 = (i0 > (N-1)) ? (i0 - (N-1)):i0;
+                j0 = (j0 < 0) ? (N-1+j0):j0;
+                j0 = (j0 > (N-1)) ? (j0 - (N-1)):j0;
+            }
+            break;
+    }
+
+    int i0_floor = (int) i0;
+    int j0_floor = (int) j0;
+    int i0_ceil = i0_floor + 1;
+    int j0_ceil = j0_floor + 1;
+    int iMat, jMat, iref, jref;
+    float part;
+
+    for (int f = 0; f < fields; f++)
+    {
+        for (int d = 0; d < dims; d++)
+        {
+            part = (i0_ceil - i0)*(j0_ceil - j0);
+            part = std::abs(part);
+            float q1 = part * src(N*N*dims*f + N*N*d + N*j0_floor + i0_floor);
+
+            float q2;
+            if (j0_ceil < N)
+            {
+                part = (i0_ceil - i0)*(j0_floor - j0);
+                part = std::abs(part);
+                q2 = part * src(N*N*dims*f + N*N*d + N*j0_ceil + i0_floor); 
+            }
+            else
+            {
+                q2 = 0;
+            }
+
+            float q3;
+            if (i0_ceil < N)
+            {
+                part = (i0_floor - i0)*(j0_ceil - j0);
+                part = std::abs(part);
+                q3 = part * src(N*N*dims*f + N*N*d + N*j0_floor + i0_ceil); 
+            }
+            else
+            {
+                q3 = 0;
+            }
+
+            float q4;
+            if (i0_ceil < N && j0_ceil < N)
+            {
+                part = (i0_floor - i0)*(j0_floor - j0);
+                part = std::abs(part);
+                q4 = part * src(N*N*dims*f + N*N*d + N*j0_ceil + i0_ceil); 
+            }
+            else
+            {
+                q4 = 0;
+            }
+
+            interp_quant(dims*f + d) = q1 + q2 + q3 + q4;
+        }
+    }
+
+    return interp_quant;
 }
 
 } // namespace jfs

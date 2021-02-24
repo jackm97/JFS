@@ -45,8 +45,8 @@ class gridBase {
         // make sure to change in child class
         DIMENSION_TYPE dim_type = BASE;        
         
-        Eigen::VectorXf X; // position values
-        Eigen::VectorXf X0; // position values of particle at X at time t - dt (used for advecting quantities)
+        // Eigen::VectorXf X; // position values
+        // Eigen::VectorXf X0; // position values of particle at X at time t - dt (used for advecting quantities)
 
         SparseMatrix LAPLACE; // scalar laplace
         SparseMatrix VEC_LAPLACE; // vector laplace
@@ -54,15 +54,12 @@ class gridBase {
         SparseMatrix GRAD; // gradient
 
         // Linear Interp Stuff
-        Eigen::VectorXf ij0; // position values as indices of grid values (not necessarily integers)
-        SparseMatrix linInterp; // scalar linear interpolation matrix
-        SparseMatrix linInterpVec; // vector linear interpolation matrix
+        // Eigen::VectorXf ij0; // position values as indices of grid values (not necessarily integers)
+        // SparseMatrix linInterp; // scalar linear interpolation matrix
+        // SparseMatrix linInterpVec; // vector linear interpolation matrix
 
         // set N, L, BOUND, and dt properties
         virtual void initializeGridProperties(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
-
-        // sets X position grid using N, L, D, and dt
-        virtual void setXGrid() = 0;
 
         // calls initializeGridProperties and setXGrid
         // calculates LAPLACE, VEC_LAPLACE, DIV, and GRAD
@@ -98,7 +95,7 @@ class gridBase {
         //      Eigen::VectorXf &ij0 - grid index values used to interpolate, can be floats
         //      int dims - dimensions of quantity to be interpolated
         //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual void calcLinInterp(SparseMatrix &dst, const Eigen::VectorXf &ij0, int dims, unsigned int fields=1) = 0;
+        virtual Eigen::VectorXf calcLinInterp(Eigen::VectorXf interp_indices, const Eigen::VectorXf &src, int dims, unsigned int fields=1) = 0;
 
         // backstreams a quantity on the grid
         // Inputs:
@@ -107,7 +104,7 @@ class gridBase {
         //      Eigen::VectorXf &u - velocity used to stream quantity
         //      float dt - time step
         //      float dims - dimensions of grid quantity
-        virtual void backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims);
+        virtual void backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims, int fields=1) = 0;
 
         // determines the location of a partice on a grid node at time t+dt
         // Inputs:
@@ -115,7 +112,26 @@ class gridBase {
         //      Eigen::VectorXf &X - desitination at t 
         //      Eigen::VectorXf &u - velocity used to stream quantity
         //      float dt - time step
-        virtual void sourceTrace(Eigen::VectorXf &X0, const Eigen::VectorXf &X, const Eigen::VectorXf &u, float dt);
+        virtual Eigen::VectorXf sourceTrace(Eigen::VectorXf X, const Eigen::VectorXf &ufield, int dims, float dt);
+
+        // indexes a scalar or vector field
+        // Inputs:
+        //      Eigen::VectorXi indices - indices to index field (i,j,k) (or for 2D only (i,j))
+        //      Eigen::VectorXf &src - field quantity to index
+        //      int dims - dimensions of quantity to be interpolated
+        //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
+        // Returns:
+        //      Eigen::VectorXf q - indexed quantity where q(dims*field + dim) is stored structure
+        virtual Eigen::VectorXf indexField(Eigen::VectorXi indices, const Eigen::VectorXf &src, int dims, int fields=1) = 0;
+
+        // inserts a scalar or vector into field
+        // Inputs:
+        //      Eigen::VectorXi indices - indices to index field (i,j,k) (or for 2D only (i,j))
+        //      Eigen::VectorXf q - insert quantity where q(dims*field + dim) is stored structure
+        //      Eigen::VectorXf &dst - field quantity inserting into
+        //      int dims - dimensions of quantity to be interpolated
+        //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
+        virtual void insertIntoField(Eigen::VectorXi indices, Eigen::VectorXf q, Eigen::VectorXf &dst, int dims, int fields=1) = 0;
 };
 } // namespace jfs
 

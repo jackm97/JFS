@@ -77,9 +77,6 @@ JFS_INLINE void LBMSolver::initializeGrid(unsigned int N, float L, BOUND_TYPE BO
 
     initializeGridProperties(N, L, BOUND, dummy_dt);
 
-    X.resize(N*N*2);
-    setXGrid();
-
     // differential operators are not
     // used for this solver so the
     // memory associated with them
@@ -88,10 +85,6 @@ JFS_INLINE void LBMSolver::initializeGrid(unsigned int N, float L, BOUND_TYPE BO
     VEC_LAPLACE.resize(1,1);
     DIV.resize(1,1);
     GRAD.resize(1,1);
-
-    ij0.resize(N*N*2);
-    linInterp.resize(N*N,N*N);
-    linInterpVec.resize(N*N*2,N*N*2);
 }
 
 JFS_INLINE bool LBMSolver::calcNextStep()
@@ -181,7 +174,7 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         if (badStep) return true;
 
         addForce(S, S0, SF, dt);
-        backstream(S0, S, U, dt, 1);
+        backstream(S0, S, U, dt, 1, 2);
 
         T += dt;
     }

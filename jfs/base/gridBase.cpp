@@ -13,40 +13,16 @@ void gridBase::initializeGridProperties(unsigned int N, float L, BOUND_TYPE BOUN
     this->dt = dt;
 }
 
-JFS_INLINE void gridBase::backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &u, float dt, int dims)
+JFS_INLINE Eigen::VectorXf gridBase::sourceTrace(Eigen::VectorXf X, const Eigen::VectorXf &ufield, int dims, float dt)
 {
-    sourceTrace(X0, X, u, -dt);
-
-    ij0 = (1/D * X0.array() - .5);
-
-    SparseMatrix *linInterpPtr;
-    int fields;
-
-    switch (dims)
-    {
-    case 1:
-        linInterpPtr = &linInterp;
-        fields = 3;
-        break;
-
-    case 2:
-    case 3:
-        linInterpPtr = &linInterpVec;
-        fields = 1;
-        break;
-    }
-
-    calcLinInterp(*linInterpPtr, ij0, dims, fields);
-
-    dst = *linInterpPtr * src;
-}
-
-JFS_INLINE void gridBase::sourceTrace(Eigen::VectorXf &X0, const Eigen::VectorXf &X, const Eigen::VectorXf &u, float dt)
-{
-    ij0 = 1/D * ( (X + 1/2 * (D * X)) + dt/2 * u ).array() - .5;
+    Eigen::VectorXi start_indices = ( X.array()/D - .5).template cast<int>();
+    Eigen::VectorXf u = indexField(start_indices, ufield, dims);
+    Eigen::VectorXf interp_indices = 1/D * (X + u*dt*.5).array() - .5;
     
-    calcLinInterp(linInterpVec, ij0, dim_type);
-    X0 = X + dt * ( linInterpVec * u );
+    u = calcLinInterp(interp_indices, ufield, dims);
+    X = X + dt * u;
+
+    return X;
 }
 
 } // namespace jfs

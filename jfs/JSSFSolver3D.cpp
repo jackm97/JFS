@@ -41,12 +41,11 @@ JFS_INLINE bool JSSFSolver3D<LinearSolver>::calcNextStep()
 {
     addForce(U, U0, F, dt);
     backstream(U0, U, U, dt, 3);
-    // diffuse(U, U0, dt, 3);
-    projection(U, U0);
-    U0 = U;
+    diffuse(U, U0, dt, 3);
+    projection(U0, U);
 
     addForce(S, S0, SF, dt);
-    backstream(S0, S, U0, dt, 1);
+    backstream(S0, S, U0, dt, 1, 3);
     diffuse(S, S0, dt, 1);
     dissipate(S0, S, dt);
     S = S0;

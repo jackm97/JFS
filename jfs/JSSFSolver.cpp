@@ -32,8 +32,6 @@ JFS_INLINE void JSSFSolver<LinearSolver>::initialize(unsigned int N, float L, BO
 
     b.resize(N*N*3);
     bVec.resize(N*N*2);
-    sol.resize(N*N*3);
-    solVec.resize(N*N*2);
 }
 
 template <class LinearSolver>
@@ -45,7 +43,7 @@ JFS_INLINE bool JSSFSolver<LinearSolver>::calcNextStep()
     projection(U0, U);
 
     addForce(S, S0, SF, dt);
-    backstream(S0, S, U0, dt, 1);
+    backstream(S0, S, U0, dt, 1, 3);
     diffuse(S, S0, dt, 1);
     dissipate(S0, S, dt);
     S = S0;
@@ -107,9 +105,9 @@ JFS_INLINE void JSSFSolver<LinearSolver>::projection(Eigen::VectorXf &dst, const
 {
     bVec = (DIV * src);
 
-    solVec = projectSolve.solve(bVec);
+    dst = projectSolve.solve(bVec);
 
-    dst = src - GRAD * solVec;
+    dst = src - GRAD * dst;
 }
 
 template <class LinearSolver>
