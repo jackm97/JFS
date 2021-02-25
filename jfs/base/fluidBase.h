@@ -26,8 +26,6 @@ class fluidBase {
         Eigen::SparseVector<float> F;
         Eigen::SparseVector<float> SF;
 
-        SparseMatrix LAPLACEX; // scalar laplace extended for x concatenated fields
-
         // returns true if the step failed
         virtual bool calcNextStep( ) = 0;
         

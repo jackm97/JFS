@@ -19,6 +19,7 @@ class LBMSolver : public fluid2D {
         float visc; 
         // speed of sound of fluid
         float us;  
+        float dt; // physical time step
 
         LBMSolver(){};
         
@@ -59,7 +60,6 @@ class LBMSolver : public fluid2D {
         const float dxL = 1.; // LBM delta x
 
         float fps; // desired framerate of simulation
-        float dt; // physical time step
         const float dtL = 1.; // LBM delta t
         float T; // current simulation time
         unsigned int frame; // number of frames completed
@@ -71,9 +71,6 @@ class LBMSolver : public fluid2D {
         // calculates initial distribution values and sets up grid
         // dummy_dt because dt is calculated
         void initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dummy_dt);
-
-        // calls initializeGridProperties and setXGrid
-        void initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dummy_dt);
 
         bool calcNextStep( );
 

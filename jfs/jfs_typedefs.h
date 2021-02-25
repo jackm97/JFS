@@ -2,7 +2,6 @@
 #define JFS_TYPEDEFS_H
 
 #include <Eigen/Eigen>
-#include <Eigen/Sparse>
 
 namespace jfs {
 
@@ -35,7 +34,7 @@ struct Source {
     float y=0;
     float z=0;
 
-    ColorRGB color={0,0,0};
+    Eigen::Vector3f color={0,0,0};
 
     float strength;
 };

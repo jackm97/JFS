@@ -44,19 +44,6 @@ class gridBase {
 
         // make sure to change in child class
         DIMENSION_TYPE dim_type = BASE;        
-        
-        // Eigen::VectorXf X; // position values
-        // Eigen::VectorXf X0; // position values of particle at X at time t - dt (used for advecting quantities)
-
-        SparseMatrix LAPLACE; // scalar laplace
-        SparseMatrix VEC_LAPLACE; // vector laplace
-        SparseMatrix DIV; // divergence
-        SparseMatrix GRAD; // gradient
-
-        // Linear Interp Stuff
-        // Eigen::VectorXf ij0; // position values as indices of grid values (not necessarily integers)
-        // SparseMatrix linInterp; // scalar linear interpolation matrix
-        // SparseMatrix linInterpVec; // vector linear interpolation matrix
 
         // set N, L, BOUND, and dt properties
         virtual void initializeGridProperties(unsigned int N, float L, BOUND_TYPE BOUND, float dt);

@@ -20,20 +20,24 @@ JFS_INLINE void JSSFSolver3D<LinearSolver>::initialize(unsigned int N, float L, 
 
     SparseMatrix I(N*N*N*3,N*N*N*3);
     I.setIdentity();
-    ADifU = (I - visc * dt * VEC_LAPLACE);
+    Laplace(ADifU, 3);
+    ADifU = (I - visc * dt * ADifU);
     diffuseSolveU.compute(ADifU);
 
     I = SparseMatrix (N*N*N*3,N*N*N*3);
     I.setIdentity();
-    ADifS = (I - diff * dt * LAPLACEX);
+    Laplace(ADifS, 1, 3);
+    ADifS = (I - diff * dt * ADifS);
     diffuseSolveS.compute(ADifS);
 
-    projectSolve.compute(LAPLACE);
+    Laplace(AProject, 1);
+    projectSolve.compute(AProject);
 
     b.resize(N*N*N*3);
     bVec.resize(N*N*N*3);
-    sol.resize(N*N*N*3);
-    solVec.resize(N*N*N*3);
+
+    grad(GRAD);
+    div(DIV);
 }
 
 template <class LinearSolver>
@@ -105,11 +109,12 @@ JFS_INLINE void JSSFSolver3D<LinearSolver>::diffuse(Eigen::VectorXf &dst, const 
 template <class LinearSolver>
 JFS_INLINE void JSSFSolver3D<LinearSolver>::projection(Eigen::VectorXf &dst, const Eigen::VectorXf &src)
 {
+    static Eigen::VectorXf x;
     bVec = (DIV * src);
 
-    solVec = projectSolve.solve(bVec);
+    x = projectSolve.solve(bVec);
 
-    dst = src - GRAD * solVec;
+    dst = src - GRAD * x;
 }
 
 template <class LinearSolver>

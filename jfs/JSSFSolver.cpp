@@ -20,18 +20,24 @@ JFS_INLINE void JSSFSolver<LinearSolver>::initialize(unsigned int N, float L, BO
 
     SparseMatrix I(N*N*2,N*N*2);
     I.setIdentity();
-    ADifU = (I - visc * dt * VEC_LAPLACE);
+    Laplace(ADifU, 2);
+    ADifU = (I - visc * dt * ADifU);
     diffuseSolveU.compute(ADifU);
 
     I = SparseMatrix (N*N*3,N*N*3);
     I.setIdentity();
-    ADifS = (I - diff * dt * LAPLACEX);
+    Laplace(ADifS, 1, 3);
+    ADifS = (I - diff * dt * ADifS);
     diffuseSolveS.compute(ADifS);
 
-    projectSolve.compute(LAPLACE);
+    Laplace(AProject, 1);
+    projectSolve.compute(AProject);
 
     b.resize(N*N*3);
     bVec.resize(N*N*2);
+
+    grad(GRAD);
+    div(DIV);
 }
 
 template <class LinearSolver>
@@ -103,11 +109,12 @@ JFS_INLINE void JSSFSolver<LinearSolver>::diffuse(Eigen::VectorXf &dst, const Ei
 template <class LinearSolver>
 JFS_INLINE void JSSFSolver<LinearSolver>::projection(Eigen::VectorXf &dst, const Eigen::VectorXf &src)
 {
+    static Eigen::VectorXf x;
     bVec = (DIV * src);
 
-    dst = projectSolve.solve(bVec);
+    x = projectSolve.solve(bVec);
 
-    dst = src - GRAD * dst;
+    dst = src - GRAD * x;
 }
 
 template <class LinearSolver>

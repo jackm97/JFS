@@ -6,11 +6,6 @@ JFS_INLINE void grid2D::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND
 {
 
     initializeGridProperties(N, L, BOUND, dt);
-
-    Laplace(LAPLACE, 1);
-    Laplace(VEC_LAPLACE, 2);
-    div(DIV);
-    grad(GRAD);
 }
 
 
@@ -76,6 +71,9 @@ JFS_INLINE void grid2D::Laplace(SparseMatrix &dst, unsigned int dims, unsigned i
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
     tripletList.reserve(N*N*5*dims);
+
+    BOUND_TYPE tmp = BOUND;
+    BOUND = ZERO;
 
     for (int field = 0; field < fields; field++)
     {
@@ -157,6 +155,8 @@ JFS_INLINE void grid2D::Laplace(SparseMatrix &dst, unsigned int dims, unsigned i
     dst = SparseMatrix(N*N*dims*fields,N*N*dims*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(D*D) * dst;
+
+    BOUND = tmp;
 }
 
 
@@ -342,6 +342,8 @@ JFS_INLINE void grid2D::grad(SparseMatrix &dst, unsigned int fields)
 
 JFS_INLINE void grid2D::backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &ufield, float dt, int dims, int fields)
 {
+    #pragma omp parallel
+    #pragma omp for
     for (int index = 0; index < N*N; index++)
     {
         int j = std::floor(index/N);

@@ -14,8 +14,6 @@ JFS_INLINE void fluid2D::initializeFluid(unsigned int N, float L, BOUND_TYPE BOU
     
     S.resize(3*N*N);
     SF.resize(3*N*N);
-    
-    Laplace(LAPLACEX, 1, 3); // sources have three color channels
 
     resetFluid();
 }

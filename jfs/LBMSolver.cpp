@@ -35,7 +35,7 @@ JFS_INLINE void LBMSolver::initializeFluid(unsigned int N, float L, BOUND_TYPE B
     
     viscL = urefL/(uref * dx) * visc;
     tau = (3*viscL + .5);
-    this->dt = urefL/uref * dx * dtL;
+    dt = urefL/uref * dx * dtL;
 
     U.resize(N*N*2);
     
@@ -72,21 +72,6 @@ JFS_INLINE void LBMSolver::resetFluid()
     frame = 0;
 }
 
-JFS_INLINE void LBMSolver::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dummy_dt)
-{
-
-    initializeGridProperties(N, L, BOUND, dummy_dt);
-
-    // differential operators are not
-    // used for this solver so the
-    // memory associated with them
-    // is minimized
-    LAPLACE.resize(1,1);
-    VEC_LAPLACE.resize(1,1);
-    DIV.resize(1,1);
-    GRAD.resize(1,1);
-}
-
 JFS_INLINE bool LBMSolver::calcNextStep()
 {
     static Eigen::VectorXf f0;
@@ -99,6 +84,8 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         f0 = f;
         
         // stream
+        #pragma omp parallel
+        #pragma omp for 
         for (int idx=0; idx<(N*N*9); idx++)
         {
             float fiStar;
@@ -148,6 +135,8 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         }
         
         // collide
+        #pragma omp parallel
+        #pragma omp for 
         for (int idx=0; idx<(N*N*9); idx++)
         {
 

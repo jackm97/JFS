@@ -5,13 +5,7 @@ namespace jfs {
 
 JFS_INLINE void grid3D::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
 {
-
     initializeGridProperties(N, L, BOUND, dt);
-
-    Laplace(LAPLACE, 1);
-    Laplace(VEC_LAPLACE, 3);
-    div(DIV);
-    grad(GRAD);
 }
 
 
@@ -116,6 +110,9 @@ JFS_INLINE void grid3D::satisfyBC(Eigen::VectorXf &u)
 
 JFS_INLINE void grid3D::Laplace(SparseMatrix &dst, unsigned int dims, unsigned int fields)
 {
+    BOUND_TYPE tmp = BOUND;
+    BOUND = ZERO;
+
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
     tripletList.reserve(N*N*N*5*dims*fields);
@@ -233,6 +230,8 @@ JFS_INLINE void grid3D::Laplace(SparseMatrix &dst, unsigned int dims, unsigned i
     dst = SparseMatrix(N*N*N*dims*fields,N*N*N*dims*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(D*D) * dst;
+
+    BOUND = tmp;
 }
 
 
@@ -489,6 +488,8 @@ JFS_INLINE void grid3D::grad(SparseMatrix &dst, unsigned int fields)
 
 JFS_INLINE void grid3D::backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &ufield, float dt, int dims, int fields)
 {
+    #pragma omp parallel
+    #pragma omp for
     for (int index = 0; index < N*N*N; index++)
     {
         int k = std::floor(index/(N*N));
