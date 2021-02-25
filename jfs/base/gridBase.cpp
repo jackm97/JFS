@@ -4,7 +4,8 @@
 namespace jfs
 {
 
-void gridBase::initializeGridProperties(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
+template<int StorageOrder>
+void gridBase<StorageOrder>::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
 {
     this->N = N;
     this->L = L;
@@ -13,7 +14,9 @@ void gridBase::initializeGridProperties(unsigned int N, float L, BOUND_TYPE BOUN
     this->dt = dt;
 }
 
-JFS_INLINE Eigen::VectorXf gridBase::sourceTrace(Eigen::VectorXf X, const Eigen::VectorXf &ufield, int dims, float dt)
+template<int StorageOrder>
+JFS_INLINE typename gridBase<StorageOrder>::Vector_ gridBase<StorageOrder>::
+sourceTrace(Vector_ X, const Vector_ &ufield, int dims, float dt)
 {
     Eigen::VectorXi start_indices = ( X.array()/D - .5).template cast<int>();
     Eigen::VectorXf u = indexField(start_indices, ufield, dims);
@@ -24,5 +27,11 @@ JFS_INLINE Eigen::VectorXf gridBase::sourceTrace(Eigen::VectorXf X, const Eigen:
 
     return X;
 }
+
+// explicit instantiation of templates
+#ifdef JFS_STATIC
+template class gridBase<Eigen::ColMajor>;
+template class gridBase<Eigen::RowMajor>;
+#endif
 
 } // namespace jfs

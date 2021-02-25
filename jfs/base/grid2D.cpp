@@ -2,15 +2,15 @@
 
 namespace jfs {
 
-JFS_INLINE void grid2D::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
+
+template<int StorageOrder>
+JFS_INLINE void grid2D<StorageOrder>::satisfyBC(Vector_ &u)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
 
-    initializeGridProperties(N, L, BOUND, dt);
-}
-
-
-JFS_INLINE void grid2D::satisfyBC(Eigen::VectorXf &u)
-{
     int i,j;
     if (BOUND == PERIODIC)
     for (int idx=0; idx < N; idx++)
@@ -66,8 +66,14 @@ JFS_INLINE void grid2D::satisfyBC(Eigen::VectorXf &u)
 }
 
 
-JFS_INLINE void grid2D::Laplace(SparseMatrix &dst, unsigned int dims, unsigned int fields)
+template<int StorageOrder>
+JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int dims, unsigned int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
     tripletList.reserve(N*N*5*dims);
@@ -152,7 +158,7 @@ JFS_INLINE void grid2D::Laplace(SparseMatrix &dst, unsigned int dims, unsigned i
             }
         }
     }
-    dst = SparseMatrix(N*N*dims*fields,N*N*dims*fields);
+    dst = SparseMatrix_(N*N*dims*fields,N*N*dims*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(D*D) * dst;
 
@@ -160,8 +166,14 @@ JFS_INLINE void grid2D::Laplace(SparseMatrix &dst, unsigned int dims, unsigned i
 }
 
 
-JFS_INLINE void grid2D::div(SparseMatrix &dst, unsigned int fields)
+template<int StorageOrder>
+JFS_INLINE void grid2D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
     tripletList.reserve(N*N*2*2);
@@ -243,14 +255,20 @@ JFS_INLINE void grid2D::div(SparseMatrix &dst, unsigned int fields)
             }
         }
     }
-    dst = SparseMatrix(N*N*fields,N*N*2*fields);
+    dst = SparseMatrix_(N*N*fields,N*N*2*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(2*D) * dst;
 }
 
 
-JFS_INLINE void grid2D::grad(SparseMatrix &dst, unsigned int fields)
+template<int StorageOrder>
+JFS_INLINE void grid2D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
     tripletList.reserve(N*N*2*2);
@@ -335,28 +353,46 @@ JFS_INLINE void grid2D::grad(SparseMatrix &dst, unsigned int fields)
         }
     }
 
-    dst = SparseMatrix(N*N*2*fields,N*N*fields);
+    dst = SparseMatrix_(N*N*2*fields,N*N*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(2*D) * dst;
 }
 
-JFS_INLINE void grid2D::backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &ufield, float dt, int dims, int fields)
+template<int StorageOrder>
+JFS_INLINE void grid2D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &src, const Vector_ &ufield, float dt, FIELD_TYPE ftype, int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
+    int dims;
+    switch (ftype)
+    {
+    case SCALAR_FIELD:
+        dims = 1;
+        break;
+
+    case VECTOR_FIELD:
+        dims = 2;
+        break;
+    }
+
     #pragma omp parallel
     #pragma omp for
     for (int index = 0; index < N*N; index++)
     {
         int j = std::floor(index/N);
         int i = index - N*j;
-        Eigen::VectorXf X(2);
+        Vector_ X(2);
         X(0) = D*(i + .5);
         X(1) = D*(j + .5);
 
-        X = sourceTrace(X, ufield, 2, -dt);
+        X = this->sourceTrace(X, ufield, 2, -dt);
 
-        Eigen::VectorXf interp_indices = (X.array())/D - .5;
+        Vector_ interp_indices = (X.array())/D - .5;
 
-        Eigen::VectorXf interp_quant = calcLinInterp(interp_indices, src, dims, fields);
+        Vector_ interp_quant = calcLinInterp(interp_indices, src, dims, fields);
 
         Eigen::VectorXi insert_indices(2);
         insert_indices(0) = i;
@@ -366,12 +402,18 @@ JFS_INLINE void grid2D::backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &
     }
 }
 
-JFS_INLINE Eigen::VectorXf grid2D::indexField(Eigen::VectorXi indices, const Eigen::VectorXf &src, int dims, int fields)
+template<int StorageOrder>
+JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::indexField(Eigen::VectorXi indices, const Vector_ &src, int dims, int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
     int i = indices(0);
     int j = indices(1);
 
-    Eigen::VectorXf indexed_quant(dims*fields);
+    Vector_ indexed_quant(dims*fields);
 
     for (int f = 0; f < fields; f++)
     {
@@ -384,8 +426,14 @@ JFS_INLINE Eigen::VectorXf grid2D::indexField(Eigen::VectorXi indices, const Eig
     return indexed_quant;
 }
 
-JFS_INLINE void grid2D::insertIntoField(Eigen::VectorXi indices, Eigen::VectorXf q, Eigen::VectorXf &dst, int dims, int fields)
+template<int StorageOrder>
+JFS_INLINE void grid2D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, Vector_ q, Vector_ &dst, int dims, int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
     int i = indices(0);
     int j = indices(1);
 
@@ -399,9 +447,15 @@ JFS_INLINE void grid2D::insertIntoField(Eigen::VectorXi indices, Eigen::VectorXf
 }
 
 
-JFS_INLINE Eigen::VectorXf grid2D::calcLinInterp(Eigen::VectorXf interp_indices, const Eigen::VectorXf &src, int dims, unsigned int fields)
+template<int StorageOrder>
+JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::calcLinInterp(Vector_ interp_indices, const Vector_ &src, int dims, unsigned int fields)
 {
-    Eigen::VectorXf interp_quant(dims*fields);
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
+    Vector_ interp_quant(dims*fields);
 
     float i0 = interp_indices(0);
     float j0 = interp_indices(1);
@@ -483,6 +537,80 @@ JFS_INLINE Eigen::VectorXf grid2D::calcLinInterp(Eigen::VectorXf interp_indices,
 
     return interp_quant;
 }
+
+
+template<int StorageOrder>
+JFS_INLINE void grid2D<StorageOrder>::interpolateForce(const std::vector<Force> forces, SparseVector_ &dst)
+{
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
+    for (int f=0; f < forces.size(); f++)
+    {
+        const Force &force = forces[f];
+        if (force.x>L || force.y>L) continue;
+        
+        float i = force.x/D;
+        float j = force.y/D;
+
+        int i0 = std::floor(i);
+        int j0 = std::floor(j);
+
+        int dims = 2;
+        float fArr[2] = {force.Fx, force.Fy};
+        for (int dim=0; dim < dims; dim++)
+        {
+            dst.insert(N*N*dim + N*j0 + i0) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i));
+            if (i0 < (N-1))
+                dst.insert(N*N*dim + N*j0 + (i0+1)) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i));
+            if (j0 < (N-1))
+                dst.insert(N*N*dim + N*(j0+1) + i0) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i));
+            if (i0 < (N-1) && j0 < (N-1))
+                dst.insert(N*N*dim + N*(j0+1) + (i0+1)) += fArr[dim]*std::abs((j0 - j)*(i0 - i));
+        }
+    }
+}
+
+
+template<int StorageOrder>
+JFS_INLINE void grid2D<StorageOrder>::interpolateSource(const std::vector<Source> sources, SparseVector_ &dst)
+{
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
+    for (int f=0; f < sources.size(); f++)
+    {
+        const Source &source = sources[f];
+        if (source.x>L || source.y>L) continue;
+        
+        float i = source.x/D;
+        float j = source.y/D;
+
+        int i0 = std::floor(i);
+        int j0 = std::floor(j);
+
+        for (int c=0; c < 3; c++)
+        {
+            float cval = {source.color(c) * source.strength};
+            dst.insert(c*N*N + N*j0 + i0) += cval*std::abs((j0+1 - j)*(i0+1 - i));
+            if (i0 < (N-1))
+                dst.insert(c*N*N + N*j0 + (i0+1)) += cval*std::abs((j0+1 - j)*(i0 - i));
+            if (j0 < (N-1))
+                dst.insert(c*N*N + N*(j0+1) + i0) += cval*std::abs((j0 - j)*(i0+1 - i));
+            if (i0 < (N-1) && j0 < (N-1))            
+                dst.insert(c*N*N + N*(j0+1) + (i0+1)) += cval*std::abs((j0 - j)*(i0 - i));
+        }
+    }
+}
+
+// explicit instantiation of templates
+#ifdef JFS_STATIC
+template class grid2D<Eigen::ColMajor>;
+template class grid2D<Eigen::RowMajor>;
+#endif
 
 } // namespace jfs
 

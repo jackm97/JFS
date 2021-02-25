@@ -6,21 +6,21 @@
 
 namespace jfs {
 
-JFS_INLINE LBMSolver::LBMSolver(unsigned int N, float L, float fps, float rho0, float visc, float us)
+JFS_INLINE LBMSolver::LBMSolver(unsigned int N, float L, float fps, float rho0, float visc, float uref)
 {
     initialize(N, L, fps, rho0, visc, us);
 }
 
-JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, float fps, float rho0, float visc, float us)
+JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, float fps, float rho0, float visc, float uref)
 {
     this->fps = fps;
     this->rho0 = rho0;
     this->visc = visc;
-    this->us = us;
+    this->uref = uref;
     
     // lattice scaling stuff
     cs = 1/std::sqrt(3);
-    uref = urefL/cs * us;
+    us = cs/urefL * uref;
 
     // dummy dt because it is calculated
     float dummy_dt;
@@ -72,9 +72,31 @@ JFS_INLINE void LBMSolver::resetFluid()
     frame = 0;
 }
 
+JFS_INLINE void LBMSolver::getImage(Eigen::VectorXf &image)
+{
+    using grid2D = grid2D<Eigen::ColMajor>;
+    
+    auto BOUND = grid2D::BOUND;
+    auto L = grid2D::L;
+    auto N = grid2D::N;
+    auto D = grid2D::D;
+
+    if (image.rows() != N*N*3)
+        image.resize(N*N*3);
+
+    for (int i=0; i < N; i++)
+        for (int j=0; j < N; j++)
+        {
+            image(N*3*j + 0 + i*3) = this->S(0*N*N + N*j + i);
+            image(N*3*j + 1 + i*3) = this->S(1*N*N + N*j + i);
+            image(N*3*j + 2 + i*3) = this->S(2*N*N + N*j + i);
+        }
+    image = (image.array() <= 1.).select(image, 1.);
+}
+
 JFS_INLINE bool LBMSolver::calcNextStep()
 {
-    static Eigen::VectorXf f0;
+    static Vector_ f0;
 
     T += dt;
 
@@ -163,7 +185,7 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         if (badStep) return true;
 
         addForce(S, S0, SF, dt);
-        backstream(S0, S, U, dt, 1, 2);
+        backstream(S0, S, U, dt, SCALAR_FIELD, 2);
 
         T += dt;
     }
@@ -180,8 +202,8 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const s
     bool failedStep = false;
     try
     {    
-        interpolateForce(forces);
-        interpolateSource(sources);
+        interpolateForce(forces, F);
+        interpolateSource(sources, SF);
 
         failedStep = calcNextStep();
 
@@ -199,7 +221,7 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const s
     return failedStep;
 }
 
-JFS_INLINE void LBMSolver::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt)
+JFS_INLINE void LBMSolver::addForce(Vector_ &dst, const Vector_ &src, const Vector_ &force, float dt)
 {
     dst = src + dt * force ;
 }

@@ -3,14 +3,15 @@
 
 #include "jfs_inline.h"
 
-#include <jfs/base/fluid2D.h>
+#include <jfs/base/fluidBase.h>
+#include <jfs/base/grid2D.h>
 
 #include <Eigen/Eigen>
 #include <Eigen/Sparse>
 
 namespace jfs {
 
-class LBMSolver : public fluid2D {
+class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
 
     public:
         // typical density of fluid
@@ -23,23 +24,38 @@ class LBMSolver : public fluid2D {
 
         LBMSolver(){};
         
-        LBMSolver(unsigned int N, float L, float fps, float rho0=1.3, float visc = 1e-4, float us = 1);
+        LBMSolver(unsigned int N, float L, float fps, float rho0=1.3, float visc = 1e-4, float uref = 1);
 
-        void initialize(unsigned int N, float L, float fps, float rho0=1.3, float visc = 1e-4, float us = 1);
+        void initialize(unsigned int N, float L, float fps, float rho0=1.3, float visc = 1e-4, float uref = 1);
 
         void resetFluid();
+
+        void getImage(Eigen::VectorXf &img);
 
         bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
 
         ~LBMSolver(){};
 
     private:
+
+        using SparseMatrix_ = typename grid2D<Eigen::ColMajor>::SparseMatrix_;
+        using SparseVector_ = typename grid2D<Eigen::ColMajor>::SparseVector_;
+        using Vector_ = typename grid2D<Eigen::ColMajor>::Vector_;
+
         // DEV NOTES:
         // The paper uses fi to represent the discretized distribution function
         // Because of this, j,k,l are now used to index x,y,z positions on the grid
 
-        Eigen::VectorXf &f = U0; // U0 is unused for this solver, to save space it is reassigned to f (the distribution function)
-        Eigen::VectorXf rho; // calculated rho from distribution function
+        Vector_ f; // the distribution function
+        Vector_ rho; // calculated rho from distribution function
+
+        Vector_ U; 
+        
+        Vector_ S;
+        Vector_ S0;
+
+        SparseVector_ F;
+        SparseVector_ SF;
 
         Eigen::Vector2f c[9] = { // D2Q9 velocity dicretization
             {0,0},                                // i = 0
@@ -74,7 +90,7 @@ class LBMSolver : public fluid2D {
 
         bool calcNextStep( );
 
-        void addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt);
+        void addForce(Vector_ &dst, const Vector_ &src, const Vector_ &force, float dt);
 
         // calcs fbar for the ith velocity at the grid position (j,k)
         float calc_fbari(int i, int j, int k);

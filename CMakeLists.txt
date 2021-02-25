@@ -30,27 +30,25 @@ include_directories(${PROJECT_SOURCE_DIR}
 set(JFS_SOURCE_DIR ${PROJECT_SOURCE_DIR}/jfs)
 
 # Header Files
-set(JFS_HEADERS_BASE    ${JFS_SOURCE_DIR}/base/fluid2D.h
-                        ${JFS_SOURCE_DIR}/base/fluid3D.h
-                        ${JFS_SOURCE_DIR}/base/fluidBase.h
+set(JFS_HEADERS_BASE    ${JFS_SOURCE_DIR}/base/fluidBase.h
                         ${JFS_SOURCE_DIR}/base/grid2D.h
                         ${JFS_SOURCE_DIR}/base/grid3D.h
                         ${JFS_SOURCE_DIR}/base/gridBase.h)
 
 set(JFS_HEADERS_TOP     ${JFS_SOURCE_DIR}/static_build/jfs_inline.h
+                        ${JFS_SOURCE_DIR}/JSSFSolverBase.h
                         ${JFS_SOURCE_DIR}/JSSFSolver.h
                         ${JFS_SOURCE_DIR}/JSSFSolver3D.h
                         ${JFS_SOURCE_DIR}/LBMSolver.h)
 
 
 # Source Files
-set(JFS_SRC_BASE    ${JFS_SOURCE_DIR}/base/fluid2D.cpp
-                    ${JFS_SOURCE_DIR}/base/fluid3D.cpp
-                    ${JFS_SOURCE_DIR}/base/grid2D.cpp
+set(JFS_SRC_BASE    ${JFS_SOURCE_DIR}/base/grid2D.cpp
                     ${JFS_SOURCE_DIR}/base/grid3D.cpp
                     ${JFS_SOURCE_DIR}/base/gridBase.cpp)
 
-set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolver.cpp
+set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolverBase.cpp
+                ${JFS_SOURCE_DIR}/JSSFSolver.cpp
                 ${JFS_SOURCE_DIR}/JSSFSolver3D.cpp
                 ${JFS_SOURCE_DIR}/LBMSolver.cpp)
 

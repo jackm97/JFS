@@ -3,124 +3,77 @@
 
 namespace jfs {
 
-template <class LinearSolver>
-JFS_INLINE JSSFSolver3D<LinearSolver>::JSSFSolver3D(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc, float diff, float diss)
+template <class LinearSolver, int StorageOrder>
+JFS_INLINE JSSFSolver3D<LinearSolver, StorageOrder>::
+JSSFSolver3D(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc, float diff, float diss)
 {
     initialize(N, L, BOUND, dt, visc, diff, diss);
 }
 
-template <class LinearSolver>
-JFS_INLINE void JSSFSolver3D<LinearSolver>::initialize(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc, float diff, float diss)
+template <class LinearSolver, int StorageOrder>
+JFS_INLINE void JSSFSolver3D<LinearSolver, StorageOrder>::
+initialize(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc, float diff, float diss)
 {
+    using grid3D = grid3D<StorageOrder>;
+    grid3D::initializeGrid(N, L, BOUND, dt);
+
     this->visc = visc;
     this->diff = diff;
     this->diss = diss;
 
-    initializeFluid(N, L, BOUND, dt);
-
-    SparseMatrix I(N*N*N*3,N*N*N*3);
+    SparseMatrix_ I(N*N*N*3,N*N*N*3);
     I.setIdentity();
-    Laplace(ADifU, 3);
-    ADifU = (I - visc * dt * ADifU);
-    diffuseSolveU.compute(ADifU);
+    grid3D::Laplace(this->ADifU, 3);
+    this->ADifU = (I - visc * dt * this->ADifU);
+    this->diffuseSolveU.compute(this->ADifU);
 
-    I = SparseMatrix (N*N*N*3,N*N*N*3);
+    I = SparseMatrix_ (N*N*N*3,N*N*N*3);
     I.setIdentity();
-    Laplace(ADifS, 1, 3);
-    ADifS = (I - diff * dt * ADifS);
-    diffuseSolveS.compute(ADifS);
+    grid3D::Laplace(this->ADifS, 1, 3);
+    this->ADifS = (I - diff * dt * this->ADifS);
+    this->diffuseSolveS.compute(this->ADifS);
 
-    Laplace(AProject, 1);
-    projectSolve.compute(AProject);
+    grid3D::Laplace(this->AProject, 1);
+    this->projectSolve.compute(this->AProject);
 
-    b.resize(N*N*N*3);
-    bVec.resize(N*N*N*3);
+    this->b.resize(N*N*N*3);
+    this->bVec.resize(N*N*N*3);
 
-    grad(GRAD);
-    div(DIV);
-}
-
-template <class LinearSolver>
-JFS_INLINE bool JSSFSolver3D<LinearSolver>::calcNextStep()
-{
-    addForce(U, U0, F, dt);
-    backstream(U0, U, U, dt, 3);
-    diffuse(U, U0, dt, 3);
-    projection(U0, U);
-
-    addForce(S, S0, SF, dt);
-    backstream(S0, S, U0, dt, 1, 3);
-    diffuse(S, S0, dt, 1);
-    dissipate(S0, S, dt);
-    S = S0;
-
-    satisfyBC(U0);
-
-    return false;
-}
-
-template <class LinearSolver>
-JFS_INLINE bool JSSFSolver3D<LinearSolver>::calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
-{
-    bool failedStep = false;
-
-    try
-    {
-        interpolateForce(forces);
-        interpolateSource(sources);
-
-        failedStep = calcNextStep();
-
-        F.setZero();
-        SF.setZero();
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-        failedStep = true;
-    }
-
-    if (failedStep) resetFluid();
-
-    return failedStep;
-}
-
-template <class LinearSolver>
-JFS_INLINE void JSSFSolver3D<LinearSolver>::addForce(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &force, float dt)
-{
-    dst = src + dt * force ;
-}
-
-template <class LinearSolver>
-JFS_INLINE void JSSFSolver3D<LinearSolver>::diffuse(Eigen::VectorXf &dst, const Eigen::VectorXf &src, float dt, int dims)
-{
-    switch (dims)
-    {
-    case 1:
-        dst = (diffuseSolveS).solve(src);
-        break;
+    grid3D::grad(this->GRAD);
+    grid3D::div(this->DIV);
     
-    case 3:
-        dst = (diffuseSolveU).solve(src);
-        break;
-    }
+    this->U.resize(N*N*N*3);
+
+    this->F.resize(N*N*N*3);
+    
+    this->S.resize(N*N*N*3);
+    this->SF.resize(N*N*N*3);
+
+    this->resetFluid();
 }
 
-template <class LinearSolver>
-JFS_INLINE void JSSFSolver3D<LinearSolver>::projection(Eigen::VectorXf &dst, const Eigen::VectorXf &src)
+template <class LinearSolver, int StorageOrder>
+JFS_INLINE void JSSFSolver3D<LinearSolver, StorageOrder>::getImage(Eigen::VectorXf &image)
 {
-    static Eigen::VectorXf x;
-    bVec = (DIV * src);
+    using grid3D = grid3D<StorageOrder>;
+    
+    auto BOUND = grid3D::BOUND;
+    auto L = grid3D::L;
+    auto N = grid3D::N;
+    auto D = grid3D::D;
 
-    x = projectSolve.solve(bVec);
+    if (image.rows() != N*N*N*3)
+        image.resize(N*N*N*3);
 
-    dst = src - GRAD * x;
-}
-
-template <class LinearSolver>
-JFS_INLINE void JSSFSolver3D<LinearSolver>::dissipate(Eigen::VectorXf &dst, const Eigen::VectorXf &src, float dt)
-{
-    dst = 1/(1 + dt * diss) * src;
+    for (int i=0; i < N; i++)
+        for (int j=0; j < N; j++)
+            for (int k=0; k < N; k++)
+        {
+            image(N*3*N*k + N*3*j + i*3 + 0) = this->S(0*N*N*N + N*N*k + N*j + i);
+            image(N*3*N*k + N*3*j + i*3 + 1) = this->S(1*N*N*N + N*N*k + N*j + i);
+            image(N*3*N*k + N*3*j + i*3 + 2) = this->S(2*N*N*N + N*N*k + N*j + i);
+        }
+    image = (image.array() <= 1.).select(image, 1.);
 }
 
 // explicit instantiation of templates

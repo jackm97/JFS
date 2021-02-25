@@ -3,14 +3,14 @@
 
 namespace jfs {
 
-JFS_INLINE void grid3D::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::satisfyBC(Vector_ &u)
 {
-    initializeGridProperties(N, L, BOUND, dt);
-}
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
 
-
-JFS_INLINE void grid3D::satisfyBC(Eigen::VectorXf &u)
-{
     int i,j,k;
     if (BOUND == PERIODIC)
     for (int idx1=0; idx1 < N; idx1++)
@@ -107,9 +107,14 @@ JFS_INLINE void grid3D::satisfyBC(Eigen::VectorXf &u)
         }
 }
 
-
-JFS_INLINE void grid3D::Laplace(SparseMatrix &dst, unsigned int dims, unsigned int fields)
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int dims, unsigned int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
     BOUND_TYPE tmp = BOUND;
     BOUND = ZERO;
 
@@ -227,16 +232,21 @@ JFS_INLINE void grid3D::Laplace(SparseMatrix &dst, unsigned int dims, unsigned i
             }
         }
     }
-    dst = SparseMatrix(N*N*N*dims*fields,N*N*N*dims*fields);
+    dst = SparseMatrix_(N*N*N*dims*fields,N*N*N*dims*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(D*D) * dst;
 
     BOUND = tmp;
 }
 
-
-JFS_INLINE void grid3D::div(SparseMatrix &dst, unsigned int fields)
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
     tripletList.reserve(N*N*N*3*2*fields);
@@ -353,14 +363,19 @@ JFS_INLINE void grid3D::div(SparseMatrix &dst, unsigned int fields)
             }
         }
     }
-    dst = SparseMatrix(N*N*N*fields,N*N*N*dims*fields);
+    dst = SparseMatrix_(N*N*N*fields,N*N*N*dims*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(2*D) * dst;
 }
 
-
-JFS_INLINE void grid3D::grad(SparseMatrix &dst, unsigned int fields)
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
     tripletList.reserve(fields*N*N*N*3*2);
@@ -481,13 +496,31 @@ JFS_INLINE void grid3D::grad(SparseMatrix &dst, unsigned int fields)
         }
     }
 
-    dst = SparseMatrix(N*N*N*3*fields,N*N*N*fields);
+    dst = SparseMatrix_(N*N*N*3*fields,N*N*N*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(2*D) * dst;
 }
 
-JFS_INLINE void grid3D::backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &src, const Eigen::VectorXf &ufield, float dt, int dims, int fields)
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &src, const Vector_ &ufield, float dt, FIELD_TYPE ftype, int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
+    int dims;
+    switch (ftype)
+    {
+    case SCALAR_FIELD:
+        dims = 1;
+        break;
+
+    case VECTOR_FIELD:
+        dims = 3;
+        break;
+    }
+
     #pragma omp parallel
     #pragma omp for
     for (int index = 0; index < N*N*N; index++)
@@ -495,16 +528,16 @@ JFS_INLINE void grid3D::backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &
         int k = std::floor(index/(N*N));
         int j = std::floor((index-N*N*k)/N);
         int i = index - N*N*k - N*j;
-        Eigen::VectorXf X(3);
+        Vector_ X(3);
         X(0) = D*(i + .5);
         X(1) = D*(j + .5);
         X(2) = D*(k + .5);
 
-        X = sourceTrace(X, ufield, 3, -dt);
+        X = this->sourceTrace(X, ufield, 3, -dt);
 
-        Eigen::VectorXf interp_indices = (X.array())/D - .5;
+        Vector_ interp_indices = (X.array())/D - .5;
 
-        Eigen::VectorXf interp_quant = calcLinInterp(interp_indices, src, dims, fields);
+        Vector_ interp_quant = calcLinInterp(interp_indices, src, dims, fields);
 
         Eigen::VectorXi insert_indices(3);
         insert_indices(0) = i;
@@ -515,13 +548,20 @@ JFS_INLINE void grid3D::backstream(Eigen::VectorXf &dst, const Eigen::VectorXf &
     }
 }
 
-JFS_INLINE Eigen::VectorXf grid3D::indexField(Eigen::VectorXi indices, const Eigen::VectorXf &src, int dims, int fields)
+template<int StorageOrder>
+JFS_INLINE typename grid3D<StorageOrder>::Vector_ grid3D<StorageOrder>::
+indexField(Eigen::VectorXi indices, const Vector_ &src, int dims, int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
     int i = indices(0);
     int j = indices(1);
     int k = indices(2);
 
-    Eigen::VectorXf indexed_quant(dims*fields);
+    Vector_ indexed_quant(dims*fields);
 
     for (int f = 0; f < fields; f++)
     {
@@ -534,8 +574,14 @@ JFS_INLINE Eigen::VectorXf grid3D::indexField(Eigen::VectorXi indices, const Eig
     return indexed_quant;
 }
 
-JFS_INLINE void grid3D::insertIntoField(Eigen::VectorXi indices, Eigen::VectorXf q, Eigen::VectorXf &dst, int dims, int fields)
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, Vector_ q, Vector_ &dst, int dims, int fields)
 {
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
     int i = indices(0);
     int j = indices(1);
     int k = indices(2);
@@ -550,9 +596,16 @@ JFS_INLINE void grid3D::insertIntoField(Eigen::VectorXi indices, Eigen::VectorXf
 }
 
 
-JFS_INLINE Eigen::VectorXf grid3D::calcLinInterp(Eigen::VectorXf interp_indices, const Eigen::VectorXf &src, int dims, unsigned int fields)
+template<int StorageOrder>
+JFS_INLINE typename grid3D<StorageOrder>::Vector_ grid3D<StorageOrder>::
+calcLinInterp(Vector_ interp_indices, const Vector_ &src, int dims, unsigned int fields)
 {
-    Eigen::VectorXf interp_quant(dims*fields);
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
+    Vector_ interp_quant(dims*fields);
 
     float i0 = interp_indices(0);
     float j0 = interp_indices(1);
@@ -680,6 +733,101 @@ JFS_INLINE Eigen::VectorXf grid3D::calcLinInterp(Eigen::VectorXf interp_indices,
 
     return interp_quant;
 }
+
+
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::interpolateForce(const std::vector<Force> forces, SparseVector_ &dst)
+{
+    auto BOUND = this->BOUND;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+    
+    for (int f=0; f < forces.size(); f++)
+    {
+        const Force &force = forces[f];
+        if (force.x>L || force.y>L) continue;
+        
+        float i = force.x/D;
+        float j = force.y/D;
+        float k = force.z/D;
+
+        int i0 = std::floor(i);
+        int j0 = std::floor(j);
+        int k0 = std::floor(k);
+
+        int dims = 3;
+        float fArr[3] = {force.Fx, force.Fy, force.Fz};
+        for (int dim=0; dim < dims; dim++)
+        {
+            dst.insert(N*N*N*dim + N*N*k0 + N*j0 + i0) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i)*(k0+1 - i));
+            if (i0 < (N-1))
+                dst.insert(N*N*N*dim + N*N*k0 + N*j0 + (i0+1)) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i)*(k0+1 - i));
+            if (j0 < (N-1))
+                dst.insert(N*N*N*dim + N*N*k0 + N*(j0+1) + i0) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i)*(k0+1 - i));
+            if (k0 < (N-1))
+                dst.insert(N*N*N*dim + N*N*(k0+1) + N*j0 + i0) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i)*(k0 - i));
+            if (i0 < (N-1) && j0 < (N-1))
+                dst.insert(N*N*N*dim + N*N*k0 + N*(j0+1) + (i0+1)) += fArr[dim]*std::abs((j0 - j)*(i0 - i)*(k0+1 - i));
+            if (i0 < (N-1) && k0 < (N-1))
+                dst.insert(N*N*N*dim + N*N*(k0+1) + N*j0 + (i0+1)) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i)*(k0 - i));
+            if (j0 < (N-1) && k0 < (N-1))
+                dst.insert(N*N*N*dim + N*N*(k0+1) + N*(j0+1) + i0) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i)*(k0 - i));
+            if (i0 < (N-1) && j0 < (N-1) && k0 < (N-1))
+                dst.insert(N*N*N*dim + N*N*(k0+1) + N*(j0+1) + (i0+1)) += fArr[dim]*std::abs((j0 - j)*(i0 - i)*(k0 - i));
+        }
+    }
+}
+
+
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::interpolateSource(const std::vector<Source> sources, SparseVector_ &dst)
+{
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
+    for (int f=0; f < sources.size(); f++)
+    {
+        const Source &source = sources[f];
+        if (source.x>L || source.y>L) continue;
+        
+        float i = source.x/D;
+        float j = source.y/D;
+        float k = source.z/D;
+
+        int i0 = std::floor(i);
+        int j0 = std::floor(j);
+        int k0 = std::floor(k);
+
+        for (int c=0; c < 3; c++)
+        {
+            float cval = {source.color(c) * source.strength};
+
+            dst.insert(N*N*N*c + N*N*k0 + N*j0 + i0) += cval*std::abs((j0+1 - j)*(i0+1 - i)*(k0+1 - i));
+            if (i0 < (N-1))
+                dst.insert(N*N*N*c + N*N*k0 + N*j0 + (i0+1)) += cval*std::abs((j0+1 - j)*(i0 - i)*(k0+1 - i));
+            if (j0 < (N-1))
+                dst.insert(N*N*N*c + N*N*k0 + N*(j0+1) + i0) += cval*std::abs((j0 - j)*(i0+1 - i)*(k0+1 - i));
+            if (k0 < (N-1))
+                dst.insert(N*N*N*c + N*N*(k0+1) + N*j0 + i0) += cval*std::abs((j0+1 - j)*(i0+1 - i)*(k0 - i));
+            if (i0 < (N-1) && j0 < (N-1))
+                dst.insert(N*N*N*c + N*N*k0 + N*(j0+1) + (i0+1)) += cval*std::abs((j0 - j)*(i0 - i)*(k0+1 - i));
+            if (i0 < (N-1) && k0 < (N-1))
+                dst.insert(N*N*N*c + N*N*(k0+1) + N*j0 + (i0+1)) += cval*std::abs((j0+1 - j)*(i0 - i)*(k0 - i));
+            if (j0 < (N-1) && k0 < (N-1))
+                dst.insert(N*N*N*c + N*N*(k0+1) + N*(j0+1) + i0) += cval*std::abs((j0 - j)*(i0+1 - i)*(k0 - i));
+            if (i0 < (N-1) && j0 < (N-1) && k0 < (N-1))
+                dst.insert(N*N*N*c + N*N*(k0+1) + N*(j0+1) + (i0+1)) += cval*std::abs((j0 - j)*(i0 - i)*(k0 - i));
+        }
+    }
+}
+
+// explicit instantiation of templates
+#ifdef JFS_STATIC
+template class grid3D<Eigen::ColMajor>;
+template class grid3D<Eigen::RowMajor>;
+#endif
 
 } // namespace jfs
 
