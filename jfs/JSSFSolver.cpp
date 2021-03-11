@@ -5,17 +5,17 @@ namespace jfs {
 
 template <class LinearSolver, int StorageOrder>
 JFS_INLINE JSSFSolver<LinearSolver, StorageOrder>::
-JSSFSolver(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc, float diff, float diss)
+JSSFSolver(unsigned int N, float L, BoundType btype, float dt, float visc, float diff, float diss)
 {
-    initialize(N, L, BOUND, dt, visc, diff, diss);
+    initialize(N, L, btype, dt, visc, diff, diss);
 }
 
 template <class LinearSolver, int StorageOrder>
 JFS_INLINE void JSSFSolver<LinearSolver, StorageOrder>::
-initialize(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc, float diff, float diss)
+initialize(unsigned int N, float L, BoundType btype, float dt, float visc, float diff, float diss)
 {
     using grid2D = grid2D<StorageOrder>;
-    grid2D::initializeGrid(N, L, BOUND, dt);
+    grid2D::initializeGrid(N, L, btype, dt);
 
     this->visc = visc;
     this->diff = diff;
@@ -57,7 +57,7 @@ JFS_INLINE void JSSFSolver<LinearSolver, StorageOrder>::getImage(Eigen::VectorXf
 {
     using grid2D = grid2D<StorageOrder>;
     
-    auto BOUND = grid2D::BOUND;
+    auto btype = grid2D::bound_type_;
     auto L = grid2D::L;
     auto N = grid2D::N;
     auto D = grid2D::D;

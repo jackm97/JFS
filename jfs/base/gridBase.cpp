@@ -5,12 +5,12 @@ namespace jfs
 {
 
 template<int StorageOrder>
-void gridBase<StorageOrder>::initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt)
+void gridBase<StorageOrder>::initializeGrid(unsigned int N, float L, BoundType btype, float dt)
 {
     this->N = N;
     this->L = L;
     this->D = L/(N-1);
-    this->BOUND = BOUND;
+    this->bound_type_ = btype;
     this->dt = dt;
 }
 

@@ -18,9 +18,6 @@ class fluidBase {
         ~fluidBase(){}
 
     protected:
-
-        // returns true if the step failed
-        virtual bool calcNextStep( ) = 0;
 };
 } // namespace jfs
 

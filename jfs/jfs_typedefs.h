@@ -7,13 +7,14 @@ namespace jfs {
 
 typedef enum {
     ZERO,
-    PERIODIC
-} BOUND_TYPE;
+    PERIODIC,
+    DAMPED
+} BoundType;
 
 typedef enum {
     VECTOR_FIELD,
     SCALAR_FIELD
-} FIELD_TYPE;
+} FieldType;
 
 struct Force {
     float x=0;

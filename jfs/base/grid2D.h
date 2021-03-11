@@ -51,7 +51,7 @@ class grid2D: virtual public gridBase<StorageOrder> {
         //      Vector_ &u - velocity used to stream quantity
         //      float dt - time step
         //      float dims - dimensions of grid quantity
-        virtual void backstream(Vector_ &dst, const Vector_ &src, const Vector_ &u, float dt, FIELD_TYPE ftype, int fields=1);
+        virtual void backstream(Vector_ &dst, const Vector_ &src, const Vector_ &u, float dt, FieldType ftype, int fields=1);
 
         // calculate Interpolation operator from grid values to point
         // Inputs:

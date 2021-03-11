@@ -6,13 +6,13 @@ namespace jfs {
 template<int StorageOrder>
 JFS_INLINE void grid2D<StorageOrder>::satisfyBC(Vector_ &u)
 {
-    auto BOUND = this->BOUND;
+    auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
 
     int i,j;
-    if (BOUND == PERIODIC)
+    if (btype == PERIODIC)
     for (int idx=0; idx < N; idx++)
     {
         // top
@@ -40,7 +40,7 @@ JFS_INLINE void grid2D<StorageOrder>::satisfyBC(Vector_ &u)
         u(N*N*1 + N*j + i) = u(N*N*1 + N*j + (i+(N-1)));
     }
 
-    else if (BOUND == ZERO)
+    else if (btype == ZERO)
     for (int idx=0; idx < N; idx++)
     {
         // top
@@ -69,7 +69,7 @@ JFS_INLINE void grid2D<StorageOrder>::satisfyBC(Vector_ &u)
 template<int StorageOrder>
 JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int dims, unsigned int fields)
 {
-    auto BOUND = this->BOUND;
+    auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
@@ -78,8 +78,7 @@ JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
     std::vector<T> tripletList;
     tripletList.reserve(N*N*5*dims);
 
-    BOUND_TYPE tmp = BOUND;
-    BOUND = ZERO;
+    btype = ZERO;
 
     for (int field = 0; field < fields; field++)
     {
@@ -98,7 +97,7 @@ JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
                     //x,y+h
                     jMat = field*dims*N*N + dim*N*N + (j+1)*N + i;
                     if ((j+1) >= N)
-                        switch (BOUND)
+                        switch (btype)
                         {
                             case ZERO:
                                 break;
@@ -113,7 +112,7 @@ JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
                     //x,y-h
                     jMat = field*dims*N*N + dim*N*N + (j-1)*N + i;
                     if ((j-1) < 0)
-                        switch (BOUND)
+                        switch (btype)
                         {
                             case ZERO:
                                 break;
@@ -128,7 +127,7 @@ JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
                     //x+h,y
                     jMat = field*dims*N*N + dim*N*N + j*N + (i+1);
                     if ((i+1) >= N)
-                        switch (BOUND)
+                        switch (btype)
                         {
                             case ZERO:
                                 break;
@@ -143,7 +142,7 @@ JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
                     //x-h,y
                     jMat = field*dims*N*N + dim*N*N + j*N + i-1;
                     if ((i-1) < 0)
-                        switch (BOUND)
+                        switch (btype)
                         {
                             case ZERO:
                                 break;
@@ -161,15 +160,13 @@ JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
     dst = SparseMatrix_(N*N*dims*fields,N*N*dims*fields);
     dst.setFromTriplets(tripletList.begin(), tripletList.end());
     dst = 1.f/(D*D) * dst;
-
-    BOUND = tmp;
 }
 
 
 template<int StorageOrder>
 JFS_INLINE void grid2D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int fields)
 {
-    auto BOUND = this->BOUND;
+    auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
@@ -194,7 +191,7 @@ JFS_INLINE void grid2D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
                 //x+h,y
                 jMat = field*dims*N*N + dim*N*N + j*N + (i+1);
                 if ((i+1) >= N)
-                    switch (BOUND)
+                    switch (btype)
                     {
                         case ZERO:
                             break;
@@ -209,7 +206,7 @@ JFS_INLINE void grid2D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
                 //x-h,y
                 jMat = field*dims*N*N + dim*N*N + j*N + i-1;
                 if ((i-1) < 0)
-                    switch (BOUND)
+                    switch (btype)
                     {
                         case ZERO:
                             break;
@@ -226,7 +223,7 @@ JFS_INLINE void grid2D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
                 //x,y+h
                 jMat = field*dims*N*N + dim*N*N + (j+1)*N + i;
                 if ((j+1) >= N)
-                    switch (BOUND)
+                    switch (btype)
                     {
                         case ZERO:
                             break;
@@ -241,7 +238,7 @@ JFS_INLINE void grid2D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
                 //x,y-h
                 jMat = dim*N*N + (j-1)*N + i;
                 if ((j-1) < 0)
-                    switch (BOUND)
+                    switch (btype)
                     {
                         case ZERO:
                             break;
@@ -264,7 +261,7 @@ JFS_INLINE void grid2D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
 template<int StorageOrder>
 JFS_INLINE void grid2D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fields)
 {
-    auto BOUND = this->BOUND;
+    auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
@@ -290,7 +287,7 @@ JFS_INLINE void grid2D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
                 //x+h,y
                 jMat = field*dims*N*N + j*N + (i+1);
                 if ((i+1) >= N)
-                    switch (BOUND)
+                    switch (btype)
                     {
                         case ZERO:
                             break;
@@ -305,7 +302,7 @@ JFS_INLINE void grid2D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
                 //x-h,y
                 jMat = field*dims*N*N + j*N + i-1;
                 if ((i-1) < 0)
-                    switch (BOUND)
+                    switch (btype)
                     {
                         case ZERO:
                             break;
@@ -323,7 +320,7 @@ JFS_INLINE void grid2D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
                 //x,y+h
                 jMat = field*dims*N*N + (j+1)*N + i;
                 if ((j+1) >= N)
-                    switch (BOUND)
+                    switch (btype)
                     {
                         case ZERO:
                             break;
@@ -338,7 +335,7 @@ JFS_INLINE void grid2D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
                 //x,y-h
                 jMat = field*dims*N*N + (j-1)*N + i;
                 if ((j-1) < 0)
-                    switch (BOUND)
+                    switch (btype)
                     {
                         case ZERO:
                             break;
@@ -359,9 +356,9 @@ JFS_INLINE void grid2D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
 }
 
 template<int StorageOrder>
-JFS_INLINE void grid2D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &src, const Vector_ &ufield, float dt, FIELD_TYPE ftype, int fields)
+JFS_INLINE void grid2D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &src, const Vector_ &ufield, float dt, FieldType ftype, int fields)
 {
-    auto BOUND = this->BOUND;
+    auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
@@ -378,8 +375,6 @@ JFS_INLINE void grid2D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &sr
         break;
     }
 
-    #pragma omp parallel
-    #pragma omp for
     for (int index = 0; index < N*N; index++)
     {
         int j = std::floor(index/N);
@@ -405,7 +400,7 @@ JFS_INLINE void grid2D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &sr
 template<int StorageOrder>
 JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::indexField(Eigen::VectorXi indices, const Vector_ &src, int dims, int fields)
 {
-    auto BOUND = this->BOUND;
+    auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
@@ -429,7 +424,7 @@ JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::indexFie
 template<int StorageOrder>
 JFS_INLINE void grid2D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, Vector_ q, Vector_ &dst, int dims, int fields)
 {
-    auto BOUND = this->BOUND;
+    auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
@@ -450,7 +445,7 @@ JFS_INLINE void grid2D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, V
 template<int StorageOrder>
 JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::calcLinInterp(Vector_ interp_indices, const Vector_ &src, int dims, unsigned int fields)
 {
-    auto BOUND = this->BOUND;
+    auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
@@ -460,7 +455,7 @@ JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::calcLinI
     float i0 = interp_indices(0);
     float j0 = interp_indices(1);
 
-    switch (BOUND)
+    switch (btype)
     {
         case ZERO:
             i0 = (i0 < 0) ? 0:i0;
@@ -542,7 +537,7 @@ JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::calcLinI
 template<int StorageOrder>
 JFS_INLINE void grid2D<StorageOrder>::interpolateForce(const std::vector<Force> forces, SparseVector_ &dst)
 {
-    auto BOUND = this->BOUND;
+    auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;

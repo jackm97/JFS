@@ -11,6 +11,8 @@
 
 namespace jfs {
 
+struct PressureWave;
+
 class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
 
     public:
@@ -24,9 +26,9 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
 
         LBMSolver(){};
         
-        LBMSolver(unsigned int N, float L, float fps, float rho0=1.3, float visc = 1e-4, float uref = 1);
+        LBMSolver(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0=1.3, float visc = 1e-4, float uref = 1);
 
-        void initialize(unsigned int N, float L, float fps, float rho0=1.3, float visc = 1e-4, float uref = 1);
+        void initialize(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0=1.3, float visc = 1e-4, float uref = 1);
 
         void resetFluid();
 
@@ -34,9 +36,21 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
 
         bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
 
+        bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources, const std::vector<PressureWave> p_waves);
+
+        // density visualization
+
+        void setDensityVisBounds(float minrho, float maxrho);
+
+        void getCurrentDensityBounds(float minmax_rho[2]);
+
+        void enableDensityViewMode(bool use);
+
         ~LBMSolver(){};
 
     private:
+
+        bool view_density_ = false;
 
         using SparseMatrix_ = typename grid2D<Eigen::ColMajor>::SparseMatrix_;
         using SparseVector_ = typename grid2D<Eigen::ColMajor>::SparseVector_;
@@ -69,6 +83,8 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
             1./36., 1./36., 1./36., 1./36., // i = 5, 6, 7, 8 
         };
 
+        int iter_per_frame;
+
         float uref; // physical reference velocity scale
         const float urefL = .2; // LBM reference velocity
 
@@ -78,17 +94,17 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
         float fps; // desired framerate of simulation
         const float dtL = 1.; // LBM delta t
         float T; // current simulation time
-        unsigned int frame; // number of frames completed
 
         float viscL; // lattice viscosity
         float cs; // lattice speed of sound
         float tau; // relaxation time in lattice units
-        
-        // calculates initial distribution values and sets up grid
-        // dummy_dt because dt is calculated
-        void initializeFluid(unsigned int N, float L, BOUND_TYPE BOUND, float dummy_dt);
 
-        bool calcNextStep( );
+        float minrho;
+        float maxrho;
+
+    private:
+
+        bool calcNextStep( std::vector<PressureWave> p_waves );
 
         void addForce(Vector_ &dst, const Vector_ &src, const Vector_ &force, float dt);
 
@@ -102,7 +118,6 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
         // CURRENTLY NOT SUPPORTED: DONT USE
         // ISSUE: Changing uref changes the lattice speed of sound
         // need to update velocity discretization accordingly (c = sqrt(3)*cs)
-        // The streaming step will need to instead be
         void adj_uref();
 
         // calcs rho and U fields
@@ -110,6 +125,31 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
 
         void calcPhysicalVals(int j, int k);
 
+        void forceVelocity(int i, int j, float ux, float uy);
+
+        void doPressureWave(PressureWave p_wave);
+
+        void doBoundaryDamping();
+
+        void getDensityImage(Eigen::VectorXf &image);
+
+        void getSourceImage(Eigen::VectorXf &image);
+
+};
+
+struct PressureWave
+{
+    Eigen::Vector3f x = Eigen::Vector3f::Zero(); // center position
+    
+    Eigen::Vector3f u = Eigen::Vector3f::Zero(); // center speed
+
+    float u_imp = 0; // peak fluid speed
+
+    float radius = 0; // pressure wave
+
+    float t_start = 0; // start time
+
+    bool skadoosh = false;
 };
 
 } // namespace jfs

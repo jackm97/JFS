@@ -85,7 +85,7 @@ projection(Vector_ &dst, const Vector_ &src)
 
 template <class LinearSolver, int StorageOrder>
 JFS_INLINE void JSSFSolverBase<LinearSolver, StorageOrder>::
-diffuse(Vector_ &dst, const Vector_ &src, float dt, FIELD_TYPE ftype)
+diffuse(Vector_ &dst, const Vector_ &src, float dt, FieldType ftype)
 {
     switch (ftype)
     {

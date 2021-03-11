@@ -21,19 +21,13 @@ namespace jfs {
 // where field represents the color from 0-2. Vector quantities
 // would be indexed like vector(N*N*2*field + N*N*dim + N*j + i)
 
-typedef enum {
-    BASE = -1,
-    DIM2 = 2,
-    DIM3 = 3
-} DIMENSION_TYPE;
-
 template <int StorageOrder>
 class gridBase {
     public:
         
         gridBase(){}
         
-        BOUND_TYPE BOUND;
+        BoundType bound_type_;
         
         unsigned int N; // num pixels/voxels per side
         float L; // grid side length
@@ -47,12 +41,9 @@ class gridBase {
         typedef Eigen::SparseVector<float, StorageOrder> SparseVector_;
         typedef Eigen::VectorXf Vector_;
 
-        // make sure to change in child class
-        DIMENSION_TYPE dim_type = BASE; 
-
         // calls initializeGridProperties and setXGrid
         // calculates LAPLACE, VEC_LAPLACE, DIV, and GRAD
-        void initializeGrid(unsigned int N, float L, BOUND_TYPE BOUND, float dt);
+        void initializeGrid(unsigned int N, float L, BoundType btype, float dt);
 
         // satisfy boundary conditions for based off BOUND property
         // Inputs:
@@ -93,7 +84,7 @@ class gridBase {
         //      Vector_ &u - velocity used to stream quantity
         //      float dt - time step
         //      float dims - dimensions of grid quantity
-        virtual void backstream(Vector_ &dst, const Vector_ &src, const Vector_ &u, float dt, FIELD_TYPE ftype, int fields=1) = 0;
+        virtual void backstream(Vector_ &dst, const Vector_ &src, const Vector_ &u, float dt, FieldType ftype, int fields=1) = 0;
 
         // determines the location of a partice on a grid node at time t+dt
         // Inputs:

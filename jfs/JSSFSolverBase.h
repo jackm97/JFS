@@ -17,7 +17,7 @@ class JSSFSolverBase : virtual public fluidBase, virtual public gridBase<Storage
     public:
         JSSFSolverBase(){};
 
-        virtual void initialize(unsigned int N, float L, BOUND_TYPE BOUND, float dt, float visc=0, float diff=0, float diss=0) = 0;
+        virtual void initialize(unsigned int N, float L, BoundType btype, float dt, float visc=0, float diff=0, float diss=0) = 0;
 
         void resetFluid();
 
@@ -62,7 +62,7 @@ class JSSFSolverBase : virtual public fluidBase, virtual public gridBase<Storage
 
         void projection(Vector_ &dst, const Vector_ &src);
 
-        void diffuse(Vector_ &dst, const Vector_ &src, float dt, FIELD_TYPE ftype);
+        void diffuse(Vector_ &dst, const Vector_ &src, float dt, FieldType ftype);
 
         void dissipate(Vector_ &dst, const Vector_ &src, float dt);
 };
