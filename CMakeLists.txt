@@ -64,8 +64,3 @@ install(FILES ${JFS_HEADERS_BASE} DESTINATION ${INSTALL_PATH}/include/jfs/base)
 
 # Installation of dependencies
 install(DIRECTORY ${EIGEN_PATH}/Eigen DESTINATION ${INSTALL_PATH}/include/jfs)
-
-find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(jfs PRIVATE OpenMP::OpenMP_CXX)
-endif()
