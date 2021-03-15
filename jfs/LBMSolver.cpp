@@ -136,8 +136,6 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
     auto N = grid2D::N;
     auto D = grid2D::D;
 
-    #include <jfs/inferno.h>
-
     float minrho_ = rho(0);
     float maxrho_ = rho(0);
     float meanrho_ = rho.mean();
@@ -189,9 +187,6 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
             map_idx = (map_idx < 0) ? 0 : map_idx;
 
             Vector_ color(3);
-            // color(0) = inferno[map_idx][0];
-            // color(1) = inferno[map_idx][1];
-            // color(2) = inferno[map_idx][2];
             color(0) = (float) map_idx / 255;
             color(1) = (float) map_idx / 255;
             color(2) = (float) map_idx / 255;
@@ -240,18 +235,13 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
     float t_start = p_wave.t_start;
 
-    float period = u_imp / (r_real * 4);
-    float Hz = 1/period;
-    float w = 2* M_PI * Hz;
+    float w = u_imp / r_real;
+    float Hz = w / (2 * M_PI);
+    float period = 1/Hz;
     u_imp *= r_real * std::cos(w * (T-t_start));
 
-    float max_time = (p_wave.skadoosh) ? 1/(2*Hz) : 1/(4*Hz);
-
-    if ( (T-t_start) > 1/(2*Hz) )
+    if ( (T-t_start) > period/2 )
         return;
-
-    if ( (T-t_start) > max_time )
-        u_imp = 0;
 
     int r = (r_real * std::sin(w * (T-t_start)))/dx;
     
@@ -274,7 +264,7 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    if ( idx_check && speed_check )
+    if ( (idx_check && speed_check) || p_wave.skadoosh )
         forceVelocity(indices(0),indices(1), ux, uy);
       
     // When radius is zero only a single 
@@ -294,20 +284,13 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( idx_check && speed_check )
+        if ( (idx_check && speed_check) || p_wave.skadoosh )
             forceVelocity(indices(0),indices(1), ux, uy);
 
         // 2
         indices(0) = i + y;
         indices(1) = j + x;
         
-        dir(0) = x;
-        dir(1) = y;
-        dir.normalize();
-
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
-        
         dir(0) = (float) indices(0) - i;
         dir(1) = (float) indices(1) - j;
         dir.normalize();
@@ -317,20 +300,13 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( idx_check && speed_check )
+        if ( (idx_check && speed_check) || p_wave.skadoosh )
             forceVelocity(indices(0),indices(1), ux, uy);
 
         // 3
         indices(0) = i - y;
         indices(1) = j + x;
         
-        dir(0) = x;
-        dir(1) = y;
-        dir.normalize();
-
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
-        
         dir(0) = (float) indices(0) - i;
         dir(1) = (float) indices(1) - j;
         dir.normalize();
@@ -340,7 +316,7 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( idx_check && speed_check )
+        if ( (idx_check && speed_check) || p_wave.skadoosh )
             forceVelocity(indices(0),indices(1), ux, uy);
     } 
       
@@ -371,36 +347,22 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
         indices(0) = i + x;
         indices(1) = j + y;
         
-        dir(0) = x;
-        dir(1) = y;
-        dir.normalize();
-
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
-        
         dir(0) = (float) indices(0) - i;
         dir(1) = (float) indices(1) - j;
         dir.normalize();
-
+        
         ux = dir(0) * u_imp + p_wave.u(0);
         uy = dir(1) * u_imp + p_wave.u(1);
 
         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( idx_check && speed_check )
+        if ( (idx_check && speed_check) || p_wave.skadoosh )
             forceVelocity(indices(0),indices(1), ux, uy);
 
         // 2 
         indices(0) = i - x;
         indices(1) = j + y;
         
-        dir(0) = x;
-        dir(1) = y;
-        dir.normalize();
-
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
-        
         dir(0) = (float) indices(0) - i;
         dir(1) = (float) indices(1) - j;
         dir.normalize();
@@ -410,20 +372,13 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( idx_check && speed_check )
+        if ( (idx_check && speed_check) || p_wave.skadoosh )
             forceVelocity(indices(0),indices(1), ux, uy);
 
         // 3 
         indices(0) = i + x;
         indices(1) = j - y;
         
-        dir(0) = x;
-        dir(1) = y;
-        dir.normalize();
-
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
-        
         dir(0) = (float) indices(0) - i;
         dir(1) = (float) indices(1) - j;
         dir.normalize();
@@ -433,20 +388,13 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( idx_check && speed_check )
+        if ( (idx_check && speed_check) || p_wave.skadoosh )
             forceVelocity(indices(0),indices(1), ux, uy);
 
         // 4 
         indices(0) = i - x;
         indices(1) = j - y;
         
-        dir(0) = x;
-        dir(1) = y;
-        dir.normalize();
-
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
-        
         dir(0) = (float) indices(0) - i;
         dir(1) = (float) indices(1) - j;
         dir.normalize();
@@ -456,7 +404,7 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( idx_check && speed_check )
+        if ( (idx_check && speed_check) || p_wave.skadoosh )
             forceVelocity(indices(0),indices(1), ux, uy);
           
         // If the generated point is on the line x = y then  
@@ -467,13 +415,6 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
             indices(0) = i + y;
             indices(1) = j + x;
             
-            dir(0) = x;
-            dir(1) = y;
-            dir.normalize();
-
-            ux = dir(0) * u_imp + p_wave.u(0);
-            uy = dir(1) * u_imp + p_wave.u(1);
-            
             dir(0) = (float) indices(0) - i;
             dir(1) = (float) indices(1) - j;
             dir.normalize();
@@ -483,20 +424,13 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
             idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
             speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-            if ( idx_check && speed_check )
+            if ( (idx_check && speed_check) || p_wave.skadoosh )
                 forceVelocity(indices(0),indices(1), ux, uy);
 
             // 2 
             indices(0) = i - y;
             indices(1) = j + x;
             
-            dir(0) = x;
-            dir(1) = y;
-            dir.normalize();
-
-            ux = dir(0) * u_imp + p_wave.u(0);
-            uy = dir(1) * u_imp + p_wave.u(1);
-            
             dir(0) = (float) indices(0) - i;
             dir(1) = (float) indices(1) - j;
             dir.normalize();
@@ -506,20 +440,13 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
             idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
             speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-            if ( idx_check && speed_check )
+            if ( (idx_check && speed_check) || p_wave.skadoosh )
                 forceVelocity(indices(0),indices(1), ux, uy);
 
             // 3 
             indices(0) = i + y;
             indices(1) = j - x;
             
-            dir(0) = x;
-            dir(1) = y;
-            dir.normalize();
-
-            ux = dir(0) * u_imp + p_wave.u(0);
-            uy = dir(1) * u_imp + p_wave.u(1);
-            
             dir(0) = (float) indices(0) - i;
             dir(1) = (float) indices(1) - j;
             dir.normalize();
@@ -529,20 +456,13 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
             idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
             speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-            if ( idx_check && speed_check )
+            if ( (idx_check && speed_check) || p_wave.skadoosh )
                 forceVelocity(indices(0),indices(1), ux, uy);
 
             // 4 
             indices(0) = i - y;
             indices(1) = j - x;
             
-            dir(0) = x;
-            dir(1) = y;
-            dir.normalize();
-
-            ux = dir(0) * u_imp + p_wave.u(0);
-            uy = dir(1) * u_imp + p_wave.u(1);
-            
             dir(0) = (float) indices(0) - i;
             dir(1) = (float) indices(1) - j;
             dir.normalize();
@@ -552,7 +472,7 @@ JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
 
             idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
             speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-            if ( idx_check && speed_check )
+            if ( (idx_check && speed_check) || p_wave.skadoosh )
                 forceVelocity(indices(0),indices(1), ux, uy);
         } 
     } 
