@@ -48,7 +48,7 @@ class gridBase {
         // satisfy boundary conditions for based off BOUND property
         // Inputs:
         //      Vector_ &u - velocity field to be updated
-        virtual void satisfyBC(Vector_ &u) = 0;
+        virtual void satisfyBC(Vector_ &dst, FieldType ftype, int fields=1) = 0;
 
         // calculate Laplace operator
         // Inputs:
@@ -75,7 +75,7 @@ class gridBase {
         //      Vector_ &ij0 - grid index values used to interpolate, can be floats
         //      int dims - dimensions of quantity to be interpolated
         //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual Vector_ calcLinInterp(Vector_ interp_indices, const Vector_ &src, int dims, unsigned int fields=1) = 0;
+        virtual Vector_ calcLinInterp(Vector_ interp_indices, const Vector_ &src, FieldType ftype, unsigned int fields=1) = 0;
 
         // backstreams a quantity on the grid
         // Inputs:
@@ -92,7 +92,7 @@ class gridBase {
         //      Vector_ &X - desitination at t 
         //      Vector_ &u - velocity used to stream quantity
         //      float dt - time step
-        virtual Vector_ sourceTrace(Vector_ X, const Vector_ &ufield, int dims, float dt);
+        virtual Vector_ sourceTrace(Vector_ X, const Vector_ &ufield, float dt);
 
         // indexes a scalar or vector field
         // Inputs:
@@ -102,7 +102,7 @@ class gridBase {
         //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
         // Returns:
         //      Vector_ q - indexed quantity where q(dims*field + dim) is stored structure
-        virtual Vector_ indexField(Eigen::VectorXi indices, const Vector_ &src, int dims, int fields=1) = 0;
+        virtual Vector_ indexField(Eigen::VectorXi indices, const Vector_ &src, FieldType ftype, int fields=1) = 0;
 
         // inserts a scalar or vector into field
         // Inputs:
@@ -111,7 +111,7 @@ class gridBase {
         //      Vector_ &dst - field quantity inserting into
         //      int dims - dimensions of quantity to be interpolated
         //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual void insertIntoField(Eigen::VectorXi indices, Vector_ q, Vector_ &dst, int dims, int fields=1) = 0;
+        virtual void insertIntoField(Eigen::VectorXi indices, Vector_ q, Vector_ &dst, FieldType ftype, int fields=1) = 0;
 
         virtual void interpolateForce(const std::vector<Force> forces, SparseVector_ &dst) = 0;
         

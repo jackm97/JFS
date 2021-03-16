@@ -175,7 +175,7 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
             Eigen::VectorXi indices(2);
             indices(0) = i;
             indices(1) = j;
-            Vector_ rho_ = indexField(indices, rho, 1, 1);
+            Vector_ rho_ = indexField(indices, rho, SCALAR_FIELD, 1);
             if ((maxrho_ - minrho_) != 0)
                 rho_ = (rho_.array() - minrho_)/(maxrho_ - minrho_);
             else
@@ -186,16 +186,9 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
             map_idx = (map_idx > 255) ? 255 : map_idx;
             map_idx = (map_idx < 0) ? 0 : map_idx;
 
-            Vector_ color(3);
-            color(0) = (float) map_idx / 255;
-            color(1) = (float) map_idx / 255;
-            color(2) = (float) map_idx / 255;
-
-            insertIntoField(indices, color, S, 1, 3);
-
-            image(N*3*j + 0 + i*3) = this->S(0*N*N + N*j + i);
-            image(N*3*j + 1 + i*3) = this->S(1*N*N + N*j + i);
-            image(N*3*j + 2 + i*3) = this->S(2*N*N + N*j + i);
+            image(N*3*j + 0 + i*3) = (float) map_idx / 255;
+            image(N*3*j + 1 + i*3) = (float) map_idx / 255;
+            image(N*3*j + 2 + i*3) = (float) map_idx / 255;
         }
     image = (image.array() <= 1.).select(image, 1.);
 }
@@ -211,7 +204,7 @@ JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
             u(0) = ux;
             u(1) = uy;
 
-            insertIntoField(indices, u, U, 2, 1);
+            insertIntoField(indices, u, U, VECTOR_FIELD, 1);
 
             Vector_ fbar(9);
             for (int k = 0; k < 9; k++)
@@ -219,7 +212,7 @@ JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
                 fbar(k) = calc_fbari(k, i, j);
             }
 
-            insertIntoField(indices, fbar, f, 1, 9);
+            insertIntoField(indices, fbar, f, SCALAR_FIELD, 9);
 
             calcPhysicalVals(i, j);
 }
@@ -492,12 +485,12 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             Eigen::VectorXi indices(2);
             indices(0) = i + step;
             indices(1) = j;
-            Vector_ u_ = indexField(indices, U, 2);
-            Vector_ rho_ = indexField(indices, rho, 1);
+            Vector_ u_ = indexField(indices, U, VECTOR_FIELD);
+            Vector_ rho_ = indexField(indices, rho, SCALAR_FIELD);
 
             indices(0) = i;
 
-            insertIntoField(indices, rho_, rho, 1);
+            insertIntoField(indices, rho_, rho, SCALAR_FIELD);
             forceVelocity(indices(0), indices(1), u_(0), u_(1));
         }
     } 
@@ -514,12 +507,12 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             Eigen::VectorXi indices(2);
             indices(1) = i + step;
             indices(0) = j;
-            Vector_ u_ = indexField(indices, U, 2);
-            Vector_ rho_ = indexField(indices, rho, 1);
+            Vector_ u_ = indexField(indices, U, VECTOR_FIELD);
+            Vector_ rho_ = indexField(indices, rho, SCALAR_FIELD);
 
             indices(1) = i;
 
-            insertIntoField(indices, rho_, rho, 1);
+            insertIntoField(indices, rho_, rho, SCALAR_FIELD);
             forceVelocity(indices(0), indices(1), u_(0), u_(1));
         }
     }

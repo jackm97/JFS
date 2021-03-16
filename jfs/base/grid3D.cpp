@@ -4,502 +4,7 @@
 namespace jfs {
 
 template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::satisfyBC(Vector_ &u)
-{
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
-    int i,j,k;
-    if (btype == PERIODIC)
-    for (int idx1=0; idx1 < N; idx1++)
-        for (int idx2=0; idx2 < N; idx2++)
-        {
-            // top
-            i = idx1;
-            j = N-1;
-            k = idx2;
-            u(N*N*N*0 + N*N*k + N*j + i) = u(N*N*N*0 + N*N*k + N*(j-(N-1)) + i);
-            u(N*N*N*1 + N*N*k + N*j + i) = u(N*N*N*1 + N*N*k + N*(j-(N-1)) + i);
-            u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*k + N*(j-(N-1)) + i);
-
-            // bottom
-            i = idx1;
-            j = 0;
-            k = idx2;
-            u(N*N*N*0 + N*N*k + N*j + i) = u(N*N*N*0 + N*N*k + N*(j+(N-1)) + i);
-            u(N*N*N*1 + N*N*k + N*j + i) = u(N*N*N*1 + N*N*k + N*(j+(N-1)) + i);
-            u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*k + N*(j+(N-1)) + i);
-
-            // left
-            i = 0;
-            j = idx1;
-            k = idx2;
-            u(N*N*N*0 + N*N*k + N*j + i) = u(N*N*N*0 + N*N*k + N*j + (i+(N-1)));
-            u(N*N*N*1 + N*N*k + N*j + i) = u(N*N*N*1 + N*N*k + N*j + (i+(N-1)));
-            u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*k + N*j + (i+(N-1)));
-
-            // right
-            i = N-1;
-            j = idx1;
-            k = idx2;
-            u(N*N*N*0 + N*N*k + N*j + i) = u(N*N*N*0 + N*N*k + N*j + (i-(N-1)));
-            u(N*N*N*1 + N*N*k + N*j + i) = u(N*N*N*1 + N*N*k + N*j + (i-(N-1)));
-            u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*k + N*j + (i-(N-1)));
-
-            // back
-            i = idx1;
-            j = idx2;
-            k = 0;
-            u(N*N*N*0 + N*N*k + N*j + i) = u(N*N*N*0 + N*N*(k+(N-1)) + N*j + i);
-            u(N*N*N*1 + N*N*k + N*j + i) = u(N*N*N*1 + N*N*(k+(N-1)) + N*j + i);
-            u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*(k+(N-1)) + N*j + i);
-
-            // front
-            i = idx1;
-            j = idx2;
-            k = N-1;
-            u(N*N*N*0 + N*N*k + N*j + i) = u(N*N*N*0 + N*N*(k-(N-1)) + N*j + i);
-            u(N*N*N*1 + N*N*k + N*j + i) = u(N*N*N*1 + N*N*(k-(N-1)) + N*j + i);
-            u(N*N*N*2 + N*N*k + N*j + i) = u(N*N*N*2 + N*N*(k-(N-1)) + N*j + i);
-        }
-
-    else if (btype == ZERO)
-    for (int idx1=0; idx1 < N; idx1++)
-        for (int idx2=0; idx2 < N; idx2++)
-        {
-            // top
-            i = idx1;
-            j = N-1;
-            k = idx2;
-            u(N*N*N*1 + N*N*k + N*j + i) = 0;
-
-            // bottom
-            i = idx1;
-            j = 0;
-            k = idx2;
-            u(N*N*N*1 + N*N*k + N*j + i) = 0;
-
-            // left
-            i = 0;
-            j = idx1;
-            k = idx2;
-            u(N*N*N*0 + N*N*k + N*j + i) = 0;
-
-            // right
-            i = N-1;
-            j = idx1;
-            k = idx2;
-            u(N*N*N*0 + N*N*k + N*j + i) = 0;
-
-            // back
-            i = idx1;
-            j = idx2;
-            k = 0;
-            u(N*N*N*2 + N*N*k + N*j + i) = 0;
-
-            // front
-            i = idx1;
-            j = idx2;
-            k = N-1;
-            u(N*N*N*2 + N*N*k + N*j + i) = 0;
-        }
-}
-
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int dims, unsigned int fields)
-{
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
-    btype = ZERO;
-
-    typedef Eigen::Triplet<float> T;
-    std::vector<T> tripletList;
-    tripletList.reserve(N*N*N*5*dims*fields);
-
-    for (int field = 0; field < fields; field++)
-    {
-        for (int dim = 0; dim < dims; dim++)
-        {
-            for (int i = 0; i < N; i++)
-            {
-                for (int j = 0; j < N; j++)
-                {
-                    for (int k = 0; k < N; k++)
-                    {
-                        int iMat = field*dims*N*N*N + dim*N*N*N + k*N*N + j*N + i;
-                        int jMat = iMat;
-                        
-                        // x,y,z
-                        tripletList.push_back(T(iMat,jMat,-6.f));
-                        
-                        //x,y+h,z
-                        jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + (j+1)*N + i;
-                        if ((j+1) >= N)
-                            switch (btype)
-                            {
-                                case ZERO:
-                                    break;
-
-                                case PERIODIC:
-                                    jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + 1*N + i;  
-                                    tripletList.push_back(T(iMat,jMat,1.f)); 
-                            }
-                        else
-                            tripletList.push_back(T(iMat,jMat,1.f));
-                        
-                        //x,y-h,z
-                        jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + (j-1)*N + i;
-                        if ((j-1) < 0)
-                            switch (btype)
-                            {
-                                case ZERO:
-                                    break;
-
-                                case PERIODIC:
-                                    jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + (N-2)*N + i;  
-                                    tripletList.push_back(T(iMat,jMat,1.f)); 
-                            }
-                        else
-                            tripletList.push_back(T(iMat,jMat,1.f));
-                        
-                        //x+h,y,z
-                        jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + j*N + (i+1);
-                        if ((i+1) >= N)
-                            switch (btype)
-                            {
-                                case ZERO:
-                                    break;
-
-                                case PERIODIC:
-                                    jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + j*N + 1;  
-                                    tripletList.push_back(T(iMat,jMat,1.f)); 
-                            }
-                        else
-                            tripletList.push_back(T(iMat,jMat,1.f));
-                        
-                        //x-h,y,z
-                        jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + j*N + (i-1);
-                        if ((i-1) < 0)
-                            switch (btype)
-                            {
-                                case ZERO:
-                                    break;
-
-                                case PERIODIC:
-                                    jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + j*N + (N-2);  
-                                    tripletList.push_back(T(iMat,jMat,1.f)); 
-                            }
-                        else
-                            tripletList.push_back(T(iMat,jMat,1.f));
-                        
-                        //x,y,z+h
-                        jMat = field*dims*N*N*N + dim*N*N*N + (k+1)*N*N + j*N + i;
-                        if ((k+1) >= N)
-                            switch (btype)
-                            {
-                                case ZERO:
-                                    break;
-
-                                case PERIODIC:
-                                    jMat = field*dims*N*N*N + dim*N*N*N + 1*N*N + j*N + i;  
-                                    tripletList.push_back(T(iMat,jMat,1.f)); 
-                            }
-                        else
-                            tripletList.push_back(T(iMat,jMat,1.f));
-                        
-                        //x,y,z-h
-                        jMat = field*dims*N*N*N + dim*N*N*N + (k-1)*N*N + j*N + i;
-                        if ((k-1) < 0)
-                            switch (btype)
-                            {
-                                case ZERO:
-                                    break;
-
-                                case PERIODIC:
-                                    jMat = field*dims*N*N*N + dim*N*N*N + (N-2)*N*N + j*N + i;  
-                                    tripletList.push_back(T(iMat,jMat,1.f)); 
-                            }
-                        else
-                            tripletList.push_back(T(iMat,jMat,1.f));
-                    }
-                }
-            }
-        }
-    }
-    dst = SparseMatrix_(N*N*N*dims*fields,N*N*N*dims*fields);
-    dst.setFromTriplets(tripletList.begin(), tripletList.end());
-    dst = 1.f/(D*D) * dst;
-}
-
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int fields)
-{
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
-    typedef Eigen::Triplet<float> T;
-    std::vector<T> tripletList;
-    tripletList.reserve(N*N*N*3*2*fields);
-
-    int dims = 3;
-
-    for (int field=0; field < fields; field++)
-    {
-        for (int i = 0; i < N; i++)
-        {
-            for (int j = 0; j < N; j++)
-            {
-                for (int k = 0; k < N; k++)
-                {
-                    int iMat = field*N*N*N + k*N*N + j*N + i;
-                    int jMat = iMat;
-
-                    int dim = 0;
-                    
-                    //x+h,y,z
-                    jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + j*N + (i+1);
-                    if ((i+1) >= N)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + j*N + 1;  
-                                tripletList.push_back(T(iMat,jMat,1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,1.f));
-                    
-                    //x-h,y,z
-                    jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + j*N + (i-1);
-                    if ((i-1) < 0)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + j*N + (N-2);  
-                                tripletList.push_back(T(iMat,jMat,-1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,-1.f));
-
-                    dim = 1;
-                    
-                    //x,y+h,z
-                    jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + (j+1)*N + i;
-                    if ((j+1) >= N)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + 1*N + i;  
-                                tripletList.push_back(T(iMat,jMat,1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,1.f));
-                    
-                    //x,y-h,z
-                    jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + (j-1)*N + i;
-                    if ((j-1) < 0)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + dim*N*N*N + k*N*N + (N-2)*N + i; 
-                                tripletList.push_back(T(iMat,jMat,-1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,-1.f));
-
-                    dim = 2;
-                    
-                    //x,y,z+h
-                    jMat = field*dims*N*N*N + dim*N*N*N + (k+1)*N*N + j*N + i;
-                    if ((k+1) >= N)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + dim*N*N*N + 1*N*N + j*N + i;  
-                                tripletList.push_back(T(iMat,jMat,1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,1.f));
-                    
-                    //x,y,z-h
-                    jMat = field*dims*N*N*N + dim*N*N*N + (k-1)*N*N + j*N + i;
-                    if ((k-1) < 0)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + dim*N*N*N + (N-2)*N*N + j*N + i;  
-                                tripletList.push_back(T(iMat,jMat,-1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,-1.f));
-                }
-            }
-        }
-    }
-    dst = SparseMatrix_(N*N*N*fields,N*N*N*dims*fields);
-    dst.setFromTriplets(tripletList.begin(), tripletList.end());
-    dst = 1.f/(2*D) * dst;
-}
-
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fields)
-{
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
-    typedef Eigen::Triplet<float> T;
-    std::vector<T> tripletList;
-    tripletList.reserve(fields*N*N*N*3*2);
-
-    int dims = 1;
-
-    for (int field=0; field < fields; field++)
-    {
-        for (int i = 0; i < N; i++)
-        {
-            for (int j = 0; j < N; j++)
-            {
-                for (int k = 0; k < N; k++)
-                {
-                    int iMat = field*N*N*N + k*N*N + j*N + i;
-                    int jMat = iMat;
-
-                    int dim = 0;
-                    iMat = field*3*N*N*N + dim*N*N*N + k*N*N + j*N + i;
-                    
-                    //x+h,y,z
-                    jMat = field*dims*N*N*N + k*N*N + j*N + (i+1);
-                    if ((i+1) >= N)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + k*N*N + j*N + 1;  
-                                tripletList.push_back(T(iMat,jMat,1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,1.f));
-                    
-                    //x-h,y,z
-                    jMat = field*dims*N*N*N + k*N*N + j*N + (i-1);
-                    if ((i-1) < 0)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + k*N*N + j*N + (N-2);
-                                tripletList.push_back(T(iMat,jMat,-1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,-1.f));
-
-                    dim = 1;
-                    iMat = field*3*N*N*N + dim*N*N*N + k*N*N + j*N + i;
-                    
-                    //x,y+h,z
-                    jMat = field*dims*N*N*N + k*N*N + (j+1)*N + i;
-                    if ((j+1) >= N)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + k*N*N + 1*N + i; 
-                                tripletList.push_back(T(iMat,jMat,1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,1.f));
-                    
-                    //x,y-h,z
-                    jMat = field*dims*N*N*N + k*N*N + (j-1)*N + i;
-                    if ((j-1) < 0)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + k*N*N + (N-2)*N + i; 
-                                tripletList.push_back(T(iMat,jMat,-1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,-1.f));
-
-                    dim = 2;
-                    iMat = field*3*N*N*N + dim*N*N*N + k*N*N + j*N + i;
-                    
-                    //x,y,z+h
-                    jMat = field*dims*N*N*N + (k+1)*N*N + j*N + i;
-                    if ((k+1) >= N)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + 1*N*N + j*N + i;
-                                tripletList.push_back(T(iMat,jMat,1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,1.f));
-                    
-                    //x,y,z-h
-                    jMat = field*dims*N*N*N + (k-1)*N*N + j*N + i;
-                    if ((k-1) < 0)
-                        switch (btype)
-                        {
-                            case ZERO:
-                                break;
-
-                            case PERIODIC:
-                                jMat = field*dims*N*N*N + (N-2)*N*N + j*N + i;
-                                tripletList.push_back(T(iMat,jMat,-1.f)); 
-                        }
-                    else
-                        tripletList.push_back(T(iMat,jMat,-1.f));
-                }
-            }
-        }
-    }
-
-    dst = SparseMatrix_(N*N*N*3*fields,N*N*N*fields);
-    dst.setFromTriplets(tripletList.begin(), tripletList.end());
-    dst = 1.f/(2*D) * dst;
-}
-
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &src, const Vector_ &ufield, float dt, FieldType ftype, int fields)
+JFS_INLINE void grid3D<StorageOrder>::satisfyBC(Vector_ &dst, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -512,11 +17,358 @@ JFS_INLINE void grid3D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &sr
     case SCALAR_FIELD:
         dims = 1;
         break;
-
     case VECTOR_FIELD:
         dims = 3;
         break;
     }
+
+    int i,j,k;
+    if (btype == PERIODIC)
+    for (int idx1=0; idx1 < N; idx1++)
+    {
+        for (int idx2=0; idx2 < N; idx2++)
+        {
+            for (int f = 0; f < fields; f++)
+            {
+                for (int d = 0; d < dims; d++)
+                {
+                    // bottom
+                    i = idx1;
+                    j = 0;
+                    k = idx2;
+                    dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*(N-1) + i);
+
+                    // left
+                    i = 0;
+                    j = idx1;
+                    k = idx2;
+                    dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + (N-1));
+
+                    // front
+                    i = idx1;
+                    j = idx2;
+                    k = 0;
+                    dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = dst(f*dims*N*N*N + d*N*N*N + N*N*(N-1) + N*j + i);
+                }
+            }
+        }
+    }
+
+    else if (btype == ZERO)
+    for (int idx1=0; idx1 < N; idx1++)
+    {
+        for (int idx2=0; idx2 < N; idx2++)
+        {
+            for (int f = 0; f < fields; f++)
+            {
+                for (int d = 0; d < dims; d++)
+                {
+                    // bottom
+                    i = idx1;
+                    j = 0;
+                    k = idx2;
+                    if (ftype == SCALAR_FIELD || d == 1)
+                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+                    
+                    // top
+                    i = idx1;
+                    j = N-1;
+                    k = idx2;
+                    if (ftype == SCALAR_FIELD || d == 1)
+                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+
+                    // left
+                    i = 0;
+                    j = idx1;
+                    k = idx2;
+                    if (ftype == SCALAR_FIELD || d == 0)
+                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+
+                    // right
+                    i = N-1;
+                    j = idx1;
+                    k = idx2;
+                    if (ftype == SCALAR_FIELD || d == 0)
+                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+
+                    // front
+                    i = idx1;
+                    j = idx2;
+                    k = 0;
+                    if (ftype == SCALAR_FIELD || d == 2)
+                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+
+                    // back
+                    i = idx1;
+                    j = idx2;
+                    k = N-1;
+                    if (ftype == SCALAR_FIELD || d == 2)
+                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+                }
+            }
+        }
+    }
+}
+
+
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int dims, unsigned int fields)
+{
+    auto btype = this->bound_type_;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
+    typedef Eigen::Triplet<float> T;
+    std::vector<T> tripletList;
+    tripletList.reserve(N*N*5*dims);
+
+    for (int idx = 0; idx < dims*fields*N*N*N; idx++)
+    {
+        int idx_tmp = idx;
+        int f = idx_tmp / (dims * N * N * N);
+        idx_tmp -= f * (dims * N * N * N);
+        int d = idx_tmp / (N * N * N);
+        idx_tmp -= d * (N * N * N);
+        int k = idx_tmp / (N * N);
+        idx_tmp -= k * N * N;
+        int j = idx_tmp / N;
+        idx_tmp -= j * N;
+        int i = idx_tmp;
+
+        int iMat, jMat;
+
+        iMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+        jMat = iMat;
+        tripletList.push_back(T(iMat,jMat,-6.f));
+
+        int i_tmp = i;
+        for (int offset = -1; offset < 2; offset+=2)
+        {
+            i = i_tmp + offset;
+            if ( (i == -1 || i == N) && btype == ZERO)
+                continue;
+            else if ( i == -1 )
+                i = (N-2);
+            else if ( i == N )
+                i = 1;
+            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            tripletList.push_back(T(iMat,jMat,1.f));
+        }
+        i = i_tmp;
+
+        int j_tmp = j;
+        for (int offset = -1; offset < 2; offset+=2)
+        {
+            j = j_tmp + offset;
+            if ( (j == -1 || j == N) && btype == ZERO)
+                continue;
+            else if ( j == -1 )
+                j = (N-2);
+            else if ( j == N )
+                j = 1;
+            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            tripletList.push_back(T(iMat,jMat,1.f));
+        }
+        j = j_tmp;
+
+        int k_tmp = k;
+        for (int offset = -1; offset < 2; offset+=2)
+        {
+            k = k_tmp + offset;
+            if ( (k == -1 || k == N) && btype == ZERO)
+                continue;
+            else if ( k == -1 )
+                k = (N-2);
+            else if ( k == N )
+                k = 1;
+            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            tripletList.push_back(T(iMat,jMat,1.f));
+        }
+        k = k_tmp;
+    }
+
+    dst = SparseMatrix_(N*N*N*dims*fields,N*N*N*dims*fields);
+    dst.setFromTriplets(tripletList.begin(), tripletList.end());
+    dst = 1.f/(D*D) * dst;
+}
+
+
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int fields)
+{
+    auto btype = this->bound_type_;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
+    typedef Eigen::Triplet<float> T;
+    std::vector<T> tripletList;
+    tripletList.reserve(N*N*2*2);
+
+    int dims = 3;
+
+    for (int idx = 0; idx < dims*fields*N*N*N; idx++)
+    {
+        int idx_tmp = idx;
+        int f = idx_tmp / (dims * N * N * N);
+        idx_tmp -= f * (dims * N * N * N);
+        int d = idx_tmp / (N * N * N);
+        idx_tmp -= d * (N * N * N);
+        int k = idx_tmp / (N * N);
+        idx_tmp -= k * N * N;
+        int j = idx_tmp / N;
+        idx_tmp -= j * N;
+        int i = idx_tmp;
+
+        int iMat, jMat;
+
+        iMat = f*N*N*N + k*N*N + j*N + i;
+
+        int i_tmp = i;
+        for (int offset = -1; offset < 2 && d == 0; offset+=2)
+        {
+            i = i_tmp + offset;
+            if ( (i == -1 || i == N) && btype == ZERO)
+                continue;
+            else if ( i == -1 )
+                i = (N-2);
+            else if ( i == N )
+                i = 1;
+            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            tripletList.push_back(T(iMat,jMat,(float) offset));
+        }
+        i = i_tmp;
+
+        int j_tmp = j;
+        for (int offset = -1; offset < 2 && d == 1; offset+=2)
+        {
+            j = j_tmp + offset;
+            if ( (j == -1 || j == N) && btype == ZERO)
+                continue;
+            else if ( j == -1 )
+                j = (N-2);
+            else if ( j == N )
+                j = 1;
+            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            tripletList.push_back(T(iMat,jMat,(float) offset));
+        }
+        j = j_tmp;
+
+        int k_tmp = k;
+        for (int offset = -1; offset < 2 && d == 2; offset+=2)
+        {
+            k = k_tmp + offset;
+            if ( (k == -1 || k == N) && btype == ZERO)
+                continue;
+            else if ( k == -1 )
+                k = (N-2);
+            else if ( k == N )
+                k = 1;
+            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            tripletList.push_back(T(iMat,jMat,(float) offset));
+        }
+        k = k_tmp;
+    }
+
+    dst = SparseMatrix_(N*N*N*fields,N*N*N*dims*fields);
+    dst.setFromTriplets(tripletList.begin(), tripletList.end());
+    dst = 1.f/(2*D) * dst;
+}
+
+
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fields)
+{
+    auto btype = this->bound_type_;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
+
+    typedef Eigen::Triplet<float> T;
+    std::vector<T> tripletList;
+    tripletList.reserve(N*N*2*2);
+
+    int dims = 3;
+
+    for (int idx = 0; idx < dims*fields*N*N*N; idx++)
+    {
+        int idx_tmp = idx;
+        int f = idx_tmp / (dims * N * N * N);
+        idx_tmp -= f * (dims * N * N * N);
+        int d = idx_tmp / (N * N * N);
+        idx_tmp -= d * (N * N * N);
+        int k = idx_tmp / (N * N);
+        idx_tmp -= k * N * N;
+        int j = idx_tmp / N;
+        idx_tmp -= j * N;
+        int i = idx_tmp;
+
+        int iMat, jMat;
+
+        iMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+
+        int i_tmp = i;
+        for (int offset = -1; offset < 2 && d == 0; offset+=2)
+        {
+            i = i_tmp + offset;
+            if ( (i == -1 || i == N) && btype == ZERO)
+                continue;
+            else if ( i == -1 )
+                i = (N-2);
+            else if ( i == N )
+                i = 1;
+            jMat = f*N*N*N + k*N*N + j*N + i;
+            tripletList.push_back(T(iMat,jMat,(float) offset));
+        }
+        i = i_tmp;
+
+        int j_tmp = j;
+        for (int offset = -1; offset < 2 && d == 1; offset+=2)
+        {
+            j = j_tmp + offset;
+            if ( (j == -1 || j == N) && btype == ZERO)
+                continue;
+            else if ( j == -1 )
+                j = (N-2);
+            else if ( j == N )
+                j = 1;
+            jMat = f*N*N*N + k*N*N + j*N + i;
+            tripletList.push_back(T(iMat,jMat,(float) offset));
+        }
+        j = j_tmp;
+
+        int k_tmp = k;
+        for (int offset = -1; offset < 2 && d == 2; offset+=2)
+        {
+            k = k_tmp + offset;
+            if ( (k == -1 || k == N) && btype == ZERO)
+                continue;
+            else if ( k == -1 )
+                k = (N-2);
+            else if ( k == N )
+                k = 1;
+            jMat = f*N*N*N + k*N*N + j*N + i;
+            tripletList.push_back(T(iMat,jMat,(float) offset));
+        }
+        k = k_tmp;
+    }
+
+    dst = SparseMatrix_(N*N*N*dims*fields,N*N*N*fields);
+    dst.setFromTriplets(tripletList.begin(), tripletList.end());
+    dst = 1.f/(2*D) * dst;
+
+    if (N == 3)
+        std::cout << dst << std::endl;
+}
+
+template<int StorageOrder>
+JFS_INLINE void grid3D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &src, const Vector_ &ufield, float dt, FieldType ftype, int fields)
+{
+    auto btype = this->bound_type_;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
 
     for (int index = 0; index < N*N*N; index++)
     {
@@ -528,29 +380,40 @@ JFS_INLINE void grid3D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &sr
         X(1) = D*(j + .5);
         X(2) = D*(k + .5);
 
-        X = this->sourceTrace(X, ufield, 3, -dt);
+        X = this->sourceTrace(X, ufield, -dt);
 
         Vector_ interp_indices = (X.array())/D - .5;
 
-        Vector_ interp_quant = calcLinInterp(interp_indices, src, dims, fields);
+        Vector_ interp_quant = calcLinInterp(interp_indices, src, ftype, fields);
 
         Eigen::VectorXi insert_indices(3);
         insert_indices(0) = i;
         insert_indices(1) = j;
         insert_indices(2) = k;
 
-        insertIntoField(insert_indices, interp_quant, dst, dims, fields);
+        insertIntoField(insert_indices, interp_quant, dst, ftype, fields);
     }
 }
 
 template<int StorageOrder>
 JFS_INLINE typename grid3D<StorageOrder>::Vector_ grid3D<StorageOrder>::
-indexField(Eigen::VectorXi indices, const Vector_ &src, int dims, int fields)
+indexField(Eigen::VectorXi indices, const Vector_ &src, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
+
+    int dims;
+    switch (ftype)
+    {
+    case SCALAR_FIELD:
+        dims = 1;
+        break;
+    case VECTOR_FIELD:
+        dims = 3;
+        break;
+    }
 
     int i = indices(0);
     int j = indices(1);
@@ -570,12 +433,23 @@ indexField(Eigen::VectorXi indices, const Vector_ &src, int dims, int fields)
 }
 
 template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, Vector_ q, Vector_ &dst, int dims, int fields)
+JFS_INLINE void grid3D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, Vector_ q, Vector_ &dst, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
+
+    int dims;
+    switch (ftype)
+    {
+    case SCALAR_FIELD:
+        dims = 1;
+        break;
+    case VECTOR_FIELD:
+        dims = 3;
+        break;
+    }
 
     int i = indices(0);
     int j = indices(1);
@@ -593,14 +467,26 @@ JFS_INLINE void grid3D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, V
 
 template<int StorageOrder>
 JFS_INLINE typename grid3D<StorageOrder>::Vector_ grid3D<StorageOrder>::
-calcLinInterp(Vector_ interp_indices, const Vector_ &src, int dims, unsigned int fields)
+calcLinInterp(Vector_ interp_indices, const Vector_ &src, FieldType ftype, unsigned int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
 
+    int dims;
+    switch (ftype)
+    {
+    case SCALAR_FIELD:
+        dims = 1;
+        break;
+    case VECTOR_FIELD:
+        dims = 3;
+        break;
+    }
+
     Vector_ interp_quant(dims*fields);
+    interp_quant.setZero();
 
     float i0 = interp_indices(0);
     float j0 = interp_indices(1);
@@ -637,92 +523,33 @@ calcLinInterp(Vector_ interp_indices, const Vector_ &src, int dims, unsigned int
     int j0_ceil = j0_floor + 1;
     int k0_ceil = k0_floor + 1;
     float part;
+    
 
-    for (int f = 0; f < fields; f++)
+    for (int i = 0; i < 2; i++)
     {
-        for (int d = 0; d < dims; d++)
+        for (int j = 0; j < 2; j++)
         {
-
-
-            // 1
-            part = (i0_ceil - i0)*(j0_ceil - j0)*(k0_ceil - k0);
-            part = std::abs(part);
-            float q1 = part * src(f*dims*N*N*N + d*N*N*N + k0_floor*N*N + j0_floor*N + i0_floor);
-            
-            // 2-4
-            float q2;
-            if (i0_ceil < N)
+            for (int k = 0; k < 2; k++)
             {
-                part = (i0_floor - i0)*(j0_ceil - j0)*(k0_ceil - k0);
-                part = std::abs(part);
-                q2 = part * src(f*dims*N*N*N + d*N*N*N + k0_floor*N*N + j0_floor*N + i0_ceil);
-            }
-            else
-                q2 = 0;
+                int i_tmp = i0_floor + i;
+                int j_tmp = j0_floor + j;
+                int k_tmp = k0_floor + k;
+                
+                float part = std::abs((i_tmp - i0)*(j_tmp - j0)*(k_tmp - k0));
+                i_tmp = (i_tmp == i0_floor) ? i0_ceil : i0_floor;
+                j_tmp = (j_tmp == j0_floor) ? j0_ceil : j0_floor;
+                k_tmp = (k_tmp == k0_floor) ? k0_ceil : k0_floor;
 
-            float q3;
-            if (j0_ceil < N)
-            {
-                part = (i0_ceil - i0)*(j0_floor - j0)*(k0_ceil - k0);
-                part = std::abs(part);
-                q3 = part * src(f*dims*N*N*N + d*N*N*N + k0_floor*N*N + j0_ceil*N + i0_floor);
-            }
-            else
-                q3 = 0; 
+                if (i_tmp == N || j_tmp == N || k_tmp == N)
+                    continue;
 
-            float q4;
-            if (k0_ceil < N)
-            {
-                part = (i0_ceil - i0)*(j0_ceil - j0)*(k0_floor - k0);
-                part = std::abs(part);
-                q4 = part * src(f*dims*N*N*N + d*N*N*N + k0_ceil*N*N + j0_floor*N + i0_floor);
-            }
-            else
-                q4 = 0;                   
-            
-            // 5-7
-            float q5;
-            if (i0_ceil < N && j0_ceil < N)
-            {
-                part = (i0_floor - i0)*(j0_floor - j0)*(k0_ceil - k0);
-                part = std::abs(part);
-                q5 = part * src(f*dims*N*N*N + d*N*N*N + k0_floor*N*N + j0_ceil*N + i0_ceil);
-            }
-            else
-                q5 = 0; 
+                Eigen::VectorXi indices(3);
+                indices(0) = i_tmp;
+                indices(1) = j_tmp;
+                indices(2) = k_tmp;
 
-            float q6;
-            if (i0_ceil < N && k0_ceil < N)
-            {
-                part = (i0_floor - i0)*(j0_ceil - j0)*(k0_floor - k0);
-                part = std::abs(part);
-                q6 = part * src(f*dims*N*N*N + d*N*N*N + k0_ceil*N*N + j0_floor*N + i0_ceil);
+                interp_quant = interp_quant.array() + (part * indexField(indices, src, ftype, fields)).array();
             }
-            else
-                q6 = 0; 
-
-            float q7;
-            if (j0_ceil < N && k0_ceil < N)
-            {
-                part = (i0_ceil - i0)*(j0_floor - j0)*(k0_floor - k0);
-                part = std::abs(part);
-                q7 = part * src(f*dims*N*N*N + d*N*N*N + k0_ceil*N*N + j0_ceil*N + i0_floor);
-            }
-            else
-                q7 = 0; 
-            
-            // 8
-            float q8;
-            if (i0_ceil < N && j0_ceil < N && k0_ceil < N)
-            {
-                part = (i0_floor - i0)*(j0_floor - j0)*(k0_floor - k0);
-                part = std::abs(part);
-                q8 = part * src(f*dims*N*N*N + d*N*N*N + k0_ceil*N*N + j0_ceil*N + i0_ceil);
-            }
-            else
-                q8 = 0; 
-
-            interp_quant(dims*f + d) = q1 + q2 + q3 + q4 + q5 + q6 + q7 + q8;
         }
     }
 

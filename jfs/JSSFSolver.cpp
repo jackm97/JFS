@@ -21,6 +21,8 @@ initialize(unsigned int N, float L, BoundType btype, float dt, float visc, float
     this->diff = diff;
     this->diss = diss;
 
+    this->bound_type_ = ZERO;
+
     SparseMatrix_ I(N*N*2,N*N*2);
     I.setIdentity();
     grid2D::Laplace(this->ADifU, 2);
@@ -38,6 +40,8 @@ initialize(unsigned int N, float L, BoundType btype, float dt, float visc, float
 
     this->b.resize(N*N*3);
     this->bVec.resize(N*N*2);
+
+    this->bound_type_ = btype;
 
     grid2D::grad(this->GRAD);
     grid2D::div(this->DIV);

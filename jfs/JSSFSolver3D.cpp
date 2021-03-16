@@ -21,6 +21,8 @@ initialize(unsigned int N, float L, BoundType btype, float dt, float visc, float
     this->diff = diff;
     this->diss = diss;
 
+    this->bound_type_ = ZERO;
+
     SparseMatrix_ I(N*N*N*3,N*N*N*3);
     I.setIdentity();
     grid3D::Laplace(this->ADifU, 3);
@@ -38,6 +40,8 @@ initialize(unsigned int N, float L, BoundType btype, float dt, float visc, float
 
     this->b.resize(N*N*N*3);
     this->bVec.resize(N*N*N*3);
+
+    this->bound_type_ = btype;
 
     grid3D::grad(this->GRAD);
     grid3D::div(this->DIV);

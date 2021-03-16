@@ -16,13 +16,13 @@ void gridBase<StorageOrder>::initializeGrid(unsigned int N, float L, BoundType b
 
 template<int StorageOrder>
 JFS_INLINE typename gridBase<StorageOrder>::Vector_ gridBase<StorageOrder>::
-sourceTrace(Vector_ X, const Vector_ &ufield, int dims, float dt)
+sourceTrace(Vector_ X, const Vector_ &ufield, float dt)
 {
     Eigen::VectorXi start_indices = ( X.array()/D - .5).template cast<int>();
-    Eigen::VectorXf u = indexField(start_indices, ufield, dims);
+    Eigen::VectorXf u = indexField(start_indices, ufield, VECTOR_FIELD);
     Eigen::VectorXf interp_indices = 1/D * (X + u*dt*.5).array() - .5;
     
-    u = calcLinInterp(interp_indices, ufield, dims);
+    u = calcLinInterp(interp_indices, ufield, VECTOR_FIELD);
     X = X + dt * u;
 
     return X;
