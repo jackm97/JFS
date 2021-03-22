@@ -32,7 +32,7 @@ JFS_INLINE bool JSSFSolverBase<LinearSolver, StorageOrder>::calcNextStep()
     dissipate(S0, S, dt);
     S = S0;
 
-    this->satisfyBC(U0, VECTOR_FIELD, 1);
+    this->satisfyBC(U0.data(), VECTOR_FIELD, 1);
 
     return false;
 }

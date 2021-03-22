@@ -24,7 +24,7 @@ class grid3D: virtual public gridBase<StorageOrder> {
         // satisfy boundary conditions for based off BOUND property
         // Inputs:
         //      Vector_ &u - velocity field to be updated
-        virtual void satisfyBC(Vector_ &dst, FieldType ftype, int fields=1);
+        virtual void satisfyBC(float* field_data, FieldType ftype, int fields=1);
 
         // calculate Laplace operator
         // Inputs:
@@ -60,7 +60,7 @@ class grid3D: virtual public gridBase<StorageOrder> {
         //      Vector_ &ij0 - grid index values used to interpolate, can be floats
         //      int dims - dimensions of quantity to be interpolated
         //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual Vector_ calcLinInterp(Vector_ interp_indices, const Vector_ &src, FieldType ftype, unsigned int fields=1); 
+        virtual void interpGridToPoint(float* dst, float* point, const float* field_data, FieldType ftype, unsigned int fields=1);
 
         // indexes a scalar or vector field
         // Inputs:
@@ -70,7 +70,7 @@ class grid3D: virtual public gridBase<StorageOrder> {
         //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
         // Returns:
         //      Vector_ q - indexed quantity where q(dims*field + dim) is stored structure
-        virtual Vector_ indexField(Eigen::VectorXi indices, const Vector_ &src, FieldType ftype, int fields=1);  
+        virtual void indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, int fields=1); 
 
         // inserts a scalar or vector into field
         // Inputs:
@@ -79,7 +79,7 @@ class grid3D: virtual public gridBase<StorageOrder> {
         //      Vector_ &dst - field quantity inserting into
         //      int dims - dimensions of quantity to be interpolated
         //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual void insertIntoField(Eigen::VectorXi indices, Vector_ q, Vector_ &dst, FieldType ftype, int fields=1);  
+        virtual void insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields=1); 
 
         virtual void interpolateForce(const std::vector<Force> forces, SparseVector_ &dst);
         

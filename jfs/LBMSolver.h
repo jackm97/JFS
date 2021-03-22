@@ -61,7 +61,7 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
         // Because of this, j,k,l are now used to index x,y,z positions on the grid
 
         Vector_ f; // the distribution function
-        Vector_ rho; // calculated rho from distribution function
+        Vector_ rho_; // calculated rho from distribution function
 
         Vector_ U; 
         
@@ -99,8 +99,8 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
         float cs; // lattice speed of sound
         float tau; // relaxation time in lattice units
 
-        float minrho;
-        float maxrho;
+        float minrho_;
+        float maxrho_;
 
     private:
 

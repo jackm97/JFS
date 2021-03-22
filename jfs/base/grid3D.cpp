@@ -4,7 +4,7 @@
 namespace jfs {
 
 template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::satisfyBC(Vector_ &dst, FieldType ftype, int fields)
+JFS_INLINE void grid3D<StorageOrder>::satisfyBC(float* field_data, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -36,19 +36,19 @@ JFS_INLINE void grid3D<StorageOrder>::satisfyBC(Vector_ &dst, FieldType ftype, i
                     i = idx1;
                     j = 0;
                     k = idx2;
-                    dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*(N-1) + i);
+                    field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*(N-1) + i];
 
                     // left
                     i = 0;
                     j = idx1;
                     k = idx2;
-                    dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + (N-1));
+                    field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + (N-1)];
 
                     // front
                     i = idx1;
                     j = idx2;
                     k = 0;
-                    dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = dst(f*dims*N*N*N + d*N*N*N + N*N*(N-1) + N*j + i);
+                    field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = field_data[f*dims*N*N*N + d*N*N*N + N*N*(N-1) + N*j + i];
                 }
             }
         }
@@ -68,42 +68,42 @@ JFS_INLINE void grid3D<StorageOrder>::satisfyBC(Vector_ &dst, FieldType ftype, i
                     j = 0;
                     k = idx2;
                     if (ftype == SCALAR_FIELD || d == 1)
-                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
                     
                     // top
                     i = idx1;
                     j = N-1;
                     k = idx2;
                     if (ftype == SCALAR_FIELD || d == 1)
-                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
 
                     // left
                     i = 0;
                     j = idx1;
                     k = idx2;
                     if (ftype == SCALAR_FIELD || d == 0)
-                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
 
                     // right
                     i = N-1;
                     j = idx1;
                     k = idx2;
                     if (ftype == SCALAR_FIELD || d == 0)
-                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
 
                     // front
                     i = idx1;
                     j = idx2;
                     k = 0;
                     if (ftype == SCALAR_FIELD || d == 2)
-                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
 
                     // back
                     i = idx1;
                     j = idx2;
                     k = N-1;
                     if (ftype == SCALAR_FIELD || d == 2)
-                        dst(f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i) = 0;
+                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
                 }
             }
         }
@@ -370,6 +370,17 @@ JFS_INLINE void grid3D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &sr
     auto N = this->N;
     auto D = this->D;
 
+    int dims;
+    switch (ftype)
+    {
+    case SCALAR_FIELD:
+        dims = 1;
+        break;
+    case VECTOR_FIELD:
+        dims = 3;
+        break;
+    }
+
     for (int index = 0; index < N*N*N; index++)
     {
         int k = std::floor(index/(N*N));
@@ -380,24 +391,26 @@ JFS_INLINE void grid3D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &sr
         X(1) = D*(j + .5);
         X(2) = D*(k + .5);
 
-        X = this->sourceTrace(X, ufield, -dt);
+        using gridBase = gridBase<StorageOrder>;
+        X = gridBase::backtrace(X, ufield, -dt);
 
         Vector_ interp_indices = (X.array())/D - .5;
 
-        Vector_ interp_quant = calcLinInterp(interp_indices, src, ftype, fields);
+        Vector_ interp_quant(fields*dims);
+        interpGridToPoint(interp_quant.data(), interp_indices.data(), src.data(), ftype, fields);
 
         Eigen::VectorXi insert_indices(3);
         insert_indices(0) = i;
         insert_indices(1) = j;
         insert_indices(2) = k;
 
-        insertIntoField(insert_indices, interp_quant, dst, ftype, fields);
+        insertIntoGrid(insert_indices.data(), interp_quant.data(), dst.data(), ftype, fields);
     }
 }
 
 template<int StorageOrder>
-JFS_INLINE typename grid3D<StorageOrder>::Vector_ grid3D<StorageOrder>::
-indexField(Eigen::VectorXi indices, const Vector_ &src, FieldType ftype, int fields)
+JFS_INLINE void grid3D<StorageOrder>::
+indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -415,25 +428,22 @@ indexField(Eigen::VectorXi indices, const Vector_ &src, FieldType ftype, int fie
         break;
     }
 
-    int i = indices(0);
-    int j = indices(1);
-    int k = indices(2);
-
-    Vector_ indexed_quant(dims*fields);
+    int i = indices[0];
+    int j = indices[1];
+    int k = indices[2];
 
     for (int f = 0; f < fields; f++)
     {
         for (int d = 0; d < dims; d++)
         {
-            indexed_quant(dims*f + d) = src(N*N*N*dims*f + N*N*N*d + N*N*k + N*j + i);
+            dst[dims*f + d] = field_data[N*N*N*dims*f + N*N*N*d + N*N*k + N*j + i];
         }
     }
-
-    return indexed_quant;
 }
 
 template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, Vector_ q, Vector_ &dst, FieldType ftype, int fields)
+JFS_INLINE void grid3D<StorageOrder>::
+insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -451,23 +461,23 @@ JFS_INLINE void grid3D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, V
         break;
     }
 
-    int i = indices(0);
-    int j = indices(1);
-    int k = indices(2);
+    int i = indices[0];
+    int j = indices[1];
+    int k = indices[2];
 
     for (int f = 0; f < fields; f++)
     {
         for (int d = 0; d < dims; d++)
         {
-            dst(N*N*N*dims*f + N*N*N*d + N*N*k + N*j + i) = q(dims*f + d);
+            field_data[N*N*N*dims*f + N*N*N*d + N*N*k + N*j + i] = q[dims*f + d];
         }
     }
 }
 
 
 template<int StorageOrder>
-JFS_INLINE typename grid3D<StorageOrder>::Vector_ grid3D<StorageOrder>::
-calcLinInterp(Vector_ interp_indices, const Vector_ &src, FieldType ftype, unsigned int fields)
+JFS_INLINE void grid3D<StorageOrder>::
+interpGridToPoint(float* dst, float* point, const float* field_data, FieldType ftype, unsigned int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -485,12 +495,12 @@ calcLinInterp(Vector_ interp_indices, const Vector_ &src, FieldType ftype, unsig
         break;
     }
 
-    Vector_ interp_quant(dims*fields);
-    interp_quant.setZero();
+    for (int idx = 0; idx < fields*dims; idx++)
+        dst[idx] = 0;
 
-    float i0 = interp_indices(0);
-    float j0 = interp_indices(1);
-    float k0 = interp_indices(2);
+    float i0 = point[0];
+    float j0 = point[1];
+    float k0 = point[2];
 
     switch (btype)
     {
@@ -543,17 +553,18 @@ calcLinInterp(Vector_ interp_indices, const Vector_ &src, FieldType ftype, unsig
                 if (i_tmp == N || j_tmp == N || k_tmp == N)
                     continue;
 
-                Eigen::VectorXi indices(3);
-                indices(0) = i_tmp;
-                indices(1) = j_tmp;
-                indices(2) = k_tmp;
+                int indices[3];
+                indices[0] = i_tmp;
+                indices[1] = j_tmp;
+                indices[2] = k_tmp;
 
-                interp_quant = interp_quant.array() + (part * indexField(indices, src, ftype, fields)).array();
+                float indexed_quant[fields*dims];
+                indexGrid(indexed_quant, indices, field_data, ftype, fields);
+                for (int idx = 0; idx < fields*dims; idx++)
+                    dst[idx] += part*indexed_quant[idx];
             }
         }
     }
-
-    return interp_quant;
 }
 
 

@@ -39,33 +39,33 @@ JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, BoundType btype, 
     F.resize(N*N*2);
 
     f.resize(9*N*N);
-    rho.resize(N*N);
+    rho_.resize(N*N);
 
     resetFluid();
 }
 
 JFS_INLINE void LBMSolver::setDensityVisBounds(float minrho, float maxrho)
 {
-    this->minrho = minrho;
-    this->maxrho = maxrho;
+    minrho_ = minrho;
+    maxrho_ = maxrho;
 }
 
 JFS_INLINE void LBMSolver::getCurrentDensityBounds(float minmax_rho[2])
 {
 
-    float minrho_ = rho(0);
-    float maxrho_ = rho(0);
+    float minrho_ = rho_(0);
+    float maxrho_ = rho_(0);
 
     for (int i=0; i < N*N; i++)
     {
-        if (rho(i) < minrho_)
-            minrho_ = rho(i);
+        if (rho_(i) < minrho_)
+            minrho_ = rho_(i);
     }
 
     for (int i=0; i < N*N; i++)
     {
-        if (rho(i) > maxrho_)
-            maxrho_ = rho(i);
+        if (rho_(i) > maxrho_)
+            maxrho_ = rho_(i);
     }
 
     minmax_rho[0] = minrho_;
@@ -85,8 +85,8 @@ JFS_INLINE void LBMSolver::resetFluid()
     S0 = S;
     SF.setZero();
 
-    rho.setOnes();
-    rho *= rho0;
+    rho_.setOnes();
+    rho_ *= rho0;
 
     // reset distribution
     for (int j=0; j < N; j++)
@@ -136,35 +136,35 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
     auto N = grid2D::N;
     auto D = grid2D::D;
 
-    float minrho_ = rho(0);
-    float maxrho_ = rho(0);
-    float meanrho_ = rho.mean();
+    float minrho = rho_(0);
+    float maxrho = rho_(0);
+    float meanrho = rho_.mean();
 
-    for (int i=0; i < N*N && minrho == -1; i++)
+    for (int i=0; i < N*N && minrho_ == -1; i++)
     {
-        if (rho(i) < minrho_)
-            minrho_ = rho(i);
+        if (rho_(i) < minrho)
+            minrho = rho_(i);
     }
 
-    if (minrho != -1)
-        minrho_ = minrho;
+    if (minrho_ != -1)
+        minrho = minrho_;
 
-    for (int i=0; i < N*N && maxrho == -1; i++)
+    for (int i=0; i < N*N && maxrho_ == -1; i++)
     {
-        if (rho(i) > maxrho_)
-            maxrho_ = rho(i);
+        if (rho_(i) > maxrho)
+            maxrho = rho_(i);
     }
 
-    if (maxrho == -1 && minrho == -1)
+    if (maxrho_ == -1 && minrho_ == -1)
     {
-        if (maxrho_ - meanrho_ > meanrho_ - minrho_)
-            minrho_ = meanrho_ - (maxrho_ - meanrho_);
+        if (maxrho - meanrho > meanrho - minrho)
+            minrho = meanrho - (maxrho - meanrho);
         else
-            maxrho_ = meanrho_ - (minrho_ - meanrho_);
+            maxrho = meanrho - (minrho - meanrho);
     }
 
-    if (maxrho != -1)
-        maxrho_ = maxrho;
+    if (maxrho_ != -1)
+        maxrho = maxrho_;
 
     if (image.rows() != N*N*3)
         image.resize(N*N*3);
@@ -175,13 +175,14 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
             Eigen::VectorXi indices(2);
             indices(0) = i;
             indices(1) = j;
-            Vector_ rho_ = indexField(indices, rho, SCALAR_FIELD, 1);
-            if ((maxrho_ - minrho_) != 0)
-                rho_ = (rho_.array() - minrho_)/(maxrho_ - minrho_);
+            float rho;
+            indexGrid(&rho, indices.data(), rho_.data(), SCALAR_FIELD, 1);
+            if ((maxrho - minrho) != 0)
+                rho = (rho- minrho)/(maxrho - minrho);
             else
-                rho_ = 0 * rho_;
+                rho = 0 * rho;
 
-            int map_idx = (int) (rho_(0) * 255);
+            int map_idx = (int) (rho * 255);
 
             map_idx = (map_idx > 255) ? 255 : map_idx;
             map_idx = (map_idx < 0) ? 0 : map_idx;
@@ -204,7 +205,7 @@ JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
             u(0) = ux;
             u(1) = uy;
 
-            insertIntoField(indices, u, U, VECTOR_FIELD, 1);
+            insertIntoGrid(indices.data(), u.data(), U.data(), VECTOR_FIELD, 1);
 
             Vector_ fbar(9);
             for (int k = 0; k < 9; k++)
@@ -212,7 +213,7 @@ JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
                 fbar(k) = calc_fbari(k, i, j);
             }
 
-            insertIntoField(indices, fbar, f, SCALAR_FIELD, 9);
+            insertIntoGrid(indices.data(), fbar.data(), f.data(), SCALAR_FIELD, 9);
 
             calcPhysicalVals(i, j);
 }
@@ -485,13 +486,15 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             Eigen::VectorXi indices(2);
             indices(0) = i + step;
             indices(1) = j;
-            Vector_ u_ = indexField(indices, U, VECTOR_FIELD);
-            Vector_ rho_ = indexField(indices, rho, SCALAR_FIELD);
+            Vector_ u(2);
+            indexGrid(u.data(), indices.data(), U.data(), VECTOR_FIELD);
+            Vector_ rho(1);
+            indexGrid(rho.data(), indices.data(), rho_.data(), SCALAR_FIELD);
 
             indices(0) = i;
 
-            insertIntoField(indices, rho_, rho, SCALAR_FIELD);
-            forceVelocity(indices(0), indices(1), u_(0), u_(1));
+            insertIntoGrid(indices.data(), rho.data(), rho_.data(), SCALAR_FIELD);
+            forceVelocity(indices(0), indices(1), u(0), u(1));
         }
     } 
 
@@ -507,13 +510,15 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             Eigen::VectorXi indices(2);
             indices(1) = i + step;
             indices(0) = j;
-            Vector_ u_ = indexField(indices, U, VECTOR_FIELD);
-            Vector_ rho_ = indexField(indices, rho, SCALAR_FIELD);
+            Vector_ u(2);
+            indexGrid(u.data(), indices.data(), U.data(), VECTOR_FIELD);
+            Vector_ rho(1);
+            indexGrid(rho.data(), indices.data(), rho_.data(), SCALAR_FIELD);
 
             indices(1) = i;
 
-            insertIntoField(indices, rho_, rho, SCALAR_FIELD);
-            forceVelocity(indices(0), indices(1), u_(0), u_(1));
+            insertIntoGrid(indices.data(), rho.data(), rho_.data(), SCALAR_FIELD);
+            forceVelocity(indices(0), indices(1), u(0), u(1));
         }
     }
 }
@@ -617,7 +622,7 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
         if (badStep) return true;
 
         addForce(S, S0, SF, dt);
-        backstream(S0, S, U, dt, SCALAR_FIELD, 2);
+        backstream(S0, S, U, dt, SCALAR_FIELD, 3);
 
         T += dt;
     }
@@ -666,7 +671,7 @@ JFS_INLINE void LBMSolver::addForce(Vector_ &dst, const Vector_ &src, const Vect
 JFS_INLINE float LBMSolver::calc_fbari(int i, int j, int k)
 {
     float fbari;
-    float rhoP = rho(N*k + j); // rho at point P -> (j,k)
+    float rhoP = rho_(N*k + j); // rho_ at point P -> (j,k)
     float wi = w[i];
 
     Eigen::Vector2f u, ci;
@@ -755,7 +760,7 @@ JFS_INLINE void LBMSolver::calcPhysicalVals()
                 momentumP += c[i] * f(N*N*i + N*k +j);
             }
 
-            rho(N*k + j) = rho0 * rhoP;
+            rho_(N*k + j) = rho0 * rhoP;
             U(N*N*0 + N*k + j) = uref/urefL * (momentumP(0)/rhoP);
             U(N*N*1 + N*k + j) = uref/urefL * (momentumP(1)/rhoP);
         }
@@ -774,7 +779,7 @@ JFS_INLINE void LBMSolver::calcPhysicalVals(int j, int k)
         momentumP += c[i] * f(N*N*i + N*k +j);
     }
 
-    rho(N*k + j) = rho0 * rhoP;
+    rho_(N*k + j) = rho0 * rhoP;
     U(N*N*0 + N*k + j) = uref/urefL * (momentumP(0)/rhoP);
     U(N*N*1 + N*k + j) = uref/urefL * (momentumP(1)/rhoP);
 }

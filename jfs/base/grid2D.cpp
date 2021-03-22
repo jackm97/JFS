@@ -4,7 +4,7 @@ namespace jfs {
 
 
 template<int StorageOrder>
-JFS_INLINE void grid2D<StorageOrder>::satisfyBC(Vector_ &dst, FieldType ftype, int fields)
+JFS_INLINE void grid2D<StorageOrder>::satisfyBC(float* field_data, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -33,12 +33,12 @@ JFS_INLINE void grid2D<StorageOrder>::satisfyBC(Vector_ &dst, FieldType ftype, i
                 // bottom
                 i = idx;
                 j = 0;
-                dst(f*dims*N*N + d*N*N + N*j + i) = dst(f*dims*N*N + d*N*N + N*(N-1) + i);
+                field_data[f*dims*N*N + d*N*N + N*j + i] = field_data[f*dims*N*N + d*N*N + N*(N-1) + i];
 
                 // left
                 j = idx;
                 i = 0;
-                dst(f*dims*N*N + d*N*N + N*j + i) = dst(f*dims*N*N + d*N*N + N*j + (N-1));
+                field_data[f*dims*N*N + d*N*N + N*j + i] = field_data[f*dims*N*N + d*N*N + N*j + (N-1)];
             }
         }
     }
@@ -54,25 +54,25 @@ JFS_INLINE void grid2D<StorageOrder>::satisfyBC(Vector_ &dst, FieldType ftype, i
                 i = idx;
                 j = N-1;
                 if (ftype == SCALAR_FIELD || d == 1)
-                    dst(f*dims*N*N + d*N*N + N*j + i) = 0;
+                    field_data[f*dims*N*N + d*N*N + N*j + i] = 0;
 
                 // bottom
                 i = idx;
                 j = 0;
                 if (ftype == SCALAR_FIELD || d == 1)
-                    dst(f*dims*N*N + d*N*N + N*j + i) = 0;
+                    field_data[f*dims*N*N + d*N*N + N*j + i] = 0;
 
                 // left
                 j = idx;
                 i = N-1;
                 if (ftype == SCALAR_FIELD || d == 0)
-                    dst(f*dims*N*N + d*N*N + N*j + i) = 0;
+                    field_data[f*dims*N*N + d*N*N + N*j + i] = 0;
 
                 // right
                 j = idx;
                 i = 0;
                 if (ftype == SCALAR_FIELD || d == 0)
-                    dst(f*dims*N*N + d*N*N + N*j + i) = 0;
+                    field_data[f*dims*N*N + d*N*N + N*j + i] = 0;
             }
         }
     }
@@ -284,6 +284,17 @@ JFS_INLINE void grid2D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &sr
     auto N = this->N;
     auto D = this->D;
 
+    int dims;
+    switch (ftype)
+    {
+    case SCALAR_FIELD:
+        dims = 1;
+        break;
+    case VECTOR_FIELD:
+        dims = 2;
+        break;
+    }
+
     for (int index = 0; index < N*N; index++)
     {
         int j = std::floor(index/N);
@@ -292,30 +303,30 @@ JFS_INLINE void grid2D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &sr
         X(0) = D*(i + .5);
         X(1) = D*(j + .5);
 
-        X = this->sourceTrace(X, ufield, -dt);
+        using gridBase = gridBase<StorageOrder>;
+        X = gridBase::backtrace(X, ufield, -dt);
 
-        Vector_ interp_indices = (X.array())/D - .5;
+        Vector_ interp_point = (X.array())/D - .5;
 
-        Vector_ interp_quant = calcLinInterp(interp_indices, src, ftype, fields);
+        Vector_ interp_quant(fields*dims);
+        interpGridToPoint(interp_quant.data(), interp_point.data(), src.data(), ftype, fields);
 
         Eigen::VectorXi insert_indices(2);
         insert_indices(0) = i;
         insert_indices(1) = j;
 
-        insertIntoField(insert_indices, interp_quant, dst, ftype, fields);
+        insertIntoGrid(insert_indices.data(), interp_quant.data(), dst.data(), ftype, fields);
     }
 }
 
 template<int StorageOrder>
-JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::indexField(Eigen::VectorXi indices, const Vector_ &src, FieldType ftype, int fields)
+JFS_INLINE void grid2D<StorageOrder>::
+indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
-
-    int i = indices(0);
-    int j = indices(1);
 
     int dims;
     switch (ftype)
@@ -328,21 +339,20 @@ JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::indexFie
         break;
     }
 
-    Vector_ indexed_quant(dims*fields);
-
+    int i = indices[0];
+    int j = indices[1];
     for (int f = 0; f < fields; f++)
     {
         for (int d = 0; d < dims; d++)
         {
-            indexed_quant(dims*f + d) = src(N*N*dims*f + N*N*d + N*j + i);
+            dst[dims*f + d] = field_data[N*N*dims*f + N*N*d + N*j + i];
         }
     }
-
-    return indexed_quant;
 }
 
 template<int StorageOrder>
-JFS_INLINE void grid2D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, Vector_ q, Vector_ &dst, FieldType ftype, int fields)
+JFS_INLINE void grid2D<StorageOrder>::
+insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -360,21 +370,22 @@ JFS_INLINE void grid2D<StorageOrder>::insertIntoField(Eigen::VectorXi indices, V
         break;
     }
 
-    int i = indices(0);
-    int j = indices(1);
+    int i = indices[0];
+    int j = indices[1];
 
     for (int f = 0; f < fields; f++)
     {
         for (int d = 0; d < dims; d++)
         {
-            dst(N*N*dims*f + N*N*d + N*j + i) = q(dims*f + d);
+            field_data[N*N*dims*f + N*N*d + N*j + i] = q[dims*f + d];
         }
     }
 }
 
 
 template<int StorageOrder>
-JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::calcLinInterp(Vector_ interp_indices, const Vector_ &src, FieldType ftype, unsigned int fields)
+JFS_INLINE void grid2D<StorageOrder>::
+interpGridToPoint(float* dst, float* point, const float* field_data, FieldType ftype, unsigned int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -392,11 +403,11 @@ JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::calcLinI
         break;
     }
 
-    Vector_ interp_quant(dims*fields);
-    interp_quant.setZero();
+    for (int idx = 0; idx < fields*dims; idx++)
+        dst[idx] = 0;
 
-    float i0 = interp_indices(0);
-    float j0 = interp_indices(1);
+    float i0 = point[0];
+    float j0 = point[1];
 
     switch (btype)
     {
@@ -422,6 +433,8 @@ JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::calcLinI
     int j0_floor = (int) j0;
     int i0_ceil = i0_floor + 1;
     int j0_ceil = j0_floor + 1;
+    float part;
+    
 
     for (int i = 0; i < 2; i++)
     {
@@ -437,15 +450,16 @@ JFS_INLINE typename grid2D<StorageOrder>::Vector_ grid2D<StorageOrder>::calcLinI
             if (i_tmp == N || j_tmp == N)
                 continue;
 
-            Eigen::VectorXi indices(2);
-            indices(0) = i_tmp;
-            indices(1) = j_tmp;
+            int indices[2];
+            indices[0] = i_tmp;
+            indices[1] = j_tmp;
 
-            interp_quant = interp_quant.array() + (part * indexField(indices, src, ftype, fields)).array();
+            float indexed_quant[fields*dims];
+            indexGrid(indexed_quant, indices, field_data, ftype, fields);
+            for (int idx = 0; idx < fields*dims; idx++)
+                dst[idx] += part*indexed_quant[idx];
         }
     }
-
-    return interp_quant;
 }
 
 
