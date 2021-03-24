@@ -66,18 +66,7 @@ JFS_INLINE void JSSFSolver3D<LinearSolver, StorageOrder>::getImage(Eigen::Vector
     auto N = grid3D::N;
     auto D = grid3D::D;
 
-    if (image.rows() != N*N*N*3)
-        image.resize(N*N*N*3);
-
-    for (int i=0; i < N; i++)
-        for (int j=0; j < N; j++)
-            for (int k=0; k < N; k++)
-        {
-            image(N*3*N*k + N*3*j + i*3 + 0) = this->S(0*N*N*N + N*N*k + N*j + i);
-            image(N*3*N*k + N*3*j + i*3 + 1) = this->S(1*N*N*N + N*N*k + N*j + i);
-            image(N*3*N*k + N*3*j + i*3 + 2) = this->S(2*N*N*N + N*N*k + N*j + i);
-        }
-    image = (image.array() <= 1.).select(image, 1.);
+    image = this->S;
 }
 
 // explicit instantiation of templates

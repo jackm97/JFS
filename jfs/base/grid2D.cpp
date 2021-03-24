@@ -33,12 +33,12 @@ JFS_INLINE void grid2D<StorageOrder>::satisfyBC(float* field_data, FieldType fty
                 // bottom
                 i = idx;
                 j = 0;
-                field_data[f*dims*N*N + d*N*N + N*j + i] = field_data[f*dims*N*N + d*N*N + N*(N-1) + i];
+                field_data[N*fields*dims*j + fields*dims*i + dims*f + d] = field_data[N*fields*dims*(N-1) + fields*dims*i + dims*f + d];
 
                 // left
                 j = idx;
                 i = 0;
-                field_data[f*dims*N*N + d*N*N + N*j + i] = field_data[f*dims*N*N + d*N*N + N*j + (N-1)];
+                field_data[N*fields*dims*j + fields*dims*i + dims*f + d] = field_data[N*fields*dims*j + fields*dims*(N-1) + dims*f + d];
             }
         }
     }
@@ -54,25 +54,25 @@ JFS_INLINE void grid2D<StorageOrder>::satisfyBC(float* field_data, FieldType fty
                 i = idx;
                 j = N-1;
                 if (ftype == SCALAR_FIELD || d == 1)
-                    field_data[f*dims*N*N + d*N*N + N*j + i] = 0;
+                    field_data[N*fields*dims*j + fields*dims*i + dims*f + d] = 0;
 
                 // bottom
                 i = idx;
                 j = 0;
                 if (ftype == SCALAR_FIELD || d == 1)
-                    field_data[f*dims*N*N + d*N*N + N*j + i] = 0;
+                    field_data[N*fields*dims*j + fields*dims*i + dims*f + d] = 0;
 
                 // left
                 j = idx;
                 i = N-1;
                 if (ftype == SCALAR_FIELD || d == 0)
-                    field_data[f*dims*N*N + d*N*N + N*j + i] = 0;
+                    field_data[N*fields*dims*j + fields*dims*i + dims*f + d] = 0;
 
                 // right
                 j = idx;
                 i = 0;
                 if (ftype == SCALAR_FIELD || d == 0)
-                    field_data[f*dims*N*N + d*N*N + N*j + i] = 0;
+                    field_data[N*fields*dims*j + fields*dims*i + dims*f + d] = 0;
             }
         }
     }
@@ -94,17 +94,17 @@ JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
     for (int idx = 0; idx < dims*fields*N*N; idx++)
     {
         int idx_tmp = idx;
-        int f = idx_tmp / (dims * N * N);
-        idx_tmp -= f * (dims * N * N);
-        int d = idx_tmp / (N * N);
-        idx_tmp -= d * (N * N);
-        int j = idx_tmp / N;
-        idx_tmp -= j * N;
-        int i = idx_tmp;
+        int j = idx_tmp / (N*dims*fields);
+        idx_tmp -= j * (N*dims*fields);
+        int i = idx_tmp / (dims*fields);
+        idx_tmp -= i * (dims*fields);
+        int f = idx_tmp / dims;
+        idx_tmp -= f * dims;
+        int d = idx_tmp;
 
         int iMat, jMat;
 
-        iMat = f*dims*N*N + d*N*N + j*N + i;
+        iMat = N*fields*dims*j + fields*dims*i + dims*f + d;
         jMat = iMat;
         tripletList.push_back(T(iMat,jMat,-4.f));
 
@@ -118,7 +118,7 @@ JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
                 i = (N-2);
             else if ( i == N )
                 i = 1;
-            jMat = f*dims*N*N + d*N*N + j*N + i;
+            jMat = N*fields*dims*j + fields*dims*i + dims*f + d;
             tripletList.push_back(T(iMat,jMat,1.f));
         }
         i = i_tmp;
@@ -133,7 +133,7 @@ JFS_INLINE void grid2D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
                 j = (N-2);
             else if ( j == N )
                 j = 1;
-            jMat = f*dims*N*N + d*N*N + j*N + i;
+            jMat = N*fields*dims*j + fields*dims*i + dims*f + d;
             tripletList.push_back(T(iMat,jMat,1.f));
         }
         j = j_tmp;
@@ -162,17 +162,17 @@ JFS_INLINE void grid2D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
     for (int idx = 0; idx < dims*fields*N*N; idx++)
     {
         int idx_tmp = idx;
-        int f = idx_tmp / (dims * N * N);
-        idx_tmp -= f * (dims * N * N);
-        int d = idx_tmp / (N * N);
-        idx_tmp -= d * (N * N);
-        int j = idx_tmp / N;
-        idx_tmp -= j * N;
-        int i = idx_tmp;
+        int j = idx_tmp / (N*dims*fields);
+        idx_tmp -= j * (N*dims*fields);
+        int i = idx_tmp / (dims*fields);
+        idx_tmp -= i * (dims*fields);
+        int f = idx_tmp / dims;
+        idx_tmp -= f * dims;
+        int d = idx_tmp;
 
         int iMat, jMat;
 
-        iMat = f*N*N + j*N + i;
+        iMat = N*fields*j + fields*i + f;
 
         int i_tmp = i;
         for (int offset = -1; offset < 2 && d == 0; offset+=2)
@@ -184,7 +184,7 @@ JFS_INLINE void grid2D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
                 i = (N-2);
             else if ( i == N )
                 i = 1;
-            jMat = f*dims*N*N + d*N*N + j*N + i;
+            jMat = N*fields*dims*j + fields*dims*i + dims*f + d;
             tripletList.push_back(T(iMat,jMat,(float) offset));
         }
         i = i_tmp;
@@ -199,7 +199,7 @@ JFS_INLINE void grid2D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
                 j = (N-2);
             else if ( j == N )
                 j = 1;
-            jMat = f*dims*N*N + d*N*N + j*N + i;
+            jMat = N*fields*dims*j + fields*dims*i + dims*f + d;
             tripletList.push_back(T(iMat,jMat,(float) offset));
         }
         j = j_tmp;
@@ -228,17 +228,17 @@ JFS_INLINE void grid2D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
     for (int idx = 0; idx < dims*fields*N*N; idx++)
     {
         int idx_tmp = idx;
-        int f = idx_tmp / (dims * N * N);
-        idx_tmp -= f * (dims * N * N);
-        int d = idx_tmp / (N * N);
-        idx_tmp -= d * (N * N);
-        int j = idx_tmp / N;
-        idx_tmp -= j * N;
-        int i = idx_tmp;
+        int j = idx_tmp / (N*dims*fields);
+        idx_tmp -= j * (N*dims*fields);
+        int i = idx_tmp / (dims*fields);
+        idx_tmp -= i * (dims*fields);
+        int f = idx_tmp / dims;
+        idx_tmp -= f * dims;
+        int d = idx_tmp;
 
         int iMat, jMat;
 
-        iMat = f*dims*N*N + d*N*N + j*N + i;
+        iMat = N*fields*dims*j + fields*dims*i + dims*f + d;
 
         int i_tmp = i;
         for (int offset = -1; offset < 2 && d == 0; offset+=2)
@@ -250,7 +250,7 @@ JFS_INLINE void grid2D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
                 i = (N-2);
             else if ( i == N )
                 i = 1;
-            jMat = f*N*N + j*N + i;
+            jMat = N*fields*j + fields*i + f;
             tripletList.push_back(T(iMat,jMat,(float) offset));
         }
         i = i_tmp;
@@ -265,7 +265,7 @@ JFS_INLINE void grid2D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
                 j = (N-2);
             else if ( j == N )
                 j = 1;
-            jMat = f*N*N + j*N + i;
+            jMat = N*fields*j + fields*i + f;
             tripletList.push_back(T(iMat,jMat,(float) offset));
         }
         j = j_tmp;
@@ -345,7 +345,7 @@ indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, in
     {
         for (int d = 0; d < dims; d++)
         {
-            dst[dims*f + d] = field_data[N*N*dims*f + N*N*d + N*j + i];
+            dst[dims*f + d] = field_data[N*fields*dims*j + fields*dims*i + dims*f + d];
         }
     }
 }
@@ -377,7 +377,7 @@ insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int f
     {
         for (int d = 0; d < dims; d++)
         {
-            field_data[N*N*dims*f + N*N*d + N*j + i] = q[dims*f + d];
+            field_data[N*fields*dims*j + fields*dims*i + dims*f + d] = q[dims*f + d];
         }
     }
 }
@@ -486,13 +486,13 @@ JFS_INLINE void grid2D<StorageOrder>::interpolateForce(const std::vector<Force> 
         float fArr[2] = {force.Fx, force.Fy};
         for (int dim=0; dim < dims; dim++)
         {
-            dst.insert(N*N*dim + N*j0 + i0) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i));
+            dst.insert(N*dims*j0 + dims*i0 + dim) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i));
             if (i0 < (N-1))
-                dst.insert(N*N*dim + N*j0 + (i0+1)) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i));
+                dst.insert(N*dims*j0 + dims*(i0+1) + dim) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i));
             if (j0 < (N-1))
-                dst.insert(N*N*dim + N*(j0+1) + i0) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i));
+                dst.insert(N*dims*(j0+1) + dims*i0 + dim) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i));
             if (i0 < (N-1) && j0 < (N-1))
-                dst.insert(N*N*dim + N*(j0+1) + (i0+1)) += fArr[dim]*std::abs((j0 - j)*(i0 - i));
+                dst.insert(N*dims*(j0+1) + dims*(i0+1) + dim) += fArr[dim]*std::abs((j0 - j)*(i0 - i));
         }
     }
 }
@@ -516,16 +516,18 @@ JFS_INLINE void grid2D<StorageOrder>::interpolateSource(const std::vector<Source
         int i0 = std::floor(i);
         int j0 = std::floor(j);
 
+        int fields = 3;
+
         for (int c=0; c < 3; c++)
         {
             float cval = {source.color(c) * source.strength};
-            dst.insert(c*N*N + N*j0 + i0) += cval*std::abs((j0+1 - j)*(i0+1 - i));
+            dst.insert(N*fields*j0 + fields*i0 + c) += cval*std::abs((j0+1 - j)*(i0+1 - i));
             if (i0 < (N-1))
-                dst.insert(c*N*N + N*j0 + (i0+1)) += cval*std::abs((j0+1 - j)*(i0 - i));
+                dst.insert(N*fields*j0 + fields*(i0+1) + c) += cval*std::abs((j0+1 - j)*(i0 - i));
             if (j0 < (N-1))
-                dst.insert(c*N*N + N*(j0+1) + i0) += cval*std::abs((j0 - j)*(i0+1 - i));
-            if (i0 < (N-1) && j0 < (N-1))            
-                dst.insert(c*N*N + N*(j0+1) + (i0+1)) += cval*std::abs((j0 - j)*(i0 - i));
+                dst.insert(N*fields*(j0+1) + fields*i0 + c) += cval*std::abs((j0 - j)*(i0+1 - i));
+            if (i0 < (N-1) && j0 < (N-1))
+                dst.insert(N*fields*(j0+1) + fields*(i0+1) + c) += cval*std::abs((j0 - j)*(i0 - i));
         }
     }
 }

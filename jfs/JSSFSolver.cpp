@@ -66,17 +66,17 @@ JFS_INLINE void JSSFSolver<LinearSolver, StorageOrder>::getImage(Eigen::VectorXf
     auto N = grid2D::N;
     auto D = grid2D::D;
 
-    if (image.rows() != N*N*3)
-        image.resize(N*N*3);
+    // if (image.rows() != N*N*3)
+    //     image.resize(N*N*3);
 
-    for (int i=0; i < N; i++)
-        for (int j=0; j < N; j++)
-        {
-            image(N*3*j + 0 + i*3) = this->S(0*N*N + N*j + i);
-            image(N*3*j + 1 + i*3) = this->S(1*N*N + N*j + i);
-            image(N*3*j + 2 + i*3) = this->S(2*N*N + N*j + i);
-        }
-    image = (image.array() <= 1.).select(image, 1.);
+    // for (int i=0; i < N; i++)
+    //     for (int j=0; j < N; j++)
+    //     {
+    //         image(N*3*j + 0 + i*3) = this->S(0*N*N + N*j + i);
+    //         image(N*3*j + 1 + i*3) = this->S(1*N*N + N*j + i);
+    //         image(N*3*j + 2 + i*3) = this->S(2*N*N + N*j + i);
+    //     }
+    image = this->S;
 }
 
 // explicit instantiation of templates

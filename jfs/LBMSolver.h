@@ -13,6 +13,8 @@ namespace jfs {
 
 struct PressureWave;
 
+struct DensityWave;
+
 class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
 
     public:
@@ -127,6 +129,8 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
 
         void forceVelocity(int i, int j, float ux, float uy);
 
+        void forceDensity(int i, int j, float rho);
+
         void doPressureWave(PressureWave p_wave);
 
         void doBoundaryDamping();
@@ -150,6 +154,15 @@ struct PressureWave
     float t_start = 0; // start time
 
     bool skadoosh = false;
+};
+
+struct DensityWave
+{
+    Eigen::Vector3f x = Eigen::Vector3f::Zero(); // center position
+
+    float density_scale = 1; // multiplied by rho0 to get forced density
+
+    float length = 0;
 };
 
 } // namespace jfs

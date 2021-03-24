@@ -36,19 +36,19 @@ JFS_INLINE void grid3D<StorageOrder>::satisfyBC(float* field_data, FieldType fty
                     i = idx1;
                     j = 0;
                     k = idx2;
-                    field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*(N-1) + i];
+                    field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d] = field_data[N*N*fields*dims*k + N*fields*dims*(N-1) + fields*dims*i + dims*f + d];
 
                     // left
                     i = 0;
                     j = idx1;
                     k = idx2;
-                    field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + (N-1)];
+                    field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d] = field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*(N-1) + dims*f + d];
 
                     // front
                     i = idx1;
                     j = idx2;
                     k = 0;
-                    field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = field_data[f*dims*N*N*N + d*N*N*N + N*N*(N-1) + N*j + i];
+                    field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d] = field_data[N*N*fields*dims*(N-1) + N*fields*dims*j + fields*dims*i + dims*f + d];
                 }
             }
         }
@@ -68,42 +68,42 @@ JFS_INLINE void grid3D<StorageOrder>::satisfyBC(float* field_data, FieldType fty
                     j = 0;
                     k = idx2;
                     if (ftype == SCALAR_FIELD || d == 1)
-                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
+                        field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d] = 0;
                     
                     // top
                     i = idx1;
                     j = N-1;
                     k = idx2;
                     if (ftype == SCALAR_FIELD || d == 1)
-                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
+                        field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d] = 0;
 
                     // left
                     i = 0;
                     j = idx1;
                     k = idx2;
                     if (ftype == SCALAR_FIELD || d == 0)
-                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
+                        field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d] = 0;
 
                     // right
                     i = N-1;
                     j = idx1;
                     k = idx2;
                     if (ftype == SCALAR_FIELD || d == 0)
-                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
+                        field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d] = 0;
 
                     // front
                     i = idx1;
                     j = idx2;
                     k = 0;
                     if (ftype == SCALAR_FIELD || d == 2)
-                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
+                        field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d] = 0;
 
                     // back
                     i = idx1;
                     j = idx2;
                     k = N-1;
                     if (ftype == SCALAR_FIELD || d == 2)
-                        field_data[f*dims*N*N*N + d*N*N*N + N*N*k + N*j + i] = 0;
+                        field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d] = 0;
                 }
             }
         }
@@ -126,19 +126,19 @@ JFS_INLINE void grid3D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
     for (int idx = 0; idx < dims*fields*N*N*N; idx++)
     {
         int idx_tmp = idx;
-        int f = idx_tmp / (dims * N * N * N);
-        idx_tmp -= f * (dims * N * N * N);
-        int d = idx_tmp / (N * N * N);
-        idx_tmp -= d * (N * N * N);
-        int k = idx_tmp / (N * N);
-        idx_tmp -= k * N * N;
-        int j = idx_tmp / N;
-        idx_tmp -= j * N;
-        int i = idx_tmp;
+        int k = idx_tmp / (N*N*dims*fields);
+        idx_tmp -= k * (N*N*dims*fields);
+        int j = idx_tmp / (N*dims*fields);
+        idx_tmp -= j * (N*dims*fields);
+        int i = idx_tmp / (dims*fields);
+        idx_tmp -= i * (dims*fields);
+        int f = idx_tmp / dims;
+        idx_tmp -= f * dims;
+        int d = idx_tmp;
 
         int iMat, jMat;
 
-        iMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+        iMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
         jMat = iMat;
         tripletList.push_back(T(iMat,jMat,-6.f));
 
@@ -152,7 +152,7 @@ JFS_INLINE void grid3D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
                 i = (N-2);
             else if ( i == N )
                 i = 1;
-            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
             tripletList.push_back(T(iMat,jMat,1.f));
         }
         i = i_tmp;
@@ -167,7 +167,7 @@ JFS_INLINE void grid3D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
                 j = (N-2);
             else if ( j == N )
                 j = 1;
-            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
             tripletList.push_back(T(iMat,jMat,1.f));
         }
         j = j_tmp;
@@ -182,7 +182,7 @@ JFS_INLINE void grid3D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int d
                 k = (N-2);
             else if ( k == N )
                 k = 1;
-            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
             tripletList.push_back(T(iMat,jMat,1.f));
         }
         k = k_tmp;
@@ -223,7 +223,7 @@ JFS_INLINE void grid3D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
 
         int iMat, jMat;
 
-        iMat = f*N*N*N + k*N*N + j*N + i;
+        iMat = N*N*fields*k + N*fields*j + fields*i + f;
 
         int i_tmp = i;
         for (int offset = -1; offset < 2 && d == 0; offset+=2)
@@ -235,7 +235,7 @@ JFS_INLINE void grid3D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
                 i = (N-2);
             else if ( i == N )
                 i = 1;
-            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
             tripletList.push_back(T(iMat,jMat,(float) offset));
         }
         i = i_tmp;
@@ -250,7 +250,7 @@ JFS_INLINE void grid3D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
                 j = (N-2);
             else if ( j == N )
                 j = 1;
-            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
             tripletList.push_back(T(iMat,jMat,(float) offset));
         }
         j = j_tmp;
@@ -265,7 +265,7 @@ JFS_INLINE void grid3D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int field
                 k = (N-2);
             else if ( k == N )
                 k = 1;
-            jMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
             tripletList.push_back(T(iMat,jMat,(float) offset));
         }
         k = k_tmp;
@@ -306,7 +306,7 @@ JFS_INLINE void grid3D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
 
         int iMat, jMat;
 
-        iMat = f*dims*N*N*N + d*N*N*N + k*N*N + j*N + i;
+        iMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
 
         int i_tmp = i;
         for (int offset = -1; offset < 2 && d == 0; offset+=2)
@@ -318,7 +318,7 @@ JFS_INLINE void grid3D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
                 i = (N-2);
             else if ( i == N )
                 i = 1;
-            jMat = f*N*N*N + k*N*N + j*N + i;
+            jMat = N*N*fields*k + N*fields*j + fields*i + f;
             tripletList.push_back(T(iMat,jMat,(float) offset));
         }
         i = i_tmp;
@@ -333,7 +333,7 @@ JFS_INLINE void grid3D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
                 j = (N-2);
             else if ( j == N )
                 j = 1;
-            jMat = f*N*N*N + k*N*N + j*N + i;
+            jMat = N*N*fields*k + N*fields*j + fields*i + f;
             tripletList.push_back(T(iMat,jMat,(float) offset));
         }
         j = j_tmp;
@@ -348,7 +348,7 @@ JFS_INLINE void grid3D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
                 k = (N-2);
             else if ( k == N )
                 k = 1;
-            jMat = f*N*N*N + k*N*N + j*N + i;
+            jMat = N*N*fields*k + N*fields*j + fields*i + f;
             tripletList.push_back(T(iMat,jMat,(float) offset));
         }
         k = k_tmp;
@@ -436,7 +436,7 @@ indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, in
     {
         for (int d = 0; d < dims; d++)
         {
-            dst[dims*f + d] = field_data[N*N*N*dims*f + N*N*N*d + N*N*k + N*j + i];
+            dst[dims*f + d] = field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + f];
         }
     }
 }
@@ -469,7 +469,7 @@ insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int f
     {
         for (int d = 0; d < dims; d++)
         {
-            field_data[N*N*N*dims*f + N*N*N*d + N*N*k + N*j + i] = q[dims*f + d];
+            field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + f] = q[dims*f + d];
         }
     }
 }
@@ -593,21 +593,21 @@ JFS_INLINE void grid3D<StorageOrder>::interpolateForce(const std::vector<Force> 
         float fArr[3] = {force.Fx, force.Fy, force.Fz};
         for (int dim=0; dim < dims; dim++)
         {
-            dst.insert(N*N*N*dim + N*N*k0 + N*j0 + i0) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i)*(k0+1 - i));
+            dst.insert(N*N*dims*k0 + N*dims*j0 + dims*i0 + dim) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i)*(k0+1 - i));
             if (i0 < (N-1))
-                dst.insert(N*N*N*dim + N*N*k0 + N*j0 + (i0+1)) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i)*(k0+1 - i));
+                dst.insert(N*N*dims*k + N*dims*j + dims*(i0+1) + dim) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i)*(k0+1 - i));
             if (j0 < (N-1))
-                dst.insert(N*N*N*dim + N*N*k0 + N*(j0+1) + i0) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i)*(k0+1 - i));
+                dst.insert(N*N*dims*k + N*dims*(j0+1) + dims*i + dim) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i)*(k0+1 - i));
             if (k0 < (N-1))
-                dst.insert(N*N*N*dim + N*N*(k0+1) + N*j0 + i0) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i)*(k0 - i));
+                dst.insert(N*N*dims*(k0+1) + N*dims*j + dims*i + dim) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i)*(k0 - i));
             if (i0 < (N-1) && j0 < (N-1))
-                dst.insert(N*N*N*dim + N*N*k0 + N*(j0+1) + (i0+1)) += fArr[dim]*std::abs((j0 - j)*(i0 - i)*(k0+1 - i));
+                dst.insert(N*N*dims*k + N*dims*(j0+1) + dims*(i0+1) + dim) += fArr[dim]*std::abs((j0 - j)*(i0 - i)*(k0+1 - i));
             if (i0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*N*dim + N*N*(k0+1) + N*j0 + (i0+1)) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i)*(k0 - i));
+                dst.insert(N*N*dims*(k0+1) + N*dims*j + dims*(i0+1) + dim) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i)*(k0 - i));
             if (j0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*N*dim + N*N*(k0+1) + N*(j0+1) + i0) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i)*(k0 - i));
+                dst.insert(N*N*dims*(k0+1) + N*dims*(j0+1) + dims*i0+ dim) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i)*(k0 - i));
             if (i0 < (N-1) && j0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*N*dim + N*N*(k0+1) + N*(j0+1) + (i0+1)) += fArr[dim]*std::abs((j0 - j)*(i0 - i)*(k0 - i));
+                dst.insert(N*N*dims*(k0+1) + N*dims*(j0+1) + dims*(i0+1) + dim) += fArr[dim]*std::abs((j0 - j)*(i0 - i)*(k0 - i));
         }
     }
 }
@@ -633,25 +633,27 @@ JFS_INLINE void grid3D<StorageOrder>::interpolateSource(const std::vector<Source
         int j0 = std::floor(j);
         int k0 = std::floor(k);
 
+        int fields = 3;
+
         for (int c=0; c < 3; c++)
         {
             float cval = {source.color(c) * source.strength};
 
-            dst.insert(N*N*N*c + N*N*k0 + N*j0 + i0) += cval*std::abs((j0+1 - j)*(i0+1 - i)*(k0+1 - i));
+            dst.insert(N*N*fields*k0 + N*fields*j0 + fields*i0 + c) += cval*std::abs((j0+1 - j)*(i0+1 - i)*(k0+1 - i));
             if (i0 < (N-1))
-                dst.insert(N*N*N*c + N*N*k0 + N*j0 + (i0+1)) += cval*std::abs((j0+1 - j)*(i0 - i)*(k0+1 - i));
+                dst.insert(N*N*fields*k + N*fields*j + fields*(i0+1) + c) += cval*std::abs((j0+1 - j)*(i0 - i)*(k0+1 - i));
             if (j0 < (N-1))
-                dst.insert(N*N*N*c + N*N*k0 + N*(j0+1) + i0) += cval*std::abs((j0 - j)*(i0+1 - i)*(k0+1 - i));
+                dst.insert(N*N*fields*k + N*fields*(j0+1) + fields*i + c) += cval*std::abs((j0 - j)*(i0+1 - i)*(k0+1 - i));
             if (k0 < (N-1))
-                dst.insert(N*N*N*c + N*N*(k0+1) + N*j0 + i0) += cval*std::abs((j0+1 - j)*(i0+1 - i)*(k0 - i));
+                dst.insert(N*N*fields*(k0+1) + N*fields*j + fields*i + c) += cval*std::abs((j0+1 - j)*(i0+1 - i)*(k0 - i));
             if (i0 < (N-1) && j0 < (N-1))
-                dst.insert(N*N*N*c + N*N*k0 + N*(j0+1) + (i0+1)) += cval*std::abs((j0 - j)*(i0 - i)*(k0+1 - i));
+                dst.insert(N*N*fields*k + N*fields*(j0+1) + fields*(i0+1) + c) += cval*std::abs((j0 - j)*(i0 - i)*(k0+1 - i));
             if (i0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*N*c + N*N*(k0+1) + N*j0 + (i0+1)) += cval*std::abs((j0+1 - j)*(i0 - i)*(k0 - i));
+                dst.insert(N*N*fields*(k0+1) + N*fields*j + fields*(i0+1) + c) += cval*std::abs((j0+1 - j)*(i0 - i)*(k0 - i));
             if (j0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*N*c + N*N*(k0+1) + N*(j0+1) + i0) += cval*std::abs((j0 - j)*(i0+1 - i)*(k0 - i));
+                dst.insert(N*N*fields*(k0+1) + N*fields*(j0+1) + fields*i0+ c) += cval*std::abs((j0 - j)*(i0+1 - i)*(k0 - i));
             if (i0 < (N-1) && j0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*N*c + N*N*(k0+1) + N*(j0+1) + (i0+1)) += cval*std::abs((j0 - j)*(i0 - i)*(k0 - i));
+                dst.insert(N*N*fields*(k0+1) + N*fields*(j0+1) + fields*(i0+1) + c) += cval*std::abs((j0 - j)*(i0 - i)*(k0 - i));
         }
     }
 }

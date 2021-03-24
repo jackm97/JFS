@@ -92,7 +92,7 @@ JFS_INLINE void LBMSolver::resetFluid()
     for (int j=0; j < N; j++)
         for (int k=0; k < N; k++)
             for (int i=0; i < 9; i++)
-                f(N*N*i + N*k + j) = calc_fbari(i, j, k);
+                f(N*9*k + 9*j + i) = calc_fbari(i, j, k);
 
     T = 0;
 }
@@ -114,17 +114,7 @@ JFS_INLINE void LBMSolver::getSourceImage(Eigen::VectorXf &image)
     auto N = grid2D::N;
     auto D = grid2D::D;
 
-    if (image.rows() != N*N*3)
-        image.resize(N*N*3);
-
-    for (int i=0; i < N; i++)
-        for (int j=0; j < N; j++)
-        {
-            image(N*3*j + 0 + i*3) = this->S(0*N*N + N*j + i);
-            image(N*3*j + 1 + i*3) = this->S(1*N*N + N*j + i);
-            image(N*3*j + 2 + i*3) = this->S(2*N*N + N*j + i);
-        }
-    image = (image.array() <= 1.).select(image, 1.);
+    image = this->S;
 }
 
 JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
@@ -191,7 +181,6 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
             image(N*3*j + 1 + i*3) = (float) map_idx / 255;
             image(N*3*j + 2 + i*3) = (float) map_idx / 255;
         }
-    image = (image.array() <= 1.).select(image, 1.);
 }
 
 JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
@@ -218,258 +207,309 @@ JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
             calcPhysicalVals(i, j);
 }
 
-JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
+JFS_INLINE void LBMSolver::forceDensity(int i, int j, float rho)
 {
 
-    int i = (p_wave.x[0] + p_wave.u[0] * (T - p_wave.t_start)) / dx;
-    int j = (p_wave.x[1] + p_wave.u[1] * (T - p_wave.t_start)) / dx;
+            Eigen::VectorXi indices(2);
+            indices(0) = i;
+            indices(1) = j;
 
-    float r_real = p_wave.radius;
-    float u_imp = p_wave.u_imp;
+            insertIntoGrid(indices.data(), &rho, rho_.data(), SCALAR_FIELD, 1);
 
-    float t_start = p_wave.t_start;
+            Vector_ fbar(9);
+            for (int k = 0; k < 9; k++)
+            {
+                fbar(k) = calc_fbari(k, i, j);
+            }
 
-    float w = u_imp / r_real;
-    float Hz = w / (2 * M_PI);
-    float period = 1/Hz;
-    u_imp *= r_real * std::cos(w * (T-t_start));
+            insertIntoGrid(indices.data(), fbar.data(), f.data(), SCALAR_FIELD, 9);
 
-    if ( (T-t_start) > period/2 )
-        return;
+            calcPhysicalVals(i, j);
+}
 
-    int r = (r_real * std::sin(w * (T-t_start)))/dx;
+JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
+{
+    int i = p_wave.x[0]/dx;
+    if (i < 0)
+        i == 0;
+    if (i >= N)
+        i = N-1;
+    int j = p_wave.x[1]/dx;
+    if (j < 0)
+        j == 0;
+    if (j >= N)
+        j = N-1;
+
+    int radius = p_wave.radius/dx;
+
+    int j_min = j - p_wave.radius;
+    if (j_min < 0)
+        j_min == 0;
+    if (j_min >= N)
+        j_min = N-1;
+    int j_max = j + p_wave.radius;
+    if (j_max < 0)
+        j_max == 0;
+    if (j_max >= N)
+        j_max = N-1;
+
+    for (j = j_min; j <= j_max; j++)
+    {
+        float Hz = 1.e3;
+        float w = M_PI * Hz;
+        float ux = p_wave.u_imp * (std::sin(w * T) + 1);
+        forceVelocity(i, j, ux, 0);
+    }
+
+    // int i = (p_wave.x[0] + p_wave.u[0] * (T - p_wave.t_start)) / dx;
+    // int j = (p_wave.x[1] + p_wave.u[1] * (T - p_wave.t_start)) / dx;
+
+    // float r_real = p_wave.radius;
+    // float u_imp = p_wave.u_imp;
+
+    // float t_start = p_wave.t_start;
+
+    // float w = u_imp / r_real;
+    // float Hz = w / (2 * M_PI);
+    // float period = 1/Hz;
+    // u_imp *= r_real * std::cos(w * (T-t_start));
+
+    // if ( (T-t_start) > period/2 )
+    //     return;
+
+    // int r = (r_real * std::sin(w * (T-t_start)))/dx;
     
-    int x = r, y = 0; 
+    // int x = r, y = 0; 
 
-    Eigen::VectorXi indices(2);
-    indices(0) = i + x;
-    indices(1) = j + y;
+    // Eigen::VectorXi indices(2);
+    // indices(0) = i + x;
+    // indices(1) = j + y;
     
-    Vector_ dir(2);
-    dir(0) = (float) indices(0) - i;
-    dir(1) = (float) indices(1) - j;
-    dir.normalize();
+    // Vector_ dir(2);
+    // dir(0) = (float) indices(0) - i;
+    // dir(1) = (float) indices(1) - j;
+    // dir.normalize();
 
-    float ux = dir(0) * u_imp + p_wave.u(0);
-    float uy = dir(1) * u_imp + p_wave.u(1);
+    // float ux = dir(0) * u_imp + p_wave.u(0);
+    // float uy = dir(1) * u_imp + p_wave.u(1);
 
-    bool speed_check;
-    bool idx_check;
+    // bool speed_check;
+    // bool idx_check;
 
-    idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    if ( (idx_check && speed_check) || p_wave.skadoosh )
-        forceVelocity(indices(0),indices(1), ux, uy);
+    // idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    // speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    // if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //     forceVelocity(indices(0),indices(1), ux, uy);
       
-    // When radius is zero only a single 
-    // point will be printed 
-    if (r > 0) 
-    { 
-        // 1
-        indices(0) = i + x;
-        indices(1) = j - y;
+    // // When radius is zero only a single 
+    // // point will be printed 
+    // if (r > 0) 
+    // { 
+    //     // 1
+    //     indices(0) = i + x;
+    //     indices(1) = j - y;
         
-        dir(0) = (float) indices(0) - i;
-        dir(1) = (float) indices(1) - j;
-        dir.normalize();
+    //     dir(0) = (float) indices(0) - i;
+    //     dir(1) = (float) indices(1) - j;
+    //     dir.normalize();
 
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
+    //     ux = dir(0) * u_imp + p_wave.u(0);
+    //     uy = dir(1) * u_imp + p_wave.u(1);
 
-        idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-        speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( (idx_check && speed_check) || p_wave.skadoosh )
-            forceVelocity(indices(0),indices(1), ux, uy);
+    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //         forceVelocity(indices(0),indices(1), ux, uy);
 
-        // 2
-        indices(0) = i + y;
-        indices(1) = j + x;
+    //     // 2
+    //     indices(0) = i + y;
+    //     indices(1) = j + x;
         
-        dir(0) = (float) indices(0) - i;
-        dir(1) = (float) indices(1) - j;
-        dir.normalize();
+    //     dir(0) = (float) indices(0) - i;
+    //     dir(1) = (float) indices(1) - j;
+    //     dir.normalize();
 
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
+    //     ux = dir(0) * u_imp + p_wave.u(0);
+    //     uy = dir(1) * u_imp + p_wave.u(1);
 
-        idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-        speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( (idx_check && speed_check) || p_wave.skadoosh )
-            forceVelocity(indices(0),indices(1), ux, uy);
+    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //         forceVelocity(indices(0),indices(1), ux, uy);
 
-        // 3
-        indices(0) = i - y;
-        indices(1) = j + x;
+    //     // 3
+    //     indices(0) = i - y;
+    //     indices(1) = j + x;
         
-        dir(0) = (float) indices(0) - i;
-        dir(1) = (float) indices(1) - j;
-        dir.normalize();
+    //     dir(0) = (float) indices(0) - i;
+    //     dir(1) = (float) indices(1) - j;
+    //     dir.normalize();
 
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
+    //     ux = dir(0) * u_imp + p_wave.u(0);
+    //     uy = dir(1) * u_imp + p_wave.u(1);
 
-        idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-        speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( (idx_check && speed_check) || p_wave.skadoosh )
-            forceVelocity(indices(0),indices(1), ux, uy);
-    } 
+    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //         forceVelocity(indices(0),indices(1), ux, uy);
+    // } 
       
-    // Initialising the value of P 
-    int P = 1 - r; 
-    while (x > y) 
-    {  
-        y++; 
+    // // Initialising the value of P 
+    // int P = 1 - r; 
+    // while (x > y) 
+    // {  
+    //     y++; 
           
-        // Mid-point is inside or on the perimeter 
-        if (P <= 0) 
-            P = P + 2*y + 1; 
+    //     // Mid-point is inside or on the perimeter 
+    //     if (P <= 0) 
+    //         P = P + 2*y + 1; 
               
-        // Mid-point is outside the perimeter 
-        else
-        { 
-            x--; 
-            P = P + 2*y - 2*x + 1; 
-        } 
+    //     // Mid-point is outside the perimeter 
+    //     else
+    //     { 
+    //         x--; 
+    //         P = P + 2*y - 2*x + 1; 
+    //     } 
           
-        // All the perimeter points have already been printed 
-        if (x < y) 
-            break; 
+    //     // All the perimeter points have already been printed 
+    //     if (x < y) 
+    //         break; 
           
-        // Printing the generated point and its reflection 
-        // in the other octants after translation 
-        // 1 
-        indices(0) = i + x;
-        indices(1) = j + y;
+    //     // Printing the generated point and its reflection 
+    //     // in the other octants after translation 
+    //     // 1 
+    //     indices(0) = i + x;
+    //     indices(1) = j + y;
         
-        dir(0) = (float) indices(0) - i;
-        dir(1) = (float) indices(1) - j;
-        dir.normalize();
+    //     dir(0) = (float) indices(0) - i;
+    //     dir(1) = (float) indices(1) - j;
+    //     dir.normalize();
         
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
+    //     ux = dir(0) * u_imp + p_wave.u(0);
+    //     uy = dir(1) * u_imp + p_wave.u(1);
 
-        idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-        speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( (idx_check && speed_check) || p_wave.skadoosh )
-            forceVelocity(indices(0),indices(1), ux, uy);
+    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //         forceVelocity(indices(0),indices(1), ux, uy);
 
-        // 2 
-        indices(0) = i - x;
-        indices(1) = j + y;
+    //     // 2 
+    //     indices(0) = i - x;
+    //     indices(1) = j + y;
         
-        dir(0) = (float) indices(0) - i;
-        dir(1) = (float) indices(1) - j;
-        dir.normalize();
+    //     dir(0) = (float) indices(0) - i;
+    //     dir(1) = (float) indices(1) - j;
+    //     dir.normalize();
 
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
+    //     ux = dir(0) * u_imp + p_wave.u(0);
+    //     uy = dir(1) * u_imp + p_wave.u(1);
 
-        idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-        speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( (idx_check && speed_check) || p_wave.skadoosh )
-            forceVelocity(indices(0),indices(1), ux, uy);
+    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //         forceVelocity(indices(0),indices(1), ux, uy);
 
-        // 3 
-        indices(0) = i + x;
-        indices(1) = j - y;
+    //     // 3 
+    //     indices(0) = i + x;
+    //     indices(1) = j - y;
         
-        dir(0) = (float) indices(0) - i;
-        dir(1) = (float) indices(1) - j;
-        dir.normalize();
+    //     dir(0) = (float) indices(0) - i;
+    //     dir(1) = (float) indices(1) - j;
+    //     dir.normalize();
 
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
+    //     ux = dir(0) * u_imp + p_wave.u(0);
+    //     uy = dir(1) * u_imp + p_wave.u(1);
 
-        idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-        speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( (idx_check && speed_check) || p_wave.skadoosh )
-            forceVelocity(indices(0),indices(1), ux, uy);
+    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //         forceVelocity(indices(0),indices(1), ux, uy);
 
-        // 4 
-        indices(0) = i - x;
-        indices(1) = j - y;
+    //     // 4 
+    //     indices(0) = i - x;
+    //     indices(1) = j - y;
         
-        dir(0) = (float) indices(0) - i;
-        dir(1) = (float) indices(1) - j;
-        dir.normalize();
+    //     dir(0) = (float) indices(0) - i;
+    //     dir(1) = (float) indices(1) - j;
+    //     dir.normalize();
 
-        ux = dir(0) * u_imp + p_wave.u(0);
-        uy = dir(1) * u_imp + p_wave.u(1);
+    //     ux = dir(0) * u_imp + p_wave.u(0);
+    //     uy = dir(1) * u_imp + p_wave.u(1);
 
-        idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-        speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-        if ( (idx_check && speed_check) || p_wave.skadoosh )
-            forceVelocity(indices(0),indices(1), ux, uy);
+    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //         forceVelocity(indices(0),indices(1), ux, uy);
           
-        // If the generated point is on the line x = y then  
-        // the perimeter points have already been printed 
-        if (x != y) 
-        { 
-            // 1 
-            indices(0) = i + y;
-            indices(1) = j + x;
+    //     // If the generated point is on the line x = y then  
+    //     // the perimeter points have already been printed 
+    //     if (x != y) 
+    //     { 
+    //         // 1 
+    //         indices(0) = i + y;
+    //         indices(1) = j + x;
             
-            dir(0) = (float) indices(0) - i;
-            dir(1) = (float) indices(1) - j;
-            dir.normalize();
+    //         dir(0) = (float) indices(0) - i;
+    //         dir(1) = (float) indices(1) - j;
+    //         dir.normalize();
 
-            ux = dir(0) * u_imp + p_wave.u(0);
-            uy = dir(1) * u_imp + p_wave.u(1);
+    //         ux = dir(0) * u_imp + p_wave.u(0);
+    //         uy = dir(1) * u_imp + p_wave.u(1);
 
-            idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-            speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-            if ( (idx_check && speed_check) || p_wave.skadoosh )
-                forceVelocity(indices(0),indices(1), ux, uy);
+    //         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //         if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //             forceVelocity(indices(0),indices(1), ux, uy);
 
-            // 2 
-            indices(0) = i - y;
-            indices(1) = j + x;
+    //         // 2 
+    //         indices(0) = i - y;
+    //         indices(1) = j + x;
             
-            dir(0) = (float) indices(0) - i;
-            dir(1) = (float) indices(1) - j;
-            dir.normalize();
+    //         dir(0) = (float) indices(0) - i;
+    //         dir(1) = (float) indices(1) - j;
+    //         dir.normalize();
 
-            ux = dir(0) * u_imp + p_wave.u(0);
-            uy = dir(1) * u_imp + p_wave.u(1);
+    //         ux = dir(0) * u_imp + p_wave.u(0);
+    //         uy = dir(1) * u_imp + p_wave.u(1);
 
-            idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-            speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-            if ( (idx_check && speed_check) || p_wave.skadoosh )
-                forceVelocity(indices(0),indices(1), ux, uy);
+    //         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //         if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //             forceVelocity(indices(0),indices(1), ux, uy);
 
-            // 3 
-            indices(0) = i + y;
-            indices(1) = j - x;
+    //         // 3 
+    //         indices(0) = i + y;
+    //         indices(1) = j - x;
             
-            dir(0) = (float) indices(0) - i;
-            dir(1) = (float) indices(1) - j;
-            dir.normalize();
+    //         dir(0) = (float) indices(0) - i;
+    //         dir(1) = (float) indices(1) - j;
+    //         dir.normalize();
 
-            ux = dir(0) * u_imp + p_wave.u(0);
-            uy = dir(1) * u_imp + p_wave.u(1);
+    //         ux = dir(0) * u_imp + p_wave.u(0);
+    //         uy = dir(1) * u_imp + p_wave.u(1);
 
-            idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-            speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-            if ( (idx_check && speed_check) || p_wave.skadoosh )
-                forceVelocity(indices(0),indices(1), ux, uy);
+    //         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //         if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //             forceVelocity(indices(0),indices(1), ux, uy);
 
-            // 4 
-            indices(0) = i - y;
-            indices(1) = j - x;
+    //         // 4 
+    //         indices(0) = i - y;
+    //         indices(1) = j - x;
             
-            dir(0) = (float) indices(0) - i;
-            dir(1) = (float) indices(1) - j;
-            dir.normalize();
+    //         dir(0) = (float) indices(0) - i;
+    //         dir(1) = (float) indices(1) - j;
+    //         dir.normalize();
 
-            ux = dir(0) * u_imp + p_wave.u(0);
-            uy = dir(1) * u_imp + p_wave.u(1);
+    //         ux = dir(0) * u_imp + p_wave.u(0);
+    //         uy = dir(1) * u_imp + p_wave.u(1);
 
-            idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-            speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-            if ( (idx_check && speed_check) || p_wave.skadoosh )
-                forceVelocity(indices(0),indices(1), ux, uy);
-        } 
-    } 
+    //         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
+    //         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
+    //         if ( (idx_check && speed_check) || p_wave.skadoosh )
+    //             forceVelocity(indices(0),indices(1), ux, uy);
+    //     } 
+    // } 
 }
 
 JFS_INLINE void LBMSolver::doBoundaryDamping()
@@ -542,47 +582,51 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
         for (int idx=0; idx<(N*N*9); idx++)
         {
             float fiStar;
-            int i = std::floor(((float)idx)/(N*N));
-            int k = std::floor( ( (float)idx-N*N*i )/N );
-            int j = std::floor( ( (float)idx-N*N*i-N*k ) );
+            
+            int idx_tmp = idx;
+            int k = idx_tmp / (N*9);
+            idx_tmp -= k * (N*9);
+            int j = idx_tmp / 9;
+            idx_tmp -= j * 9;
+            int i = idx_tmp;
 
                     int cix = c[i](0);
                     int ciy = c[i](1);
 
                     if ((k-ciy) >= 0 && (k-ciy) < N && (j-cix) >= 0 && (j-cix) < N)
-                        fiStar = f0(N*N*i + N*(k-ciy) + (j-cix));
+                        fiStar = f0(N*9*(k-ciy) + 9*(j-cix) + i);
                     else
                     {
                         switch (i)
                         {
                         case 1:
-                            fiStar = f0(N*N*2 + N*k + j);
+                            fiStar = f0(N*9*k + 9*j + 2);
                             break;
                         case 2:
-                            fiStar = f0(N*N*1 + N*k + j);
+                            fiStar = f0(N*9*k + 9*j + 1);
                             break;
                         case 3:
-                            fiStar = f0(N*N*4 + N*k + j);
+                            fiStar = f0(N*9*k + 9*j + 4);
                             break;
                         case 4:
-                            fiStar = f0(N*N*3 + N*k + j);
+                            fiStar = f0(N*9*k + 9*j + 3);
                             break;
                         case 5:
-                            fiStar = f0(N*N*8 + N*k + j);
+                            fiStar = f0(N*9*k + 9*j + 8);
                             break;
                         case 6:
-                            fiStar = f0(N*N*7 + N*k + j);
+                            fiStar = f0(N*9*k + 9*j + 7);
                             break;
                         case 7:
-                            fiStar = f0(N*N*6 + N*k + j);
+                            fiStar = f0(N*9*k + 9*j + 6);
                             break;
                         case 8:
-                            fiStar = f0(N*N*5 + N*k + j);
+                            fiStar = f0(N*9*k + 9*j + 5);
                             break;
                         }
                     }
 
-                    f(N*N*i + N*k + j) = fiStar; 
+                    f(N*9*k + 9*j + i) = fiStar; 
 
                     calcPhysicalVals(j, k);
         }
@@ -603,11 +647,15 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
             float fbari;
             float Omegai;
             float Fi;
-            int i = std::floor(((float)idx)/(N*N));
-            int k = std::floor( ( (float)idx-N*N*i )/N );
-            int j = std::floor( ( (float)idx-N*N*i-N*k ) ); 
+
+            int idx_tmp = idx;
+            int k = idx_tmp / (N*9);
+            idx_tmp -= k * (N*9);
+            int j = idx_tmp / 9;
+            idx_tmp -= j * 9;
+            int i = idx_tmp;
             
-            fi = f(N*N*i + N*k + j);
+            fi = f(N*9*k + 9*j + i);
 
             fbari = calc_fbari(i, j, k);            
                 
@@ -615,7 +663,7 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
 
             Omegai = -(fi - fbari)/tau;
 
-            f(N*N*i + N*k + j) = fi + Omegai + Fi;
+            f(N*9*k + 9*j + i) = fi + Omegai + Fi;
         }
 
         bool badStep = Eigen::isinf(U.array()).any() || Eigen::isnan(U.array()).any();
@@ -676,7 +724,7 @@ JFS_INLINE float LBMSolver::calc_fbari(int i, int j, int k)
 
     Eigen::Vector2f u, ci;
 
-    u = {U(N*N*0 + N*k + j), U(N*N*1 + N*k + j)};
+    u = {U(N*2*k + 2*j + 0), U(N*2*k + 2*j + 1)};
     u = urefL/uref * u;
     ci = c[i];
 
@@ -691,10 +739,10 @@ JFS_INLINE float LBMSolver::calc_Fi(int i, int j, int k)
 
     Eigen::Vector2f u, ci, FP;
 
-    u = {U(N*N*0 + N*k + j), U(N*N*1 + N*k + j)};
+    u = {U(N*2*k + 2*j + 0), U(N*2*k + 2*j + 1)};
     u = urefL/uref * u;
     ci = c[i];
-    FP = {F.coeff(N*N*0 + N*k + j), F.coeff(N*N*1 + N*k + j)};
+    FP = {F.coeff(N*2*k + 2*j + 0), F.coeff(N*2*k + 2*j + 1)};
     FP = ( 1/rho0 * dx * std::pow(urefL/uref,2) ) * FP;
 
     float Fi = (1 - tau/2) * wi *
@@ -756,13 +804,13 @@ JFS_INLINE void LBMSolver::calcPhysicalVals()
             momentumP = {0, 0};
             for (int i=0; i<9; i++)
             {
-                rhoP += f(N*N*i + N*k +j);
-                momentumP += c[i] * f(N*N*i + N*k +j);
+                rhoP += f(N*9*k + 9*j + i);
+                momentumP += c[i] * f(N*9*k + 9*j + i);
             }
 
             rho_(N*k + j) = rho0 * rhoP;
-            U(N*N*0 + N*k + j) = uref/urefL * (momentumP(0)/rhoP);
-            U(N*N*1 + N*k + j) = uref/urefL * (momentumP(1)/rhoP);
+            U(N*2*k + 2*j + 0) = uref/urefL * (momentumP(0)/rhoP);
+            U(N*2*k + 2*j + 1) = uref/urefL * (momentumP(1)/rhoP);
         }
 }
 
@@ -775,13 +823,13 @@ JFS_INLINE void LBMSolver::calcPhysicalVals(int j, int k)
     momentumP = {0, 0};
     for (int i=0; i<9; i++)
     {
-        rhoP += f(N*N*i + N*k +j);
-        momentumP += c[i] * f(N*N*i + N*k +j);
+        rhoP += f(N*9*k + 9*j + i);
+        momentumP += c[i] * f(N*9*k + 9*j + i);
     }
 
     rho_(N*k + j) = rho0 * rhoP;
-    U(N*N*0 + N*k + j) = uref/urefL * (momentumP(0)/rhoP);
-    U(N*N*1 + N*k + j) = uref/urefL * (momentumP(1)/rhoP);
+    U(N*2*k + 2*j + 0) = uref/urefL * (momentumP(0)/rhoP);
+    U(N*2*k + 2*j + 1) = uref/urefL * (momentumP(1)/rhoP);
 }
 
 } // namespace jfs
