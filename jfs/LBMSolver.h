@@ -3,7 +3,6 @@
 
 #include "jfs_inline.h"
 
-#include <jfs/base/fluidBase.h>
 #include <jfs/base/grid2D.h>
 
 #include <Eigen/Eigen>
@@ -15,7 +14,7 @@ struct PressureWave;
 
 struct DensityWave;
 
-class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
+class LBMSolver : public grid2D<Eigen::ColMajor> {
 
     public:
         // typical density of fluid
@@ -48,7 +47,7 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
 
         void enableDensityViewMode(bool use);
 
-        ~LBMSolver(){};
+        ~LBMSolver(){clearGrid();};
 
     private:
 
@@ -62,18 +61,20 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
         // The paper uses fi to represent the discretized distribution function
         // Because of this, j,k,l are now used to index x,y,z positions on the grid
 
-        Vector_ f; // the distribution function
-        Vector_ rho_; // calculated rho from distribution function
+        bool is_initialized_ = false;
 
-        Vector_ U; 
+        float* f; // the distribution function
+        float* f0; // the distribution function
+        float* rho_; // calculated rho from distribution function
+
+        float* U; 
         
-        Vector_ S;
-        Vector_ S0;
+        float* S;
+        float* S0;
 
-        SparseVector_ F;
-        SparseVector_ SF;
+        float* F;
 
-        Eigen::Vector2f c[9] = { // D2Q9 velocity dicretization
+        const float c[9][2]{ // D2Q9 velocity dicretization
             {0,0},                                // i = 0
             {1,0}, {-1,0}, {0,1}, {0,-1},   // i = 1, 2, 3, 4
             {1,1}, {-1,1}, {1,-1}, {-1,-1}  // i = 5, 6, 7, 8
@@ -106,9 +107,9 @@ class LBMSolver : public fluidBase, public grid2D<Eigen::ColMajor> {
 
     private:
 
-        bool calcNextStep( std::vector<PressureWave> p_waves );
+        void clearGrid();
 
-        void addForce(Vector_ &dst, const Vector_ &src, const Vector_ &force, float dt);
+        bool calcNextStep( std::vector<PressureWave> p_waves );
 
         // calcs fbar for the ith velocity at the grid position (j,k)
         float calc_fbari(int i, int j, int k);

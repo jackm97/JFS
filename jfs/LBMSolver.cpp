@@ -17,6 +17,9 @@ JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, BoundType btype, 
     this->rho0 = rho0;
     this->visc = visc;
     this->uref = uref;
+
+    if (is_initialized_)
+        clearGrid();
     
     // lattice scaling stuff
     cs = 1/std::sqrt(3);
@@ -31,17 +34,22 @@ JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, BoundType btype, 
     tau = (3*viscL + .5);
     dt = urefL/uref * dx * dtL;
 
-    U.resize(N*N*2);
-    
-    S.resize(3*N*N);
-    SF.resize(3*N*N);
+    f = new float[9*N*N];
+    f0 = new float[9*N*N];
 
-    F.resize(N*N*2);
+    rho_ = new float[N*N];
 
-    f.resize(9*N*N);
-    rho_.resize(N*N);
+    U = new float[2*N*N];
+
+
+    S = new float[3*N*N];
+    S0 = new float[3*N*N];
+
+    F = new float[2*N*N];
 
     resetFluid();
+
+    is_initialized_ = true;
 }
 
 JFS_INLINE void LBMSolver::setDensityVisBounds(float minrho, float maxrho)
@@ -53,19 +61,19 @@ JFS_INLINE void LBMSolver::setDensityVisBounds(float minrho, float maxrho)
 JFS_INLINE void LBMSolver::getCurrentDensityBounds(float minmax_rho[2])
 {
 
-    float minrho_ = rho_(0);
-    float maxrho_ = rho_(0);
+    float minrho_ = rho_[0];
+    float maxrho_ = rho_[0];
 
     for (int i=0; i < N*N; i++)
     {
-        if (rho_(i) < minrho_)
-            minrho_ = rho_(i);
+        if (rho_[i] < minrho_)
+            minrho_ = rho_[i];
     }
 
     for (int i=0; i < N*N; i++)
     {
-        if (rho_(i) > maxrho_)
-            maxrho_ = rho_(i);
+        if (rho_[i] > maxrho_)
+            maxrho_ = rho_[i];
     }
 
     minmax_rho[0] = minrho_;
@@ -79,20 +87,28 @@ JFS_INLINE void LBMSolver::enableDensityViewMode(bool use)
 
 JFS_INLINE void LBMSolver::resetFluid()
 {
-    U.setZero();
 
-    S.setZero();
-    S0 = S;
-    SF.setZero();
+    for (int i = 0; i < N*N; i++)
+    {
+        U[2*i + 0] = 0;
+        U[2*i + 1] = 0;
 
-    rho_.setOnes();
-    rho_ *= rho0;
+        S[2*i + 0] = 0;
+        S[2*i + 1] = 0;
+        S[2*i + 2] = 0;
+
+        S0[3*i + 0] = 0;
+        S0[3*i + 1] = 0;
+        S0[3*i + 2] = 0;
+
+        rho_[i] = rho0;
+    }
 
     // reset distribution
     for (int j=0; j < N; j++)
         for (int k=0; k < N; k++)
             for (int i=0; i < 9; i++)
-                f(N*9*k + 9*j + i) = calc_fbari(i, j, k);
+                f[N*9*k + 9*j + i] = calc_fbari(i, j, k);
 
     T = 0;
 }
@@ -114,7 +130,7 @@ JFS_INLINE void LBMSolver::getSourceImage(Eigen::VectorXf &image)
     auto N = grid2D::N;
     auto D = grid2D::D;
 
-    image = this->S;
+    std::memcpy(image.data(), this->S, 3*N*N*sizeof(float));
 }
 
 JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
@@ -126,14 +142,17 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
     auto N = grid2D::N;
     auto D = grid2D::D;
 
-    float minrho = rho_(0);
-    float maxrho = rho_(0);
-    float meanrho = rho_.mean();
+    float minrho = rho_[0];
+    float maxrho = rho_[0];
+    float meanrho = 0;
+    for (int i = 0; i < N*N; i++)
+        meanrho += rho_[i];
+    meanrho /= N*N;
 
     for (int i=0; i < N*N && minrho_ == -1; i++)
     {
-        if (rho_(i) < minrho)
-            minrho = rho_(i);
+        if (rho_[i] < minrho)
+            minrho = rho_[i];
     }
 
     if (minrho_ != -1)
@@ -141,8 +160,8 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
 
     for (int i=0; i < N*N && maxrho_ == -1; i++)
     {
-        if (rho_(i) > maxrho)
-            maxrho = rho_(i);
+        if (rho_[i] > maxrho)
+            maxrho = rho_[i];
     }
 
     if (maxrho_ == -1 && minrho_ == -1)
@@ -162,11 +181,9 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
     for (int i=0; i < N; i++)
         for (int j=0; j < N; j++)
         {
-            Eigen::VectorXi indices(2);
-            indices(0) = i;
-            indices(1) = j;
+            int indices[2]{i, j};
             float rho;
-            indexGrid(&rho, indices.data(), rho_.data(), SCALAR_FIELD, 1);
+            indexGrid(&rho, indices, rho_, SCALAR_FIELD, 1);
             if ((maxrho - minrho) != 0)
                 rho = (rho- minrho)/(maxrho - minrho);
             else
@@ -177,9 +194,9 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
             map_idx = (map_idx > 255) ? 255 : map_idx;
             map_idx = (map_idx < 0) ? 0 : map_idx;
 
-            image(N*3*j + 0 + i*3) = (float) map_idx / 255;
-            image(N*3*j + 1 + i*3) = (float) map_idx / 255;
-            image(N*3*j + 2 + i*3) = (float) map_idx / 255;
+            image[N*3*j + 0 + i*3] = (float) map_idx / 255;
+            image[N*3*j + 1 + i*3] = (float) map_idx / 255;
+            image[N*3*j + 2 + i*3] = (float) map_idx / 255;
         }
 }
 
@@ -194,7 +211,7 @@ JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
             u(0) = ux;
             u(1) = uy;
 
-            insertIntoGrid(indices.data(), u.data(), U.data(), VECTOR_FIELD, 1);
+            insertIntoGrid(indices.data(), u.data(), U, VECTOR_FIELD, 1);
 
             Vector_ fbar(9);
             for (int k = 0; k < 9; k++)
@@ -202,7 +219,7 @@ JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
                 fbar(k) = calc_fbari(k, i, j);
             }
 
-            insertIntoGrid(indices.data(), fbar.data(), f.data(), SCALAR_FIELD, 9);
+            insertIntoGrid(indices.data(), fbar.data(), f, SCALAR_FIELD, 9);
 
             calcPhysicalVals(i, j);
 }
@@ -214,7 +231,7 @@ JFS_INLINE void LBMSolver::forceDensity(int i, int j, float rho)
             indices(0) = i;
             indices(1) = j;
 
-            insertIntoGrid(indices.data(), &rho, rho_.data(), SCALAR_FIELD, 1);
+            insertIntoGrid(indices.data(), &rho, rho_, SCALAR_FIELD, 1);
 
             Vector_ fbar(9);
             for (int k = 0; k < 9; k++)
@@ -222,7 +239,7 @@ JFS_INLINE void LBMSolver::forceDensity(int i, int j, float rho)
                 fbar(k) = calc_fbari(k, i, j);
             }
 
-            insertIntoGrid(indices.data(), fbar.data(), f.data(), SCALAR_FIELD, 9);
+            insertIntoGrid(indices.data(), fbar.data(), f, SCALAR_FIELD, 9);
 
             calcPhysicalVals(i, j);
 }
@@ -527,13 +544,13 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             indices(0) = i + step;
             indices(1) = j;
             Vector_ u(2);
-            indexGrid(u.data(), indices.data(), U.data(), VECTOR_FIELD);
+            indexGrid(u.data(), indices.data(), U, VECTOR_FIELD);
             Vector_ rho(1);
-            indexGrid(rho.data(), indices.data(), rho_.data(), SCALAR_FIELD);
+            indexGrid(rho.data(), indices.data(), rho_, SCALAR_FIELD);
 
             indices(0) = i;
 
-            insertIntoGrid(indices.data(), rho.data(), rho_.data(), SCALAR_FIELD);
+            insertIntoGrid(indices.data(), rho.data(), rho_, SCALAR_FIELD);
             forceVelocity(indices(0), indices(1), u(0), u(1));
         }
     } 
@@ -551,13 +568,13 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             indices(1) = i + step;
             indices(0) = j;
             Vector_ u(2);
-            indexGrid(u.data(), indices.data(), U.data(), VECTOR_FIELD);
+            indexGrid(u.data(), indices.data(), U, VECTOR_FIELD);
             Vector_ rho(1);
-            indexGrid(rho.data(), indices.data(), rho_.data(), SCALAR_FIELD);
+            indexGrid(rho.data(), indices.data(), rho_, SCALAR_FIELD);
 
             indices(1) = i;
 
-            insertIntoGrid(indices.data(), rho.data(), rho_.data(), SCALAR_FIELD);
+            insertIntoGrid(indices.data(), rho.data(), rho_, SCALAR_FIELD);
             forceVelocity(indices(0), indices(1), u(0), u(1));
         }
     }
@@ -570,13 +587,11 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
 
     BoundType btype = grid2D::bound_type_;
 
-    static Vector_ f0;
-
     int iterations = iter_per_frame;
     for (int iter = 0; iter < iterations; iter++)
     {
 
-        f0 = f;
+        std::memcpy(f0, f, 9*N*N*sizeof(float));
         
         // stream
         for (int idx=0; idx<(N*N*9); idx++)
@@ -590,45 +605,51 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
             idx_tmp -= j * 9;
             int i = idx_tmp;
 
-                    int cix = c[i](0);
-                    int ciy = c[i](1);
+                    int cix = c[i][0];
+                    int ciy = c[i][1];
 
                     if ((k-ciy) >= 0 && (k-ciy) < N && (j-cix) >= 0 && (j-cix) < N)
-                        fiStar = f0(N*9*(k-ciy) + 9*(j-cix) + i);
+                        fiStar = f0[N*9*(k-ciy) + 9*(j-cix) + i];
                     else
                     {
                         switch (i)
                         {
                         case 1:
-                            fiStar = f0(N*9*k + 9*j + 2);
+                            fiStar = f0[N*9*k + 9*j + 2];
                             break;
                         case 2:
-                            fiStar = f0(N*9*k + 9*j + 1);
+                            fiStar = f0[N*9*k + 9*j + 1];
                             break;
                         case 3:
-                            fiStar = f0(N*9*k + 9*j + 4);
+                            fiStar = f0[N*9*k + 9*j + 4];
                             break;
                         case 4:
-                            fiStar = f0(N*9*k + 9*j + 3);
+                            fiStar = f0[N*9*k + 9*j + 3];
                             break;
                         case 5:
-                            fiStar = f0(N*9*k + 9*j + 8);
+                            fiStar = f0[N*9*k + 9*j + 8];
                             break;
                         case 6:
-                            fiStar = f0(N*9*k + 9*j + 7);
+                            fiStar = f0[N*9*k + 9*j + 7];
                             break;
                         case 7:
-                            fiStar = f0(N*9*k + 9*j + 6);
+                            fiStar = f0[N*9*k + 9*j + 6];
                             break;
                         case 8:
-                            fiStar = f0(N*9*k + 9*j + 5);
+                            fiStar = f0[N*9*k + 9*j + 5];
                             break;
                         }
                     }
 
-                    f(N*9*k + 9*j + i) = fiStar; 
+                    f[N*9*k + 9*j + i] = fiStar; 
 
                     calcPhysicalVals(j, k);
+
+                    float u[2];
+                    int indices[2]{j, k};
+                    indexGrid(u, indices, U, VECTOR_FIELD);
+                    if (std::isinf(u[0]) || std::isinf(u[1]) || std::isnan(u[0]) || std::isnan(u[1]))
+                        return true;
         }
 
         // do any field manipulations before collision step
@@ -655,7 +676,7 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
             idx_tmp -= j * 9;
             int i = idx_tmp;
             
-            fi = f(N*9*k + 9*j + i);
+            fi = f[N*9*k + 9*j + i];
 
             fbari = calc_fbari(i, j, k);            
                 
@@ -663,14 +684,11 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
 
             Omegai = -(fi - fbari)/tau;
 
-            f(N*9*k + 9*j + i) = fi + Omegai + Fi;
+            f[N*9*k + 9*j + i] = fi + Omegai + Fi;
         }
 
-        bool badStep = Eigen::isinf(U.array()).any() || Eigen::isnan(U.array()).any();
-        if (badStep) return true;
-
-        addForce(S, S0, SF, dt);
-        backstream(S0, S, U, dt, SCALAR_FIELD, 3);
+        backstream(S, S0, U, dt, SCALAR_FIELD, 3);
+        std::memcpy(S0, S, 3*N*N*sizeof(float));
 
         T += dt;
     }
@@ -692,13 +710,42 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const s
     bool failedStep = false;
     try
     {    
-        interpolateForce(forces, F);
-        interpolateSource(sources, SF);
+        for (int i = 0; i < forces.size(); i++)
+        {
+            float force[3] = {
+                forces[i].force[0],
+                forces[i].force[1],
+                forces[i].force[2]
+            };
+            float point[3] = {
+                forces[i].pos[0]/this->D,
+                forces[i].pos[1]/this->D,
+                forces[i].pos[2]/this->D
+            };
+            this->interpPointToGrid(force, point, F, VECTOR_FIELD, 1, Add);
+        }
+        for (int i = 0; i < sources.size(); i++)
+        {
+            float color[3] = {
+                sources[i].color[0] * sources[i].strength * dt,
+                sources[i].color[1] * sources[i].strength * dt,
+                sources[i].color[2] * sources[i].strength * dt
+            };
+            float point[3] = {
+                sources[i].pos[0]/this->D,
+                sources[i].pos[1]/this->D,
+                sources[i].pos[2]/this->D
+            };
+            this->interpPointToGrid(color, point, S0, SCALAR_FIELD, 3, Add);
+        }
 
         failedStep = calcNextStep(p_waves);
 
-        F.setZero();
-        SF.setZero();
+        for (int i = 0; i < N*N; i++)
+        {
+            F[2*i + 0] = 0;
+            F[2*i + 1] = 0;
+        }
     }
     catch(const std::exception& e)
     {
@@ -711,125 +758,164 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const s
     return failedStep;
 }
 
-JFS_INLINE void LBMSolver::addForce(Vector_ &dst, const Vector_ &src, const Vector_ &force, float dt)
+JFS_INLINE void LBMSolver::clearGrid()
 {
-    dst = src + dt * force ;
+    delete [] f;
+    delete [] f0;
+    delete [] rho_;
+    delete [] U;
+    delete [] S;
+    delete [] S0;
+    delete [] F;
+
+    is_initialized_ = false;
 }
 
 JFS_INLINE float LBMSolver::calc_fbari(int i, int j, int k)
 {
+    int indices[2]{j, k};
+    
     float fbari;
-    float rhoP = rho_(N*k + j); // rho_ at point P -> (j,k)
+    float rho_jk; // rho_ at point P -> (j,k)
+    indexGrid(&rho_jk, indices, rho_, SCALAR_FIELD);
     float wi = w[i];
 
-    Eigen::Vector2f u, ci;
+    float u[2];
+    indexGrid(u, indices, U, VECTOR_FIELD);
+    u[0] *= urefL/uref;
+    u[1] *= urefL/uref;
+    float ci[2]{c[i][0], c[i][1]};
 
-    u = {U(N*2*k + 2*j + 0), U(N*2*k + 2*j + 1)};
-    u = urefL/uref * u;
-    ci = c[i];
+    float ci_dot_u = ci[0]*u[0] + ci[1]*u[1];
+    float u_dot_u = u[0]*u[0] + u[1]*u[1];
 
-    fbari = wi * rhoP/rho0 * ( 1 + ci.dot(u)/(std::pow(cs,2)) + std::pow(ci.dot(u),2)/(2*std::pow(cs,4)) - u.dot(u)/(2*std::pow(cs,2)) );
+    fbari = wi * rho_jk/rho0 * ( 1 + ci_dot_u/(std::pow(cs,2)) + std::pow(ci_dot_u,2)/(2*std::pow(cs,4)) - u_dot_u/(2*std::pow(cs,2)) );
 
     return fbari;
 }
 
 JFS_INLINE float LBMSolver::calc_Fi(int i, int j, int k)
 {
+    int indices[2]{j, k};
+    
     float wi = w[i];
 
-    Eigen::Vector2f u, ci, FP;
+    float u[2];
+    indexGrid(u, indices, U, VECTOR_FIELD);
+    u[0] *= urefL/uref;
+    u[1] *= urefL/uref;
+    float ci[2]{c[i][0], c[i][1]};
 
-    u = {U(N*2*k + 2*j + 0), U(N*2*k + 2*j + 1)};
-    u = urefL/uref * u;
-    ci = c[i];
-    FP = {F.coeff(N*2*k + 2*j + 0), F.coeff(N*2*k + 2*j + 1)};
-    FP = ( 1/rho0 * dx * std::pow(urefL/uref,2) ) * FP;
+    float ci_dot_u = ci[0]*u[0] + ci[1]*u[1];
 
-    float Fi = (1 - tau/2) * wi *
-                ( (1/std::pow(cs,2))*(ci - u) + (ci.dot(u)/std::pow(cs,4)) * ci ).dot(FP);
+    float F_jk[2];
+    indexGrid(F_jk, indices, F, VECTOR_FIELD);
+    F_jk[0] *= ( 1/rho0 * dx * std::pow(urefL/uref,2) );
+    F_jk[1] *= ( 1/rho0 * dx * std::pow(urefL/uref,2) );
+
+    float Fi = (1 - tau/2) * wi * (
+         ( (1/std::pow(cs,2))*(ci[0] - u[0]) + (ci_dot_u/std::pow(cs,4)) * ci[0] )  * F_jk[0] + 
+         ( (1/std::pow(cs,2))*(ci[1] - u[1]) + (ci_dot_u/std::pow(cs,4)) * ci[1] )  * F_jk[1]
+    );
 
     return Fi;
 }
 
 JFS_INLINE void LBMSolver::adj_uref()
 {
-    float umaxL = 0;
-    float umax = 0;
-    Eigen::Vector2f u;
-    for (int j=0; j<N; j++)
-        for (int k=0; k<N; k++)
-        {
-            u = {U(N*N*0 + N*k + j), U(N*N*1 + N*k + j)};
-            if ( urefL/uref * u.norm() > umaxL)
-            {
-                umax = u.norm();
-                umaxL = urefL/uref * umax;
-            }
-        }
+    // float umaxL = 0;
+    // float umax = 0;
+    // Eigen::Vector2f u;
+    // for (int j=0; j<N; j++)
+    //     for (int k=0; k<N; k++)
+    //     {
+    //         u = {U(N*N*0 + N*k + j), U(N*N*1 + N*k + j)};
+    //         if ( urefL/uref * u.norm() > umaxL)
+    //         {
+    //             umax = u.norm();
+    //             umaxL = urefL/uref * umax;
+    //         }
+    //     }
 
-    std::cout << "umax: " << umax << std::endl;
-    std::cout << "1: " << uref << std::endl;
+    // std::cout << "umax: " << umax << std::endl;
+    // std::cout << "1: " << uref << std::endl;
 
-    // keep stability and don't make time step too small
-    if (umaxL < .018 || umaxL > .022)
-        uref = 5*urefL*umax;
+    // // keep stability and don't make time step too small
+    // if (umaxL < .018 || umaxL > .022)
+    //     uref = 5*urefL*umax;
 
-    std::cout << "2: " << uref << std::endl;
+    // std::cout << "2: " << uref << std::endl;
 
-    // stop uref from being set to zero
-    float epsilon = 1e-2;
-    if (uref < epsilon)
-        uref = epsilon;
+    // // stop uref from being set to zero
+    // float epsilon = 1e-2;
+    // if (uref < epsilon)
+    //     uref = epsilon;
     
-    std::cout << "3: " << uref << std::endl;
+    // std::cout << "3: " << uref << std::endl;
 
-    // dont overshoot frame delta t ( can only make time step smaller, so no need to worry about stability )
-    float dtFrame = 1/fps;
-    float dtIter = urefL / uref * dx * dtL;
-    if (dt + dtIter > dtFrame)
-        uref = urefL/(dtFrame-dt) * dx * dtL;
+    // // dont overshoot frame delta t ( can only make time step smaller, so no need to worry about stability )
+    // float dtFrame = 1/fps;
+    // float dtIter = urefL / uref * dx * dtL;
+    // if (dt + dtIter > dtFrame)
+    //     uref = urefL/(dtFrame-dt) * dx * dtL;
     
-    std::cout << "4: " << uref << std::endl;
+    // std::cout << "4: " << uref << std::endl;
 }
 
 JFS_INLINE void LBMSolver::calcPhysicalVals()
 {
-    float rhoP;
-    Eigen::Vector2f momentumP;
+    float rho_jk = 0;
+    float momentum_jk[2]{0, 0};
 
     for (int j=0; j<N; j++)
+    {
         for (int k=0; k<N; k++)
         {
-            rhoP = 0;
-            momentumP = {0, 0};
+            rho_jk = 0;
+            momentum_jk[0] += 0;
+            momentum_jk[1] += 0;
+
             for (int i=0; i<9; i++)
             {
-                rhoP += f(N*9*k + 9*j + i);
-                momentumP += c[i] * f(N*9*k + 9*j + i);
+                rho_jk += f[N*9*k + 9*j + i];
+                momentum_jk[0] += c[i][0] * f[N*9*k + 9*j + i];
+                momentum_jk[1] += c[i][1] * f[N*9*k + 9*j + i];
             }
 
-            rho_(N*k + j) = rho0 * rhoP;
-            U(N*2*k + 2*j + 0) = uref/urefL * (momentumP(0)/rhoP);
-            U(N*2*k + 2*j + 1) = uref/urefL * (momentumP(1)/rhoP);
+            float* u = momentum_jk;
+            u[0] = uref/urefL * (momentum_jk[0]/rho_jk);
+            u[1] = uref/urefL * (momentum_jk[1]/rho_jk);
+            rho_jk = rho0 * rho_jk;
+
+            int indices[2]{j, k};
+
+            insertIntoGrid(indices, &rho_jk, rho_, SCALAR_FIELD);
+            insertIntoGrid(indices, u, U, VECTOR_FIELD);
         }
+    }
 }
 
 JFS_INLINE void LBMSolver::calcPhysicalVals(int j, int k)
 {
-    float rhoP;
-    Eigen::Vector2f momentumP;
+    float rho_jk = 0;
+    float momentum_jk[2]{0, 0};
 
-    rhoP = 0;
-    momentumP = {0, 0};
     for (int i=0; i<9; i++)
     {
-        rhoP += f(N*9*k + 9*j + i);
-        momentumP += c[i] * f(N*9*k + 9*j + i);
+        rho_jk += f[N*9*k + 9*j + i];
+        momentum_jk[0] += c[i][0] * f[N*9*k + 9*j + i];
+        momentum_jk[1] += c[i][1] * f[N*9*k + 9*j + i];
     }
 
-    rho_(N*k + j) = rho0 * rhoP;
-    U(N*2*k + 2*j + 0) = uref/urefL * (momentumP(0)/rhoP);
-    U(N*2*k + 2*j + 1) = uref/urefL * (momentumP(1)/rhoP);
+    float* u = momentum_jk;
+    u[0] = uref/urefL * (momentum_jk[0]/rho_jk);
+    u[1] = uref/urefL * (momentum_jk[1]/rho_jk);
+    rho_jk = rho0 * rho_jk;
+
+    int indices[2]{j, k};
+
+    insertIntoGrid(indices, &rho_jk, rho_, SCALAR_FIELD);
+    insertIntoGrid(indices, u, U, VECTOR_FIELD);
 }
 
 } // namespace jfs

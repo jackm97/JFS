@@ -21,6 +21,11 @@ namespace jfs {
 // where field represents the color from 0-2. Vector quantities
 // would be indexed like vector(N*N*2*field + N*N*dim + N*j + i)
 
+enum InsertType{
+    Replace,
+    Add
+};
+
 template <int StorageOrder>
 class gridBase {
     public:
@@ -75,7 +80,15 @@ class gridBase {
         //      Vector_ &ij0 - grid index values used to interpolate, can be floats
         //      int dims - dimensions of quantity to be interpolated
         //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual void interpGridToPoint(float* dst, float* point, const float* field_data, FieldType ftype, unsigned int fields=1) = 0; 
+        virtual void interpGridToPoint(float* q, const float* point, const float* field_data, FieldType ftype, unsigned int fields=1) = 0; 
+
+        // calculate Interpolation operator from grid values to point
+        // Inputs:
+        //      SparseMatrix_ &dst - destination sparse matrix for operator (dst*q = value where q is grid quantity interpolated to value)
+        //      Vector_ &ij0 - grid index values used to interpolate, can be floats
+        //      int dims - dimensions of quantity to be interpolated
+        //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
+        virtual void interpPointToGrid(const float* q, const float* point, float* field_data, FieldType ftype, unsigned int fields=1, InsertType itype=Replace) = 0; 
 
         // backstreams a quantity on the grid
         // Inputs:
@@ -84,7 +97,7 @@ class gridBase {
         //      Vector_ &u - velocity used to stream quantity
         //      float dt - time step
         //      float dims - dimensions of grid quantity
-        virtual void backstream(Vector_ &dst, const Vector_ &src, const Vector_ &u, float dt, FieldType ftype, int fields=1) = 0;
+        virtual void backstream(float* dst, const float* src, const float* ufield, float dt, FieldType ftype, int fields=1) = 0;
 
         // determines the location of a partice on a grid node at time t+dt
         // Inputs:
@@ -92,7 +105,7 @@ class gridBase {
         //      Vector_ &X - desitination at t 
         //      Vector_ &u - velocity used to stream quantity
         //      float dt - time step
-        virtual Vector_ backtrace(Vector_ X, const Vector_ &ufield, float dt);
+        virtual void backtrace(float* end_point, const float* start_point, int size, const float* ufield, float dt);
 
         // indexes a scalar or vector field
         // Inputs:
@@ -111,11 +124,7 @@ class gridBase {
         //      Vector_ &dst - field quantity inserting into
         //      int dims - dimensions of quantity to be interpolated
         //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual void insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields=1) = 0;
-
-        virtual void interpolateForce(const std::vector<Force> forces, SparseVector_ &dst) = 0;
-        
-        virtual void interpolateSource(const std::vector<Source> sources, SparseVector_ &dst) = 0;
+        virtual void insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields=1, InsertType itype=Replace) = 0;
 };
 } // namespace jfs
 

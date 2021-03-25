@@ -17,23 +17,15 @@ typedef enum {
 } FieldType;
 
 struct Force {
-    float x=0;
-    float y=0;
-    float z=0;
-
-    float Fx=0;
-    float Fy=0;
-    float Fz=0;
+    float pos[3]{0.f};
+    float force[3]{0.f};
 };
 
 struct Source {
-    float x=0;
-    float y=0;
-    float z=0;
+    float pos[3]{0.f};
+    float color[3]{0.f};
 
-    Eigen::Vector3f color={0,0,0};
-
-    float strength;
+    float strength = 0.f;
 };
 
 }

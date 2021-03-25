@@ -15,18 +15,27 @@ void gridBase<StorageOrder>::initializeGrid(unsigned int N, float L, BoundType b
 }
 
 template<int StorageOrder>
-JFS_INLINE typename gridBase<StorageOrder>::Vector_ gridBase<StorageOrder>::
-backtrace(Vector_ X, const Vector_ &ufield, float dt)
+JFS_INLINE void gridBase<StorageOrder>::
+backtrace(float* end_point, const float* start_point, int size, const float* ufield, float dt)
 {
-    Eigen::VectorXi start_indices = ( X.array()/D - .5).template cast<int>();
-    Eigen::VectorXf u(X.rows());
-    indexGrid(u.data(), start_indices.data(), ufield.data(), VECTOR_FIELD);
-    Eigen::VectorXf interp_indices = 1/D * (X + u*dt*.5).array() - .5;
+    int* start_indices = new int[size];
+    for (int i = 0; i < size; i++)
+        start_indices[i] = (int) ( start_point[i]/D - .5 );
     
-    interpGridToPoint(u.data(), interp_indices.data(), ufield.data(), VECTOR_FIELD);
-    X = X + dt * u;
+    float* u = new float[size];
+    indexGrid(u, start_indices, ufield, VECTOR_FIELD);
+    
+    float* interp_indices = new float[size];
+    for (int i = 0; i < size; i++)
+        interp_indices[i] = 1/D * ( (float)start_point[i] + u[i] * dt/2) - .5;
 
-    return X;
+    
+    interpGridToPoint(u, interp_indices, ufield, VECTOR_FIELD);
+    for (int i = 0; i < size; i++)
+        end_point[i] = start_point[i] + dt * u[i];
+
+    delete [] start_indices;
+    delete [] u;
 }
 
 // explicit instantiation of templates

@@ -22,12 +22,12 @@ JFS_INLINE bool JSSFSolverBase<LinearSolver, StorageOrder>::calcNextStep()
     auto dt = this->dt;
     
     addForce(U, U0, F, dt);
-    this->backstream(U0, U, U, dt, VECTOR_FIELD);
+    this->backstream(U0.data(), U.data(), U.data(), dt, VECTOR_FIELD);
     diffuse(U, U0, dt, VECTOR_FIELD);
     projection(U0, U);
 
     addForce(S, S0, SF, dt);
-    this->backstream(S0, S, U0, dt, SCALAR_FIELD, 3);
+    this->backstream(S0.data(), S.data(), U0.data(), dt, SCALAR_FIELD, 3);
     diffuse(S, S0, dt, SCALAR_FIELD);
     dissipate(S0, S, dt);
     S = S0;
@@ -45,8 +45,34 @@ calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
 
     try
     {
-        this->interpolateForce(forces, F);
-        this->interpolateSource(sources, SF);
+        for (int i = 0; i < forces.size(); i++)
+        {
+            float force[3] = {
+                forces[i].force[0],
+                forces[i].force[1],
+                forces[i].force[2]
+            };
+            float point[3] = {
+                forces[i].pos[0]/this->D,
+                forces[i].pos[1]/this->D,
+                forces[i].pos[2]/this->D
+            };
+            this->interpPointToGrid(force, point, F.data(), VECTOR_FIELD, 1, Add);
+        }
+        for (int i = 0; i < sources.size(); i++)
+        {
+            float source[3] = {
+                sources[i].color[0] * sources[i].strength,
+                sources[i].color[1] * sources[i].strength,
+                sources[i].color[2] * sources[i].strength
+            };
+            float point[3] = {
+                sources[i].pos[0]/this->D,
+                sources[i].pos[1]/this->D,
+                sources[i].pos[2]/this->D
+            };
+            this->interpPointToGrid(source, point, SF.data(), SCALAR_FIELD, 3, Add);
+        }
 
         failedStep = calcNextStep();
 

@@ -30,8 +30,7 @@ include_directories(${PROJECT_SOURCE_DIR}
 set(JFS_SOURCE_DIR ${PROJECT_SOURCE_DIR}/jfs)
 
 # Header Files
-set(JFS_HEADERS_BASE    ${JFS_SOURCE_DIR}/base/fluidBase.h
-                        ${JFS_SOURCE_DIR}/base/grid2D.h
+set(JFS_HEADERS_BASE    ${JFS_SOURCE_DIR}/base/grid2D.h
                         ${JFS_SOURCE_DIR}/base/grid3D.h
                         ${JFS_SOURCE_DIR}/base/gridBase.h)
 

@@ -3,7 +3,6 @@
 
 #include "jfs_inline.h"
 
-#include <jfs/base/fluidBase.h>
 #include <jfs/base/gridBase.h>
 
 namespace jfs {
@@ -13,7 +12,7 @@ typedef Eigen::SimplicialLDLT< Eigen::SparseMatrix<float> > fastZeroSolver; // s
 typedef Eigen::ConjugateGradient< Eigen::SparseMatrix<float>,  Eigen::Lower | Eigen::Upper> iterativeSolver; // iterative solver, great for parallelization
 
 template <class LinearSolver, int StorageOrder>
-class JSSFSolverBase : virtual public fluidBase, virtual public gridBase<StorageOrder>{
+class JSSFSolverBase : virtual public gridBase<StorageOrder>{
     public:
         JSSFSolverBase(){};
 
@@ -53,8 +52,8 @@ class JSSFSolverBase : virtual public fluidBase, virtual public gridBase<Storage
         Vector_ S;
         Vector_ S0;
 
-        SparseVector_ F;
-        SparseVector_ SF;
+        Vector_ F;
+        Vector_ SF;
 
         bool calcNextStep( );
 

@@ -52,7 +52,7 @@ class grid3D: virtual public gridBase<StorageOrder> {
         //      Vector_ &u - velocity used to stream quantity
         //      float dt - time step
         //      float dims - dimensions of grid quantity
-        virtual void backstream(Vector_ &dst, const Vector_ &src, const Vector_ &u, float dt, FieldType ftype, int fields=1);
+        virtual void backstream(float* dst, const float* src, const float* ufield, float dt, FieldType ftype, int fields=1);
 
         // calculate Interpolation operator from grid values to point
         // Inputs:
@@ -60,7 +60,15 @@ class grid3D: virtual public gridBase<StorageOrder> {
         //      Vector_ &ij0 - grid index values used to interpolate, can be floats
         //      int dims - dimensions of quantity to be interpolated
         //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual void interpGridToPoint(float* dst, float* point, const float* field_data, FieldType ftype, unsigned int fields=1);
+        virtual void interpGridToPoint(float* dst, const float* point, const float* field_data, FieldType ftype, unsigned int fields=1);
+
+        // calculate Interpolation operator from grid values to point
+        // Inputs:
+        //      SparseMatrix_ &dst - destination sparse matrix for operator (dst*q = value where q is grid quantity interpolated to value)
+        //      Vector_ &ij0 - grid index values used to interpolate, can be floats
+        //      int dims - dimensions of quantity to be interpolated
+        //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
+        virtual void interpPointToGrid(const float* q, const float* point, float* field_data, FieldType ftype, unsigned int fields=1, InsertType itype=Replace); 
 
         // indexes a scalar or vector field
         // Inputs:
@@ -79,11 +87,7 @@ class grid3D: virtual public gridBase<StorageOrder> {
         //      Vector_ &dst - field quantity inserting into
         //      int dims - dimensions of quantity to be interpolated
         //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        virtual void insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields=1); 
-
-        virtual void interpolateForce(const std::vector<Force> forces, SparseVector_ &dst);
-        
-        virtual void interpolateSource(const std::vector<Source> sources, SparseVector_ &dst);
+        virtual void insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields=1, InsertType itype=Replace); 
 };
 } // namespace jfs
 

@@ -363,7 +363,7 @@ JFS_INLINE void grid3D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fiel
 }
 
 template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &src, const Vector_ &ufield, float dt, FieldType ftype, int fields)
+JFS_INLINE void grid3D<StorageOrder>::backstream(float* dst_field, const float* src_field, const float* ufield, float dt, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -381,31 +381,37 @@ JFS_INLINE void grid3D<StorageOrder>::backstream(Vector_ &dst, const Vector_ &sr
         break;
     }
 
-    for (int index = 0; index < N*N*N; index++)
+    float* interp_quant = new float[fields*dims];
+
+    for (int index = 0; index < N*N; index++)
     {
         int k = std::floor(index/(N*N));
         int j = std::floor((index-N*N*k)/N);
         int i = index - N*N*k - N*j;
-        Vector_ X(3);
-        X(0) = D*(i + .5);
-        X(1) = D*(j + .5);
-        X(2) = D*(k + .5);
+        float x[3]{
+            D*(i + .5f),
+            D*(j + .5f),
+            D*(k + .5f)
+        };
 
         using gridBase = gridBase<StorageOrder>;
-        X = gridBase::backtrace(X, ufield, -dt);
+        float x_new[3];
+        gridBase::backtrace(x_new, x, 3, ufield, -dt);
 
-        Vector_ interp_indices = (X.array())/D - .5;
+        float interp_point[3]{
+            x_new[0]/D - .5f,
+            x_new[1]/D - .5f,
+            x_new[2]/D - .5f
+        };
 
-        Vector_ interp_quant(fields*dims);
-        interpGridToPoint(interp_quant.data(), interp_indices.data(), src.data(), ftype, fields);
+        interpGridToPoint(interp_quant, interp_point, src_field, ftype, fields);
 
-        Eigen::VectorXi insert_indices(3);
-        insert_indices(0) = i;
-        insert_indices(1) = j;
-        insert_indices(2) = k;
+        int insert_indices[3]{i, j, k};
 
-        insertIntoGrid(insert_indices.data(), interp_quant.data(), dst.data(), ftype, fields);
+        insertIntoGrid(insert_indices, interp_quant, dst_field, ftype, fields);
     }
+
+    delete [] interp_quant;
 }
 
 template<int StorageOrder>
@@ -443,7 +449,7 @@ indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, in
 
 template<int StorageOrder>
 JFS_INLINE void grid3D<StorageOrder>::
-insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields)
+insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields, InsertType itype)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -469,7 +475,16 @@ insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int f
     {
         for (int d = 0; d < dims; d++)
         {
-            field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + f] = q[dims*f + d];
+            switch (itype)
+            {
+            case Replace:
+                field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + f] = q[dims*f + d];
+                break;
+            
+            case Add:
+                field_data[N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + f] += q[dims*f + d];
+                break;
+            }
         }
     }
 }
@@ -477,7 +492,7 @@ insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int f
 
 template<int StorageOrder>
 JFS_INLINE void grid3D<StorageOrder>::
-interpGridToPoint(float* dst, float* point, const float* field_data, FieldType ftype, unsigned int fields)
+interpGridToPoint(float* dst, const float* point, const float* field_data, FieldType ftype, unsigned int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -569,93 +584,95 @@ interpGridToPoint(float* dst, float* point, const float* field_data, FieldType f
 
 
 template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::interpolateForce(const std::vector<Force> forces, SparseVector_ &dst)
+JFS_INLINE void grid3D<StorageOrder>::
+interpPointToGrid(const float* q, const float* point, float* field_data, FieldType ftype, unsigned int fields, InsertType itype)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
     auto N = this->N;
     auto D = this->D;
+
+    int dims;
+    switch (ftype)
+    {
+    case SCALAR_FIELD:
+        dims = 1;
+        break;
+    case VECTOR_FIELD:
+        dims = 3;
+        break;
+    }
+
+    float i0 = point[0];
+    float j0 = point[1];
+    float k0 = point[2];
+
+    switch (btype)
+    {
+        case ZERO:
+            i0 = (i0 < 0) ? 0:i0;
+            i0 = (i0 > (N-1)) ? (N-1):i0;
+            j0 = (j0 < 0) ? 0:j0;
+            j0 = (j0 > (N-1)) ? (N-1):j0;
+            k0 = (k0 < 0) ? 0:k0;
+            k0 = (k0 > (N-1)) ? (N-1):k0;
+            break;
+        
+        case PERIODIC:
+            while (i0 < 0 || i0 > N-1 || j0 < 0 || j0 > N-1 || k0 < 0 || k0 > N-1)
+            {
+                i0 = (i0 < 0) ? (N-1+i0):i0;
+                i0 = (i0 > (N-1)) ? (i0 - (N-1)):i0;
+                j0 = (j0 < 0) ? (N-1+j0):j0;
+                j0 = (j0 > (N-1)) ? (j0 - (N-1)):j0;
+                k0 = (k0 < 0) ? (N-1+k0):k0;
+                k0 = (k0 > (N-1)) ? (k0 - (N-1)):k0;
+            }
+            break;
+    }
+
+    int i0_floor = (int) i0;
+    int j0_floor = (int) j0;
+    int k0_floor = (int) k0;
+    int i0_ceil = i0_floor + 1;
+    int j0_ceil = j0_floor + 1;
+    int k0_ceil = k0_floor + 1;
+    float part;
+    float* q_part = new float[dims*fields];
     
-    for (int f=0; f < forces.size(); f++)
+
+    for (int i = 0; i < 2; i++)
     {
-        const Force &force = forces[f];
-        if (force.x>L || force.y>L) continue;
-        
-        float i = force.x/D;
-        float j = force.y/D;
-        float k = force.z/D;
-
-        int i0 = std::floor(i);
-        int j0 = std::floor(j);
-        int k0 = std::floor(k);
-
-        int dims = 3;
-        float fArr[3] = {force.Fx, force.Fy, force.Fz};
-        for (int dim=0; dim < dims; dim++)
+        for (int j = 0; j < 2; j++)
         {
-            dst.insert(N*N*dims*k0 + N*dims*j0 + dims*i0 + dim) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i)*(k0+1 - i));
-            if (i0 < (N-1))
-                dst.insert(N*N*dims*k + N*dims*j + dims*(i0+1) + dim) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i)*(k0+1 - i));
-            if (j0 < (N-1))
-                dst.insert(N*N*dims*k + N*dims*(j0+1) + dims*i + dim) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i)*(k0+1 - i));
-            if (k0 < (N-1))
-                dst.insert(N*N*dims*(k0+1) + N*dims*j + dims*i + dim) += fArr[dim]*std::abs((j0+1 - j)*(i0+1 - i)*(k0 - i));
-            if (i0 < (N-1) && j0 < (N-1))
-                dst.insert(N*N*dims*k + N*dims*(j0+1) + dims*(i0+1) + dim) += fArr[dim]*std::abs((j0 - j)*(i0 - i)*(k0+1 - i));
-            if (i0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*dims*(k0+1) + N*dims*j + dims*(i0+1) + dim) += fArr[dim]*std::abs((j0+1 - j)*(i0 - i)*(k0 - i));
-            if (j0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*dims*(k0+1) + N*dims*(j0+1) + dims*i0+ dim) += fArr[dim]*std::abs((j0 - j)*(i0+1 - i)*(k0 - i));
-            if (i0 < (N-1) && j0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*dims*(k0+1) + N*dims*(j0+1) + dims*(i0+1) + dim) += fArr[dim]*std::abs((j0 - j)*(i0 - i)*(k0 - i));
+            for (int k = 0; k < 2; k++)
+            {
+                int i_tmp = i0_floor + i;
+                int j_tmp = j0_floor + j;
+                int k_tmp = k0_floor + k;
+                
+                float part = std::abs((i_tmp - i0)*(j_tmp - j0)*(k_tmp - k0));
+                i_tmp = (i_tmp == i0_floor) ? i0_ceil : i0_floor;
+                j_tmp = (j_tmp == j0_floor) ? j0_ceil : j0_floor;
+                k_tmp = (k_tmp == k0_floor) ? k0_ceil : k0_floor;
+
+                if (i_tmp == N || j_tmp == N || k_tmp == N)
+                    continue;
+
+                int indices[3];
+                indices[0] = i_tmp;
+                indices[1] = j_tmp;
+                indices[2] = k_tmp;
+
+                for (int idx = 0; idx < fields*dims; idx++)
+                    q_part[idx] = part*q[idx];
+
+                insertIntoGrid(indices, q_part, field_data, ftype, fields, itype);
+            }
         }
     }
-}
 
-
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::interpolateSource(const std::vector<Source> sources, SparseVector_ &dst)
-{
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
-    for (int f=0; f < sources.size(); f++)
-    {
-        const Source &source = sources[f];
-        if (source.x>L || source.y>L) continue;
-        
-        float i = source.x/D;
-        float j = source.y/D;
-        float k = source.z/D;
-
-        int i0 = std::floor(i);
-        int j0 = std::floor(j);
-        int k0 = std::floor(k);
-
-        int fields = 3;
-
-        for (int c=0; c < 3; c++)
-        {
-            float cval = {source.color(c) * source.strength};
-
-            dst.insert(N*N*fields*k0 + N*fields*j0 + fields*i0 + c) += cval*std::abs((j0+1 - j)*(i0+1 - i)*(k0+1 - i));
-            if (i0 < (N-1))
-                dst.insert(N*N*fields*k + N*fields*j + fields*(i0+1) + c) += cval*std::abs((j0+1 - j)*(i0 - i)*(k0+1 - i));
-            if (j0 < (N-1))
-                dst.insert(N*N*fields*k + N*fields*(j0+1) + fields*i + c) += cval*std::abs((j0 - j)*(i0+1 - i)*(k0+1 - i));
-            if (k0 < (N-1))
-                dst.insert(N*N*fields*(k0+1) + N*fields*j + fields*i + c) += cval*std::abs((j0+1 - j)*(i0+1 - i)*(k0 - i));
-            if (i0 < (N-1) && j0 < (N-1))
-                dst.insert(N*N*fields*k + N*fields*(j0+1) + fields*(i0+1) + c) += cval*std::abs((j0 - j)*(i0 - i)*(k0+1 - i));
-            if (i0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*fields*(k0+1) + N*fields*j + fields*(i0+1) + c) += cval*std::abs((j0+1 - j)*(i0 - i)*(k0 - i));
-            if (j0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*fields*(k0+1) + N*fields*(j0+1) + fields*i0+ c) += cval*std::abs((j0 - j)*(i0+1 - i)*(k0 - i));
-            if (i0 < (N-1) && j0 < (N-1) && k0 < (N-1))
-                dst.insert(N*N*fields*(k0+1) + N*fields*(j0+1) + fields*(i0+1) + c) += cval*std::abs((j0 - j)*(i0 - i)*(k0 - i));
-        }
-    }
+    delete [] q_part;
 }
 
 // explicit instantiation of templates
