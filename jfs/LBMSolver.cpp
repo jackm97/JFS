@@ -224,311 +224,6 @@ JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
             calcPhysicalVals(i, j);
 }
 
-JFS_INLINE void LBMSolver::forceDensity(int i, int j, float rho)
-{
-
-            Eigen::VectorXi indices(2);
-            indices(0) = i;
-            indices(1) = j;
-
-            insertIntoGrid(indices.data(), &rho, rho_, SCALAR_FIELD, 1);
-
-            Vector_ fbar(9);
-            for (int k = 0; k < 9; k++)
-            {
-                fbar(k) = calc_fbari(k, i, j);
-            }
-
-            insertIntoGrid(indices.data(), fbar.data(), f, SCALAR_FIELD, 9);
-
-            calcPhysicalVals(i, j);
-}
-
-JFS_INLINE void LBMSolver::doPressureWave(PressureWave p_wave)
-{
-    int i = p_wave.x[0]/dx;
-    if (i < 0)
-        i == 0;
-    if (i >= N)
-        i = N-1;
-    int j = p_wave.x[1]/dx;
-    if (j < 0)
-        j == 0;
-    if (j >= N)
-        j = N-1;
-
-    int radius = p_wave.radius/dx;
-
-    int j_min = j - p_wave.radius;
-    if (j_min < 0)
-        j_min == 0;
-    if (j_min >= N)
-        j_min = N-1;
-    int j_max = j + p_wave.radius;
-    if (j_max < 0)
-        j_max == 0;
-    if (j_max >= N)
-        j_max = N-1;
-
-    for (j = j_min; j <= j_max; j++)
-    {
-        float Hz = 1.e3;
-        float w = M_PI * Hz;
-        float ux = p_wave.u_imp * (std::sin(w * T) + 1);
-        forceVelocity(i, j, ux, 0);
-    }
-
-    // int i = (p_wave.x[0] + p_wave.u[0] * (T - p_wave.t_start)) / dx;
-    // int j = (p_wave.x[1] + p_wave.u[1] * (T - p_wave.t_start)) / dx;
-
-    // float r_real = p_wave.radius;
-    // float u_imp = p_wave.u_imp;
-
-    // float t_start = p_wave.t_start;
-
-    // float w = u_imp / r_real;
-    // float Hz = w / (2 * M_PI);
-    // float period = 1/Hz;
-    // u_imp *= r_real * std::cos(w * (T-t_start));
-
-    // if ( (T-t_start) > period/2 )
-    //     return;
-
-    // int r = (r_real * std::sin(w * (T-t_start)))/dx;
-    
-    // int x = r, y = 0; 
-
-    // Eigen::VectorXi indices(2);
-    // indices(0) = i + x;
-    // indices(1) = j + y;
-    
-    // Vector_ dir(2);
-    // dir(0) = (float) indices(0) - i;
-    // dir(1) = (float) indices(1) - j;
-    // dir.normalize();
-
-    // float ux = dir(0) * u_imp + p_wave.u(0);
-    // float uy = dir(1) * u_imp + p_wave.u(1);
-
-    // bool speed_check;
-    // bool idx_check;
-
-    // idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    // speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    // if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //     forceVelocity(indices(0),indices(1), ux, uy);
-      
-    // // When radius is zero only a single 
-    // // point will be printed 
-    // if (r > 0) 
-    // { 
-    //     // 1
-    //     indices(0) = i + x;
-    //     indices(1) = j - y;
-        
-    //     dir(0) = (float) indices(0) - i;
-    //     dir(1) = (float) indices(1) - j;
-    //     dir.normalize();
-
-    //     ux = dir(0) * u_imp + p_wave.u(0);
-    //     uy = dir(1) * u_imp + p_wave.u(1);
-
-    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //         forceVelocity(indices(0),indices(1), ux, uy);
-
-    //     // 2
-    //     indices(0) = i + y;
-    //     indices(1) = j + x;
-        
-    //     dir(0) = (float) indices(0) - i;
-    //     dir(1) = (float) indices(1) - j;
-    //     dir.normalize();
-
-    //     ux = dir(0) * u_imp + p_wave.u(0);
-    //     uy = dir(1) * u_imp + p_wave.u(1);
-
-    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //         forceVelocity(indices(0),indices(1), ux, uy);
-
-    //     // 3
-    //     indices(0) = i - y;
-    //     indices(1) = j + x;
-        
-    //     dir(0) = (float) indices(0) - i;
-    //     dir(1) = (float) indices(1) - j;
-    //     dir.normalize();
-
-    //     ux = dir(0) * u_imp + p_wave.u(0);
-    //     uy = dir(1) * u_imp + p_wave.u(1);
-
-    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //         forceVelocity(indices(0),indices(1), ux, uy);
-    // } 
-      
-    // // Initialising the value of P 
-    // int P = 1 - r; 
-    // while (x > y) 
-    // {  
-    //     y++; 
-          
-    //     // Mid-point is inside or on the perimeter 
-    //     if (P <= 0) 
-    //         P = P + 2*y + 1; 
-              
-    //     // Mid-point is outside the perimeter 
-    //     else
-    //     { 
-    //         x--; 
-    //         P = P + 2*y - 2*x + 1; 
-    //     } 
-          
-    //     // All the perimeter points have already been printed 
-    //     if (x < y) 
-    //         break; 
-          
-    //     // Printing the generated point and its reflection 
-    //     // in the other octants after translation 
-    //     // 1 
-    //     indices(0) = i + x;
-    //     indices(1) = j + y;
-        
-    //     dir(0) = (float) indices(0) - i;
-    //     dir(1) = (float) indices(1) - j;
-    //     dir.normalize();
-        
-    //     ux = dir(0) * u_imp + p_wave.u(0);
-    //     uy = dir(1) * u_imp + p_wave.u(1);
-
-    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //         forceVelocity(indices(0),indices(1), ux, uy);
-
-    //     // 2 
-    //     indices(0) = i - x;
-    //     indices(1) = j + y;
-        
-    //     dir(0) = (float) indices(0) - i;
-    //     dir(1) = (float) indices(1) - j;
-    //     dir.normalize();
-
-    //     ux = dir(0) * u_imp + p_wave.u(0);
-    //     uy = dir(1) * u_imp + p_wave.u(1);
-
-    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //         forceVelocity(indices(0),indices(1), ux, uy);
-
-    //     // 3 
-    //     indices(0) = i + x;
-    //     indices(1) = j - y;
-        
-    //     dir(0) = (float) indices(0) - i;
-    //     dir(1) = (float) indices(1) - j;
-    //     dir.normalize();
-
-    //     ux = dir(0) * u_imp + p_wave.u(0);
-    //     uy = dir(1) * u_imp + p_wave.u(1);
-
-    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //         forceVelocity(indices(0),indices(1), ux, uy);
-
-    //     // 4 
-    //     indices(0) = i - x;
-    //     indices(1) = j - y;
-        
-    //     dir(0) = (float) indices(0) - i;
-    //     dir(1) = (float) indices(1) - j;
-    //     dir.normalize();
-
-    //     ux = dir(0) * u_imp + p_wave.u(0);
-    //     uy = dir(1) * u_imp + p_wave.u(1);
-
-    //     idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //     speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //     if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //         forceVelocity(indices(0),indices(1), ux, uy);
-          
-    //     // If the generated point is on the line x = y then  
-    //     // the perimeter points have already been printed 
-    //     if (x != y) 
-    //     { 
-    //         // 1 
-    //         indices(0) = i + y;
-    //         indices(1) = j + x;
-            
-    //         dir(0) = (float) indices(0) - i;
-    //         dir(1) = (float) indices(1) - j;
-    //         dir.normalize();
-
-    //         ux = dir(0) * u_imp + p_wave.u(0);
-    //         uy = dir(1) * u_imp + p_wave.u(1);
-
-    //         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //         if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //             forceVelocity(indices(0),indices(1), ux, uy);
-
-    //         // 2 
-    //         indices(0) = i - y;
-    //         indices(1) = j + x;
-            
-    //         dir(0) = (float) indices(0) - i;
-    //         dir(1) = (float) indices(1) - j;
-    //         dir.normalize();
-
-    //         ux = dir(0) * u_imp + p_wave.u(0);
-    //         uy = dir(1) * u_imp + p_wave.u(1);
-
-    //         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //         if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //             forceVelocity(indices(0),indices(1), ux, uy);
-
-    //         // 3 
-    //         indices(0) = i + y;
-    //         indices(1) = j - x;
-            
-    //         dir(0) = (float) indices(0) - i;
-    //         dir(1) = (float) indices(1) - j;
-    //         dir.normalize();
-
-    //         ux = dir(0) * u_imp + p_wave.u(0);
-    //         uy = dir(1) * u_imp + p_wave.u(1);
-
-    //         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //         if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //             forceVelocity(indices(0),indices(1), ux, uy);
-
-    //         // 4 
-    //         indices(0) = i - y;
-    //         indices(1) = j - x;
-            
-    //         dir(0) = (float) indices(0) - i;
-    //         dir(1) = (float) indices(1) - j;
-    //         dir.normalize();
-
-    //         ux = dir(0) * u_imp + p_wave.u(0);
-    //         uy = dir(1) * u_imp + p_wave.u(1);
-
-    //         idx_check = !(indices(0) > N-1 || indices(0) < 0 || indices(1) > N-1 || indices(1) < 0);
-    //         speed_check = (ux * dir(0) + uy * dir(1)) > 0;
-    //         if ( (idx_check && speed_check) || p_wave.skadoosh )
-    //             forceVelocity(indices(0),indices(1), ux, uy);
-    //     } 
-    // } 
-}
-
 JFS_INLINE void LBMSolver::doBoundaryDamping()
 {
     for (int i = 0; i < N; i+=(N-1))
@@ -580,7 +275,7 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
     }
 }
 
-JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
+JFS_INLINE bool LBMSolver::calcNextStep()
 {
 
     using grid2D = grid2D<Eigen::ColMajor>;
@@ -681,8 +376,6 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
         // do any field manipulations before collision step
         if (btype == DAMPED)
             doBoundaryDamping();
-        for (int i = 0; i < p_waves.size(); i++)
-            doPressureWave(p_waves[i]);
 
         backstream(S, S0, U, dt, SCALAR_FIELD, 3);
         std::memcpy(S0, S, 3*N*N*sizeof(float));
@@ -694,14 +387,6 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
 }
 
 JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
-{
-
-    std::vector<PressureWave> p_waves;
-
-    return calcNextStep(p_waves);
-}
-
-JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources, const std::vector<PressureWave> p_waves)
 {
 
     bool failedStep = false;
@@ -736,7 +421,7 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const s
             this->interpPointToGrid(color, point, S0, SCALAR_FIELD, 3, Add);
         }
 
-        failedStep = calcNextStep(p_waves);
+        failedStep = calcNextStep();
 
         for (int i = 0; i < N*N; i++)
         {

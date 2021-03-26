@@ -10,10 +10,6 @@
 
 namespace jfs {
 
-struct PressureWave;
-
-struct DensityWave;
-
 class LBMSolver : public grid2D<Eigen::ColMajor> {
 
     public:
@@ -37,7 +33,7 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
 
         bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
 
-        bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources, const std::vector<PressureWave> p_waves);
+        void forceVelocity(int i, int j, float ux, float uy);
 
         // density visualization
 
@@ -47,15 +43,16 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
 
         void enableDensityViewMode(bool use);
 
-        ~LBMSolver(){clearGrid();};
+        ~LBMSolver(){ clearGrid(); };
+
+        // inline getters:
+        float Time(){return this->T;}
+
+        float DeltaX(){return this->dx;}
 
     private:
 
         bool view_density_ = false;
-
-        using SparseMatrix_ = typename grid2D<Eigen::ColMajor>::SparseMatrix_;
-        using SparseVector_ = typename grid2D<Eigen::ColMajor>::SparseVector_;
-        using Vector_ = typename grid2D<Eigen::ColMajor>::Vector_;
 
         // DEV NOTES:
         // The paper uses fi to represent the discretized distribution function
@@ -109,7 +106,7 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
 
         void clearGrid();
 
-        bool calcNextStep( std::vector<PressureWave> p_waves );
+        bool calcNextStep();
 
         // calcs fbar for the ith velocity at the grid position (j,k)
         float calc_fbari(int i, int j, int k);
@@ -128,42 +125,12 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
 
         void calcPhysicalVals(int j, int k);
 
-        void forceVelocity(int i, int j, float ux, float uy);
-
-        void forceDensity(int i, int j, float rho);
-
-        void doPressureWave(PressureWave p_wave);
-
         void doBoundaryDamping();
 
         void getDensityImage(Eigen::VectorXf &image);
 
         void getSourceImage(Eigen::VectorXf &image);
 
-};
-
-struct PressureWave
-{
-    Eigen::Vector3f x = Eigen::Vector3f::Zero(); // center position
-    
-    Eigen::Vector3f u = Eigen::Vector3f::Zero(); // center speed
-
-    float u_imp = 0; // peak fluid speed
-
-    float radius = 0; // pressure wave
-
-    float t_start = 0; // start time
-
-    bool skadoosh = false;
-};
-
-struct DensityWave
-{
-    Eigen::Vector3f x = Eigen::Vector3f::Zero(); // center position
-
-    float density_scale = 1; // multiplied by rho0 to get forced density
-
-    float length = 0;
 };
 
 } // namespace jfs
