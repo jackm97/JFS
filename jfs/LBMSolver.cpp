@@ -503,47 +503,6 @@ JFS_INLINE float LBMSolver::calc_Fi(int i, int j, int k)
     return Fi;
 }
 
-JFS_INLINE void LBMSolver::adj_uref()
-{
-    // float umaxL = 0;
-    // float umax = 0;
-    // Eigen::Vector2f u;
-    // for (int j=0; j<N; j++)
-    //     for (int k=0; k<N; k++)
-    //     {
-    //         u = {U(N*N*0 + N*k + j), U(N*N*1 + N*k + j)};
-    //         if ( urefL/uref * u.norm() > umaxL)
-    //         {
-    //             umax = u.norm();
-    //             umaxL = urefL/uref * umax;
-    //         }
-    //     }
-
-    // std::cout << "umax: " << umax << std::endl;
-    // std::cout << "1: " << uref << std::endl;
-
-    // // keep stability and don't make time step too small
-    // if (umaxL < .018 || umaxL > .022)
-    //     uref = 5*urefL*umax;
-
-    // std::cout << "2: " << uref << std::endl;
-
-    // // stop uref from being set to zero
-    // float epsilon = 1e-2;
-    // if (uref < epsilon)
-    //     uref = epsilon;
-    
-    // std::cout << "3: " << uref << std::endl;
-
-    // // dont overshoot frame delta t ( can only make time step smaller, so no need to worry about stability )
-    // float dtFrame = 1/fps;
-    // float dtIter = urefL / uref * dx * dtL;
-    // if (dt + dtIter > dtFrame)
-    //     uref = urefL/(dtFrame-dt) * dx * dtL;
-    
-    // std::cout << "4: " << uref << std::endl;
-}
-
 JFS_INLINE void LBMSolver::calcPhysicalVals()
 {
     float rho_jk = 0;

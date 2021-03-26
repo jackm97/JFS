@@ -114,12 +114,6 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
         // calc Fi approximation
         float calc_Fi(int i, int j, int k);
 
-        // adjusts uref according to umax to maintain stability
-        // CURRENTLY NOT SUPPORTED: DONT USE
-        // ISSUE: Changing uref changes the lattice speed of sound
-        // need to update velocity discretization accordingly (c = sqrt(3)*cs)
-        void adj_uref();
-
         // calcs rho and U fields
         void calcPhysicalVals();
 
