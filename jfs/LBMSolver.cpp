@@ -589,7 +589,33 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
 
     int iterations = iter_per_frame;
     for (int iter = 0; iter < iterations; iter++)
-    {
+    {        
+        // collide
+        for (int idx=0; idx<(N*N*9); idx++)
+        {
+
+            float fi;
+            float fbari;
+            float Omegai;
+            float Fi;
+
+            int idx_tmp = idx;
+            int k = idx_tmp / (N*9);
+            idx_tmp -= k * (N*9);
+            int j = idx_tmp / 9;
+            idx_tmp -= j * 9;
+            int i = idx_tmp;
+            
+            fi = f[N*9*k + 9*j + i];
+
+            fbari = calc_fbari(i, j, k);            
+                
+            Fi = calc_Fi(i, j, k);
+
+            Omegai = -(fi - fbari)/tau;
+
+            f[N*9*k + 9*j + i] = fi + Omegai + Fi;
+        }
 
         std::memcpy(f0, f, 9*N*N*sizeof(float));
         
@@ -657,35 +683,6 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<PressureWave> p_waves)
             doBoundaryDamping();
         for (int i = 0; i < p_waves.size(); i++)
             doPressureWave(p_waves[i]);
-        
-        // collide
-        #pragma omp parallel
-        #pragma omp for 
-        for (int idx=0; idx<(N*N*9); idx++)
-        {
-
-            float fi;
-            float fbari;
-            float Omegai;
-            float Fi;
-
-            int idx_tmp = idx;
-            int k = idx_tmp / (N*9);
-            idx_tmp -= k * (N*9);
-            int j = idx_tmp / 9;
-            idx_tmp -= j * 9;
-            int i = idx_tmp;
-            
-            fi = f[N*9*k + 9*j + i];
-
-            fbari = calc_fbari(i, j, k);            
-                
-            Fi = calc_Fi(i, j, k);
-
-            Omegai = -(fi - fbari)/tau;
-
-            f[N*9*k + 9*j + i] = fi + Omegai + Fi;
-        }
 
         backstream(S, S0, U, dt, SCALAR_FIELD, 3);
         std::memcpy(S0, S, 3*N*N*sizeof(float));
