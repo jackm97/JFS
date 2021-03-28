@@ -13,14 +13,6 @@ namespace jfs {
 class LBMSolver : public grid2D<Eigen::ColMajor> {
 
     public:
-        // typical density of fluid
-        float rho0;
-        // fluid viscosity
-        float visc; 
-        // speed of sound of fluid
-        float us;  
-        float dt; // physical time step
-
         LBMSolver(){};
         
         LBMSolver(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0=1.3, float visc = 1e-4, float uref = 1);
@@ -35,17 +27,18 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
 
         void forceVelocity(int i, int j, float ux, float uy);
 
-        // density visualization
-
+        // density mapping
         void setDensityVisBounds(float minrho, float maxrho);
 
         void getCurrentDensityBounds(float minmax_rho[2]);
 
-        void enableDensityViewMode(bool use);
+        void getDensityImage(Eigen::VectorXf &image);
 
         ~LBMSolver(){ clearGrid(); };
 
         // inline getters:
+        float TimeStep(){return this->dt;}
+
         float Time(){return this->T;}
 
         float DeltaX(){return this->dx;}
@@ -62,7 +55,11 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
 
         float* f; // the distribution function
         float* f0; // the distribution function
+
         float* rho_; // calculated rho from distribution function
+        float minrho_; 
+        float maxrho_;
+        float* rho_mapped_; // rho_, but mapped to [0,1] with min/maxrho_
 
         float* U; 
         
@@ -85,22 +82,24 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
 
         int iter_per_frame;
 
+       
+        float rho0; // typical physical density of fluid
+
         float uref; // physical reference velocity scale
         const float urefL = .2; // LBM reference velocity
+        float us;  // speed of sound of fluid
+        float cs; // lattice speed of sound
 
         float &dx = D; // to keep notation same as the paper, reference variable to D (D notation from Jo Stam)
         const float dxL = 1.; // LBM delta x
 
-        float fps; // desired framerate of simulation
+        float dt; // physical time step
         const float dtL = 1.; // LBM delta t
         float T; // current simulation time
-
+        
+        float visc; // fluid viscosity
         float viscL; // lattice viscosity
-        float cs; // lattice speed of sound
         float tau; // relaxation time in lattice units
-
-        float minrho_;
-        float maxrho_;
 
     private:
 
@@ -120,11 +119,6 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
         void calcPhysicalVals(int j, int k);
 
         void doBoundaryDamping();
-
-        void getDensityImage(Eigen::VectorXf &image);
-
-        void getSourceImage(Eigen::VectorXf &image);
-
 };
 
 } // namespace jfs

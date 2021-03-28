@@ -80,11 +80,6 @@ JFS_INLINE void LBMSolver::getCurrentDensityBounds(float minmax_rho[2])
     minmax_rho[1] = maxrho_;
 }
 
-JFS_INLINE void LBMSolver::enableDensityViewMode(bool use)
-{
-    view_density_ = use;
-}
-
 JFS_INLINE void LBMSolver::resetFluid()
 {
 
@@ -114,14 +109,6 @@ JFS_INLINE void LBMSolver::resetFluid()
 }
 
 JFS_INLINE void LBMSolver::getImage(Eigen::VectorXf &image)
-{
-    if (view_density_)
-        getDensityImage(image);
-    else
-        getSourceImage(image);
-}
-
-JFS_INLINE void LBMSolver::getSourceImage(Eigen::VectorXf &image)
 {
     using grid2D = grid2D<Eigen::ColMajor>;
     
@@ -203,25 +190,21 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
 JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
 {
 
-            Eigen::VectorXi indices(2);
-            indices(0) = i;
-            indices(1) = j;
+    int indices[2]{i, j};
 
-            Vector_ u(2);
-            u(0) = ux;
-            u(1) = uy;
+    float u[2]{ux, uy};
 
-            insertIntoGrid(indices.data(), u.data(), U, VECTOR_FIELD, 1);
+    float u_prev[2];
+    indexGrid(u_prev, indices, U, VECTOR_FIELD);
 
-            Vector_ fbar(9);
-            for (int k = 0; k < 9; k++)
-            {
-                fbar(k) = calc_fbari(k, i, j);
-            }
+    float rho;
+    indexGrid(&rho, indices, rho_, SCALAR_FIELD);
 
-            insertIntoGrid(indices.data(), fbar.data(), f, SCALAR_FIELD, 9);
-
-            calcPhysicalVals(i, j);
+    float f[2]{
+        (u[0] - u_prev[0]) * rho / this->dt,
+        (u[1] - u_prev[1]) * rho / this->dt
+    };
+    insertIntoGrid(indices, f, F, VECTOR_FIELD, 1, Add);
 }
 
 JFS_INLINE void LBMSolver::doBoundaryDamping()
@@ -246,7 +229,17 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             indices(0) = i;
 
             insertIntoGrid(indices.data(), rho.data(), rho_, SCALAR_FIELD);
-            forceVelocity(indices(0), indices(1), u(0), u(1));
+            insertIntoGrid(indices.data(), u.data(), U, VECTOR_FIELD, 1);
+
+            Vector_ fbar(9);
+            for (int k = 0; k < 9; k++)
+            {
+                fbar(k) = calc_fbari(k, i, j);
+            }
+
+            insertIntoGrid(indices.data(), fbar.data(), f, SCALAR_FIELD, 9);
+
+            calcPhysicalVals(i, j);
         }
     } 
 
@@ -270,7 +263,17 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             indices(1) = i;
 
             insertIntoGrid(indices.data(), rho.data(), rho_, SCALAR_FIELD);
-            forceVelocity(indices(0), indices(1), u(0), u(1));
+            insertIntoGrid(indices.data(), u.data(), U, VECTOR_FIELD, 1);
+
+            Vector_ fbar(9);
+            for (int k = 0; k < 9; k++)
+            {
+                fbar(k) = calc_fbari(k, j, i);
+            }
+
+            insertIntoGrid(indices.data(), fbar.data(), f, SCALAR_FIELD, 9);
+
+            calcPhysicalVals(j, i);
         }
     }
 }
