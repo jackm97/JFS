@@ -22,15 +22,19 @@ class JSSFSolverBase : virtual public gridBase<StorageOrder>{
 
         bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
 
-        ~JSSFSolverBase(){}
+        //inline getters
+        float* imageData(){return S.data();}
 
-        float visc; // fluid viscosity
-        float diff; // particle diffusion
-        float diss; // particle dissipation
+        ~JSSFSolverBase(){}
+        
     protected:
         using SparseMatrix_ = typename gridBase<StorageOrder>::SparseMatrix_;
         using SparseVector_ = typename gridBase<StorageOrder>::SparseVector_;
         using Vector_ = typename gridBase<StorageOrder>::Vector_;
+
+        float visc; // fluid viscosity
+        float diff; // particle diffusion
+        float diss; // particle dissipation
         
         SparseMatrix_ ADifU; // ADifU*x = b for diffuseSolveU
         LinearSolver diffuseSolveU;

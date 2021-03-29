@@ -5,36 +5,32 @@
 
 #include <jfs/base/grid2D.h>
 
-#include <Eigen/Eigen>
-#include <Eigen/Sparse>
-
 namespace jfs {
 
-class LBMSolver : public grid2D<Eigen::ColMajor> {
+class LBMSolver : public grid2D<0> {
 
     public:
+        // constructors
         LBMSolver(){};
         
         LBMSolver(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0=1.3, float visc = 1e-4, float uref = 1);
 
+        // initializer
         void initialize(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0=1.3, float visc = 1e-4, float uref = 1);
 
+        // reset simulation data
         void resetFluid();
 
-        void getImage(Eigen::VectorXf &img);
-
+        // do next simulation step
         bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
 
+        // apply force to reach velocity
         void forceVelocity(int i, int j, float ux, float uy);
 
         // density mapping
-        void setDensityVisBounds(float minrho, float maxrho);
+        void setDensityMapping(float minrho, float maxrho);
 
-        void getCurrentDensityBounds(float minmax_rho[2]);
-
-        void getDensityImage(Eigen::VectorXf &image);
-
-        ~LBMSolver(){ clearGrid(); };
+        void densityExtrema(float minmax_rho[2]);
 
         // inline getters:
         float TimeStep(){return this->dt;}
@@ -43,9 +39,18 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
 
         float DeltaX(){return this->dx;}
 
-    private:
+        float* imageData(){return this->S;}
 
-        bool view_density_ = false;
+        float* rhoData(){return this->rho_;}
+
+        float* mappedRhoData(){return this->rho_mapped_;}
+
+        float soundSpeed(){return this->us;}
+
+        //destructor
+        ~LBMSolver(){ clearGrid(); };
+
+    private:
 
         // DEV NOTES:
         // The paper uses fi to represent the discretized distribution function
@@ -119,6 +124,8 @@ class LBMSolver : public grid2D<Eigen::ColMajor> {
         void calcPhysicalVals(int j, int k);
 
         void doBoundaryDamping();
+
+        void mapDensity();
 };
 
 } // namespace jfs

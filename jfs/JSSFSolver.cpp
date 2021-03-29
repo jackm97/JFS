@@ -56,29 +56,6 @@ initialize(unsigned int N, float L, BoundType btype, float dt, float visc, float
     this->resetFluid();
 }
 
-template <class LinearSolver, int StorageOrder>
-JFS_INLINE void JSSFSolver<LinearSolver, StorageOrder>::getImage(Eigen::VectorXf &image)
-{
-    using grid2D = grid2D<StorageOrder>;
-    
-    auto btype = grid2D::bound_type_;
-    auto L = grid2D::L;
-    auto N = grid2D::N;
-    auto D = grid2D::D;
-
-    // if (image.rows() != N*N*3)
-    //     image.resize(N*N*3);
-
-    // for (int i=0; i < N; i++)
-    //     for (int j=0; j < N; j++)
-    //     {
-    //         image(N*3*j + 0 + i*3) = this->S(0*N*N + N*j + i);
-    //         image(N*3*j + 1 + i*3) = this->S(1*N*N + N*j + i);
-    //         image(N*3*j + 2 + i*3) = this->S(2*N*N + N*j + i);
-    //     }
-    image = this->S;
-}
-
 // explicit instantiation of templates
 #ifdef JFS_STATIC
 template class JSSFSolver<>;

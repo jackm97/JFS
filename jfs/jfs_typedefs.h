@@ -1,8 +1,6 @@
 #ifndef JFS_TYPEDEFS_H
 #define JFS_TYPEDEFS_H
 
-#include <Eigen/Eigen>
-
 namespace jfs {
 
 typedef enum {

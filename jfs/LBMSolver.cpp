@@ -38,6 +38,7 @@ JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, BoundType btype, 
     f0 = new float[9*N*N];
 
     rho_ = new float[N*N];
+    rho_mapped_ = new float[3*N*N];
 
     U = new float[2*N*N];
 
@@ -52,13 +53,13 @@ JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, BoundType btype, 
     is_initialized_ = true;
 }
 
-JFS_INLINE void LBMSolver::setDensityVisBounds(float minrho, float maxrho)
+JFS_INLINE void LBMSolver::setDensityMapping(float minrho, float maxrho)
 {
     minrho_ = minrho;
     maxrho_ = maxrho;
 }
 
-JFS_INLINE void LBMSolver::getCurrentDensityBounds(float minmax_rho[2])
+JFS_INLINE void LBMSolver::densityExtrema(float minmax_rho[2])
 {
 
     float minrho_ = rho_[0];
@@ -108,26 +109,12 @@ JFS_INLINE void LBMSolver::resetFluid()
     T = 0;
 }
 
-JFS_INLINE void LBMSolver::getImage(Eigen::VectorXf &image)
+JFS_INLINE void LBMSolver::mapDensity()
 {
-    using grid2D = grid2D<Eigen::ColMajor>;
-    
-    auto btype = grid2D::bound_type_;
-    auto L = grid2D::L;
-    auto N = grid2D::N;
-    auto D = grid2D::D;
-
-    std::memcpy(image.data(), this->S, 3*N*N*sizeof(float));
-}
-
-JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
-{
-    using grid2D = grid2D<Eigen::ColMajor>;
-    
-    auto btype = grid2D::bound_type_;
-    auto L = grid2D::L;
-    auto N = grid2D::N;
-    auto D = grid2D::D;
+    auto btype = this->bound_type_;
+    auto L = this->L;
+    auto N = this->N;
+    auto D = this->D;
 
     float minrho = rho_[0];
     float maxrho = rho_[0];
@@ -162,9 +149,6 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
     if (maxrho_ != -1)
         maxrho = maxrho_;
 
-    if (image.rows() != N*N*3)
-        image.resize(N*N*3);
-
     for (int i=0; i < N; i++)
         for (int j=0; j < N; j++)
         {
@@ -176,14 +160,12 @@ JFS_INLINE void LBMSolver::getDensityImage(Eigen::VectorXf &image)
             else
                 rho = 0 * rho;
 
-            int map_idx = (int) (rho * 255);
+            // rho = (rho < 0) ? 0 : rho;
+            // rho = (rho > 1) ? 1 : rho;
 
-            map_idx = (map_idx > 255) ? 255 : map_idx;
-            map_idx = (map_idx < 0) ? 0 : map_idx;
+            float rho_gray[3]{rho, rho, rho};
 
-            image[N*3*j + 0 + i*3] = (float) map_idx / 255;
-            image[N*3*j + 1 + i*3] = (float) map_idx / 255;
-            image[N*3*j + 2 + i*3] = (float) map_idx / 255;
+            insertIntoGrid(indices, rho_gray, rho_mapped_, SCALAR_FIELD, 3);
         }
 }
 
@@ -218,26 +200,27 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             step = -1;
         for (int j = 0; j < N; j++)
         {
-            Eigen::VectorXi indices(2);
-            indices(0) = i + step;
-            indices(1) = j;
-            Vector_ u(2);
-            indexGrid(u.data(), indices.data(), U, VECTOR_FIELD);
-            Vector_ rho(1);
-            indexGrid(rho.data(), indices.data(), rho_, SCALAR_FIELD);
+            int indices[2]{
+                i + step,
+                j
+            };
+            float u[2];
+            indexGrid(u, indices, U, VECTOR_FIELD);
+            float rho;
+            indexGrid(&rho, indices, rho_, SCALAR_FIELD);
 
-            indices(0) = i;
+            indices[0] = i;
 
-            insertIntoGrid(indices.data(), rho.data(), rho_, SCALAR_FIELD);
-            insertIntoGrid(indices.data(), u.data(), U, VECTOR_FIELD, 1);
+            insertIntoGrid(indices, &rho, rho_, SCALAR_FIELD);
+            insertIntoGrid(indices, u, U, VECTOR_FIELD, 1);
 
-            Vector_ fbar(9);
+            float fbar[9];
             for (int k = 0; k < 9; k++)
             {
-                fbar(k) = calc_fbari(k, i, j);
+                fbar[k] = calc_fbari(k, i, j);
             }
 
-            insertIntoGrid(indices.data(), fbar.data(), f, SCALAR_FIELD, 9);
+            insertIntoGrid(indices, fbar, f, SCALAR_FIELD, 9);
 
             calcPhysicalVals(i, j);
         }
@@ -252,26 +235,27 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             step = -1;
         for (int j = 0; j < N; j++)
         {
-            Eigen::VectorXi indices(2);
-            indices(1) = i + step;
-            indices(0) = j;
-            Vector_ u(2);
-            indexGrid(u.data(), indices.data(), U, VECTOR_FIELD);
-            Vector_ rho(1);
-            indexGrid(rho.data(), indices.data(), rho_, SCALAR_FIELD);
+            int indices[2]{
+                j,
+                i + step
+            };
+            float u[2];
+            indexGrid(u, indices, U, VECTOR_FIELD);
+            float rho;
+            indexGrid(&rho, indices, rho_, SCALAR_FIELD);
 
-            indices(1) = i;
+            indices[1] = i;
 
-            insertIntoGrid(indices.data(), rho.data(), rho_, SCALAR_FIELD);
-            insertIntoGrid(indices.data(), u.data(), U, VECTOR_FIELD, 1);
+            insertIntoGrid(indices, &rho, rho_, SCALAR_FIELD);
+            insertIntoGrid(indices, u, U, VECTOR_FIELD, 1);
 
-            Vector_ fbar(9);
+            float fbar[9];
             for (int k = 0; k < 9; k++)
             {
-                fbar(k) = calc_fbari(k, j, i);
+                fbar[k] = calc_fbari(k, j, i);
             }
 
-            insertIntoGrid(indices.data(), fbar.data(), f, SCALAR_FIELD, 9);
+            insertIntoGrid(indices, fbar, f, SCALAR_FIELD, 9);
 
             calcPhysicalVals(j, i);
         }
@@ -281,9 +265,7 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
 JFS_INLINE bool LBMSolver::calcNextStep()
 {
 
-    using grid2D = grid2D<Eigen::ColMajor>;
-
-    BoundType btype = grid2D::bound_type_;
+    BoundType btype = this->bound_type_;
 
     int iterations = iter_per_frame;
     for (int iter = 0; iter < iterations; iter++)
@@ -382,6 +364,7 @@ JFS_INLINE bool LBMSolver::calcNextStep()
 
         backstream(S, S0, U, dt, SCALAR_FIELD, 3);
         std::memcpy(S0, S, 3*N*N*sizeof(float));
+        mapDensity();
 
         T += dt;
     }
@@ -448,6 +431,7 @@ JFS_INLINE void LBMSolver::clearGrid()
     delete [] f;
     delete [] f0;
     delete [] rho_;
+    delete [] rho_mapped_;
     delete [] U;
     delete [] S;
     delete [] S0;

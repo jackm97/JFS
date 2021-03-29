@@ -17,8 +17,6 @@ class JSSFSolver3D : virtual public JSSFSolverBase<LinearSolver, StorageOrder>, 
 
         void initialize(unsigned int N, float L, BoundType btype, float dt, float visc=0, float diff=0, float diss=0);
 
-        void getImage(Eigen::VectorXf &img);
-
         ~JSSFSolver3D(){}
     protected:
 

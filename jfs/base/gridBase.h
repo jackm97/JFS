@@ -2,6 +2,8 @@
 #define GRIDBASE_H
 #include "../jfs_inline.h"
 
+#include <Eigen/Eigen>
+
 namespace jfs {
 
 // Base class for grid based solvers
