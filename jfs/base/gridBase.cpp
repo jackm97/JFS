@@ -4,8 +4,7 @@
 namespace jfs
 {
 
-template<int StorageOrder>
-void gridBase<StorageOrder>::initializeGrid(unsigned int N, float L, BoundType btype, float dt)
+JFS_INLINE void gridBase::initializeGrid(unsigned int N, float L, BoundType btype, float dt)
 {
     this->N = N;
     this->L = L;
@@ -14,8 +13,7 @@ void gridBase<StorageOrder>::initializeGrid(unsigned int N, float L, BoundType b
     this->dt = dt;
 }
 
-template<int StorageOrder>
-JFS_INLINE void gridBase<StorageOrder>::
+JFS_INLINE void gridBase::
 backtrace(float* end_point, const float* start_point, int size, const float* ufield, float dt)
 {
     int* start_indices = new int[size];
@@ -37,11 +35,5 @@ backtrace(float* end_point, const float* start_point, int size, const float* ufi
     delete [] start_indices;
     delete [] u;
 }
-
-// explicit instantiation of templates
-#ifdef JFS_STATIC
-template class gridBase<Eigen::ColMajor>;
-template class gridBase<Eigen::RowMajor>;
-#endif
 
 } // namespace jfs

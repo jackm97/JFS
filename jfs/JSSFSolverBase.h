@@ -5,6 +5,10 @@
 
 #include <jfs/base/gridBase.h>
 
+#include <Eigen/Eigen>
+
+#include <vector>
+
 namespace jfs {
 
 typedef Eigen::SparseLU< Eigen::SparseMatrix<float> > genSolver; // can solve both boundary conditions
@@ -12,7 +16,7 @@ typedef Eigen::SimplicialLDLT< Eigen::SparseMatrix<float> > fastZeroSolver; // s
 typedef Eigen::ConjugateGradient< Eigen::SparseMatrix<float>,  Eigen::Lower | Eigen::Upper> iterativeSolver; // iterative solver, great for parallelization
 
 template <class LinearSolver, int StorageOrder>
-class JSSFSolverBase : virtual public gridBase<StorageOrder>{
+class JSSFSolverBase : virtual public gridBase{
     public:
         JSSFSolverBase(){};
 
@@ -28,9 +32,8 @@ class JSSFSolverBase : virtual public gridBase<StorageOrder>{
         ~JSSFSolverBase(){}
         
     protected:
-        using SparseMatrix_ = typename gridBase<StorageOrder>::SparseMatrix_;
-        using SparseVector_ = typename gridBase<StorageOrder>::SparseVector_;
-        using Vector_ = typename gridBase<StorageOrder>::Vector_;
+        typedef typename Eigen::SparseMatrix<float, StorageOrder> SparseMatrix_;
+        typedef typename Eigen::Matrix<float, Eigen::Dynamic, 1, StorageOrder> Vector_;
 
         float visc; // fluid viscosity
         float diff; // particle diffusion

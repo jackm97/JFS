@@ -9,7 +9,7 @@
 namespace jfs {
 
 template <class LinearSolver=genSolver, int StorageOrder=Eigen::ColMajor>
-class JSSFSolver3D : virtual public JSSFSolverBase<LinearSolver, StorageOrder>, virtual public grid3D<StorageOrder> {
+class JSSFSolver3D : virtual public JSSFSolverBase<LinearSolver, StorageOrder>, virtual public grid3D {
     public:
         JSSFSolver3D(){};
 
@@ -21,7 +21,6 @@ class JSSFSolver3D : virtual public JSSFSolverBase<LinearSolver, StorageOrder>, 
     protected:
 
         using SparseMatrix_ = typename JSSFSolverBase<LinearSolver, StorageOrder>::SparseMatrix_;
-        using SparseVector_ = typename JSSFSolverBase<LinearSolver, StorageOrder>::SparseVector_;
         using Vector_ = typename JSSFSolverBase<LinearSolver, StorageOrder>::Vector_;
 };
 } // namespace jfs

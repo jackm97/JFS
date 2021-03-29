@@ -1,8 +1,8 @@
 #include <jfs/LBMSolver.h>
 
 #include <cmath>
+#include <cstring>
 #include <iostream>
-#include <vector>
 
 namespace jfs {
 

@@ -1,10 +1,10 @@
 #include <jfs/base/grid3D.h>
-#include <iostream>
+
+#include <cmath>
 
 namespace jfs {
 
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::satisfyBC(float* field_data, FieldType ftype, int fields)
+JFS_INLINE void grid3D::satisfyBC(float* field_data, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -110,260 +110,7 @@ JFS_INLINE void grid3D<StorageOrder>::satisfyBC(float* field_data, FieldType fty
     }
 }
 
-
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::Laplace(SparseMatrix_ &dst, unsigned int dims, unsigned int fields)
-{
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
-    typedef Eigen::Triplet<float> T;
-    std::vector<T> tripletList;
-    tripletList.reserve(N*N*5*dims);
-
-    for (int idx = 0; idx < dims*fields*N*N*N; idx++)
-    {
-        int idx_tmp = idx;
-        int k = idx_tmp / (N*N*dims*fields);
-        idx_tmp -= k * (N*N*dims*fields);
-        int j = idx_tmp / (N*dims*fields);
-        idx_tmp -= j * (N*dims*fields);
-        int i = idx_tmp / (dims*fields);
-        idx_tmp -= i * (dims*fields);
-        int f = idx_tmp / dims;
-        idx_tmp -= f * dims;
-        int d = idx_tmp;
-
-        int iMat, jMat;
-
-        iMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
-        jMat = iMat;
-        tripletList.push_back(T(iMat,jMat,-6.f));
-
-        int i_tmp = i;
-        for (int offset = -1; offset < 2; offset+=2)
-        {
-            i = i_tmp + offset;
-            if ( (i == -1 || i == N) && btype == ZERO)
-                continue;
-            else if ( i == -1 )
-                i = (N-2);
-            else if ( i == N )
-                i = 1;
-            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
-            tripletList.push_back(T(iMat,jMat,1.f));
-        }
-        i = i_tmp;
-
-        int j_tmp = j;
-        for (int offset = -1; offset < 2; offset+=2)
-        {
-            j = j_tmp + offset;
-            if ( (j == -1 || j == N) && btype == ZERO)
-                continue;
-            else if ( j == -1 )
-                j = (N-2);
-            else if ( j == N )
-                j = 1;
-            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
-            tripletList.push_back(T(iMat,jMat,1.f));
-        }
-        j = j_tmp;
-
-        int k_tmp = k;
-        for (int offset = -1; offset < 2; offset+=2)
-        {
-            k = k_tmp + offset;
-            if ( (k == -1 || k == N) && btype == ZERO)
-                continue;
-            else if ( k == -1 )
-                k = (N-2);
-            else if ( k == N )
-                k = 1;
-            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
-            tripletList.push_back(T(iMat,jMat,1.f));
-        }
-        k = k_tmp;
-    }
-
-    dst = SparseMatrix_(N*N*N*dims*fields,N*N*N*dims*fields);
-    dst.setFromTriplets(tripletList.begin(), tripletList.end());
-    dst = 1.f/(D*D) * dst;
-}
-
-
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::div(SparseMatrix_ &dst, unsigned int fields)
-{
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
-    typedef Eigen::Triplet<float> T;
-    std::vector<T> tripletList;
-    tripletList.reserve(N*N*2*2);
-
-    int dims = 3;
-
-    for (int idx = 0; idx < dims*fields*N*N*N; idx++)
-    {
-        int idx_tmp = idx;
-        int f = idx_tmp / (dims * N * N * N);
-        idx_tmp -= f * (dims * N * N * N);
-        int d = idx_tmp / (N * N * N);
-        idx_tmp -= d * (N * N * N);
-        int k = idx_tmp / (N * N);
-        idx_tmp -= k * N * N;
-        int j = idx_tmp / N;
-        idx_tmp -= j * N;
-        int i = idx_tmp;
-
-        int iMat, jMat;
-
-        iMat = N*N*fields*k + N*fields*j + fields*i + f;
-
-        int i_tmp = i;
-        for (int offset = -1; offset < 2 && d == 0; offset+=2)
-        {
-            i = i_tmp + offset;
-            if ( (i == -1 || i == N) && btype == ZERO)
-                continue;
-            else if ( i == -1 )
-                i = (N-2);
-            else if ( i == N )
-                i = 1;
-            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
-            tripletList.push_back(T(iMat,jMat,(float) offset));
-        }
-        i = i_tmp;
-
-        int j_tmp = j;
-        for (int offset = -1; offset < 2 && d == 1; offset+=2)
-        {
-            j = j_tmp + offset;
-            if ( (j == -1 || j == N) && btype == ZERO)
-                continue;
-            else if ( j == -1 )
-                j = (N-2);
-            else if ( j == N )
-                j = 1;
-            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
-            tripletList.push_back(T(iMat,jMat,(float) offset));
-        }
-        j = j_tmp;
-
-        int k_tmp = k;
-        for (int offset = -1; offset < 2 && d == 2; offset+=2)
-        {
-            k = k_tmp + offset;
-            if ( (k == -1 || k == N) && btype == ZERO)
-                continue;
-            else if ( k == -1 )
-                k = (N-2);
-            else if ( k == N )
-                k = 1;
-            jMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
-            tripletList.push_back(T(iMat,jMat,(float) offset));
-        }
-        k = k_tmp;
-    }
-
-    dst = SparseMatrix_(N*N*N*fields,N*N*N*dims*fields);
-    dst.setFromTriplets(tripletList.begin(), tripletList.end());
-    dst = 1.f/(2*D) * dst;
-}
-
-
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::grad(SparseMatrix_ &dst, unsigned int fields)
-{
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
-    typedef Eigen::Triplet<float> T;
-    std::vector<T> tripletList;
-    tripletList.reserve(N*N*2*2);
-
-    int dims = 3;
-
-    for (int idx = 0; idx < dims*fields*N*N*N; idx++)
-    {
-        int idx_tmp = idx;
-        int f = idx_tmp / (dims * N * N * N);
-        idx_tmp -= f * (dims * N * N * N);
-        int d = idx_tmp / (N * N * N);
-        idx_tmp -= d * (N * N * N);
-        int k = idx_tmp / (N * N);
-        idx_tmp -= k * N * N;
-        int j = idx_tmp / N;
-        idx_tmp -= j * N;
-        int i = idx_tmp;
-
-        int iMat, jMat;
-
-        iMat = N*N*fields*dims*k + N*fields*dims*j + fields*dims*i + dims*f + d;
-
-        int i_tmp = i;
-        for (int offset = -1; offset < 2 && d == 0; offset+=2)
-        {
-            i = i_tmp + offset;
-            if ( (i == -1 || i == N) && btype == ZERO)
-                continue;
-            else if ( i == -1 )
-                i = (N-2);
-            else if ( i == N )
-                i = 1;
-            jMat = N*N*fields*k + N*fields*j + fields*i + f;
-            tripletList.push_back(T(iMat,jMat,(float) offset));
-        }
-        i = i_tmp;
-
-        int j_tmp = j;
-        for (int offset = -1; offset < 2 && d == 1; offset+=2)
-        {
-            j = j_tmp + offset;
-            if ( (j == -1 || j == N) && btype == ZERO)
-                continue;
-            else if ( j == -1 )
-                j = (N-2);
-            else if ( j == N )
-                j = 1;
-            jMat = N*N*fields*k + N*fields*j + fields*i + f;
-            tripletList.push_back(T(iMat,jMat,(float) offset));
-        }
-        j = j_tmp;
-
-        int k_tmp = k;
-        for (int offset = -1; offset < 2 && d == 2; offset+=2)
-        {
-            k = k_tmp + offset;
-            if ( (k == -1 || k == N) && btype == ZERO)
-                continue;
-            else if ( k == -1 )
-                k = (N-2);
-            else if ( k == N )
-                k = 1;
-            jMat = N*N*fields*k + N*fields*j + fields*i + f;
-            tripletList.push_back(T(iMat,jMat,(float) offset));
-        }
-        k = k_tmp;
-    }
-
-    dst = SparseMatrix_(N*N*N*dims*fields,N*N*N*fields);
-    dst.setFromTriplets(tripletList.begin(), tripletList.end());
-    dst = 1.f/(2*D) * dst;
-
-    if (N == 3)
-        std::cout << dst << std::endl;
-}
-
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::backstream(float* dst_field, const float* src_field, const float* ufield, float dt, FieldType ftype, int fields)
+JFS_INLINE void grid3D::backstream(float* dst_field, const float* src_field, const float* ufield, float dt, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -385,8 +132,8 @@ JFS_INLINE void grid3D<StorageOrder>::backstream(float* dst_field, const float* 
 
     for (int index = 0; index < N*N; index++)
     {
-        int k = std::floor(index/(N*N));
-        int j = std::floor((index-N*N*k)/N);
+        int k = index/(N*N);
+        int j = (index-N*N*k)/N;
         int i = index - N*N*k - N*j;
         float x[3]{
             D*(i + .5f),
@@ -394,7 +141,7 @@ JFS_INLINE void grid3D<StorageOrder>::backstream(float* dst_field, const float* 
             D*(k + .5f)
         };
 
-        using gridBase = gridBase<StorageOrder>;
+        using gridBase = gridBase;
         float x_new[3];
         gridBase::backtrace(x_new, x, 3, ufield, -dt);
 
@@ -414,8 +161,7 @@ JFS_INLINE void grid3D<StorageOrder>::backstream(float* dst_field, const float* 
     delete [] interp_quant;
 }
 
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::
+JFS_INLINE void grid3D::
 indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
@@ -447,8 +193,7 @@ indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, in
     }
 }
 
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::
+JFS_INLINE void grid3D::
 insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields, InsertType itype)
 {
     auto btype = this->bound_type_;
@@ -490,8 +235,7 @@ insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int f
 }
 
 
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::
+JFS_INLINE void grid3D::
 interpGridToPoint(float* dst, const float* point, const float* field_data, FieldType ftype, unsigned int fields)
 {
     auto btype = this->bound_type_;
@@ -583,8 +327,7 @@ interpGridToPoint(float* dst, const float* point, const float* field_data, Field
 }
 
 
-template<int StorageOrder>
-JFS_INLINE void grid3D<StorageOrder>::
+JFS_INLINE void grid3D::
 interpPointToGrid(const float* q, const float* point, float* field_data, FieldType ftype, unsigned int fields, InsertType itype)
 {
     auto btype = this->bound_type_;
@@ -674,12 +417,6 @@ interpPointToGrid(const float* q, const float* point, float* field_data, FieldTy
 
     delete [] q_part;
 }
-
-// explicit instantiation of templates
-#ifdef JFS_STATIC
-template class grid3D<Eigen::ColMajor>;
-template class grid3D<Eigen::RowMajor>;
-#endif
 
 } // namespace jfs
 

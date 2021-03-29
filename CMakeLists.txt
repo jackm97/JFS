@@ -34,6 +34,9 @@ set(JFS_HEADERS_BASE    ${JFS_SOURCE_DIR}/base/grid2D.h
                         ${JFS_SOURCE_DIR}/base/grid3D.h
                         ${JFS_SOURCE_DIR}/base/gridBase.h)
 
+set(JFS_HEADERS_DIFF_OPS    ${JFS_SOURCE_DIR}/differential_ops/grid_diff2d.h
+                            ${JFS_SOURCE_DIR}/differential_ops/grid_diff3d.h)
+
 set(JFS_HEADERS_TOP     ${JFS_SOURCE_DIR}/static_build/jfs_inline.h
                         ${JFS_SOURCE_DIR}/JSSFSolverBase.h
                         ${JFS_SOURCE_DIR}/JSSFSolver.h
@@ -46,6 +49,9 @@ set(JFS_SRC_BASE    ${JFS_SOURCE_DIR}/base/grid2D.cpp
                     ${JFS_SOURCE_DIR}/base/grid3D.cpp
                     ${JFS_SOURCE_DIR}/base/gridBase.cpp)
 
+set(JFS_SRC_DIFF_OPS    ${JFS_SOURCE_DIR}/differential_ops/grid_diff2d.cpp
+                        ${JFS_SOURCE_DIR}/differential_ops/grid_diff3d.cpp)
+
 set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolverBase.cpp
                 ${JFS_SOURCE_DIR}/JSSFSolver.cpp
                 ${JFS_SOURCE_DIR}/JSSFSolver3D.cpp
@@ -54,12 +60,10 @@ set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolverBase.cpp
 
 # Add Library
 add_definitions(-DJFS_STATIC)
-add_library(jfs STATIC ${JFS_SRC_BASE} ${JFS_SRC_TOP})
+add_library(jfs STATIC ${JFS_SRC_BASE} ${JFS_SRC_DIFF_OPS} ${JFS_SRC_TOP})
 
 # Installation of jfs files
 install(TARGETS jfs DESTINATION ${INSTALL_PATH}/lib)
 install(FILES ${JFS_HEADERS_TOP} DESTINATION ${INSTALL_PATH}/include/jfs)
 install(FILES ${JFS_HEADERS_BASE} DESTINATION ${INSTALL_PATH}/include/jfs/base)
-
-# Installation of dependencies
-install(DIRECTORY ${EIGEN_PATH}/Eigen DESTINATION ${INSTALL_PATH}/include/jfs)
+install(FILES ${JFS_HEADERS_DIFF_OPS} DESTINATION ${INSTALL_PATH}/include/jfs/differential_ops)

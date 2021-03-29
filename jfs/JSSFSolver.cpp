@@ -1,5 +1,6 @@
 #include <jfs/JSSFSolver.h>
-#include <iostream>
+
+#include <jfs/differential_ops/grid_diff2d.h>
 
 namespace jfs {
 
@@ -14,7 +15,6 @@ template <class LinearSolver, int StorageOrder>
 JFS_INLINE void JSSFSolver<LinearSolver, StorageOrder>::
 initialize(unsigned int N, float L, BoundType btype, float dt, float visc, float diff, float diss)
 {
-    using grid2D = grid2D<StorageOrder>;
     grid2D::initializeGrid(N, L, btype, dt);
 
     this->visc = visc;
@@ -25,17 +25,17 @@ initialize(unsigned int N, float L, BoundType btype, float dt, float visc, float
 
     SparseMatrix_ I(N*N*2,N*N*2);
     I.setIdentity();
-    grid2D::Laplace(this->ADifU, 2);
+    gridDiff2D<SparseMatrix_>::Laplace(this, this->ADifU, 2);
     this->ADifU = (I - visc * dt * this->ADifU);
     this->diffuseSolveU.compute(this->ADifU);
 
     I = SparseMatrix_ (N*N*3,N*N*3);
     I.setIdentity();
-    grid2D::Laplace(this->ADifS, 1, 3);
+    gridDiff2D<SparseMatrix_>::Laplace(this, this->ADifS, 1, 3);
     this->ADifS = (I - diff * dt * this->ADifS);
     this->diffuseSolveS.compute(this->ADifS);
 
-    grid2D::Laplace(this->AProject, 1);
+    gridDiff2D<SparseMatrix_>::Laplace(this, this->AProject, 1);
     this->projectSolve.compute(this->AProject);
 
     this->b.resize(N*N*3);
@@ -43,8 +43,8 @@ initialize(unsigned int N, float L, BoundType btype, float dt, float visc, float
 
     this->bound_type_ = btype;
 
-    grid2D::grad(this->GRAD);
-    grid2D::div(this->DIV);
+    gridDiff2D<SparseMatrix_>::grad(this, this->GRAD);
+    gridDiff2D<SparseMatrix_>::div(this, this->DIV);
 
     this->U.resize(N*N*2);
 

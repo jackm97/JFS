@@ -2,7 +2,8 @@
 #define GRIDBASE_H
 #include "../jfs_inline.h"
 
-#include <Eigen/Eigen>
+#include <jfs/differential_ops/grid_diff2d.h>
+#include <jfs/differential_ops/grid_diff3d.h>
 
 namespace jfs {
 
@@ -28,25 +29,24 @@ enum InsertType{
     Add
 };
 
-template <int StorageOrder>
 class gridBase {
     public:
         
         gridBase(){}
-        
-        BoundType bound_type_;
+
+        ~gridBase(){}
+
+        template<typename> friend class gridDiff2D;
+        template<typename> friend class gridDiff3D;
+
+    protected:
         
         unsigned int N; // num pixels/voxels per side
         float L; // grid side length
         float D; // pixel/voxel size
         float dt; // time step
-
-        ~gridBase(){}
-
-    protected:
-        typedef Eigen::SparseMatrix<float, StorageOrder> SparseMatrix_;
-        typedef Eigen::SparseVector<float, StorageOrder> SparseVector_;
-        typedef Eigen::VectorXf Vector_;
+        
+        BoundType bound_type_;
 
         // calls initializeGridProperties and setXGrid
         // calculates LAPLACE, VEC_LAPLACE, DIV, and GRAD
@@ -56,25 +56,6 @@ class gridBase {
         // Inputs:
         //      Vector_ &u - velocity field to be updated
         virtual void satisfyBC(float* field_data, FieldType ftype, int fields=1) = 0;
-
-        // calculate Laplace operator
-        // Inputs:
-        //      SparseMatrix_ &dst - destination sparse matrix for operator
-        //      unsigned int dims - dims used to specify scalar vs. vector Laplace
-        //      unsigned int fields - if there are multiple fields to concatenate (i.e. scalars concatenated by color channels)
-        virtual void Laplace(SparseMatrix_ &dst, unsigned int dims, unsigned int fields=1) = 0;
-
-        // calculate Divergence operator
-        // Inputs:
-        //      SparseMatrix_ &dst - destination sparse matrix for operator
-        //      unsigned int fields - if there are multiple fields to concatenate (i.e. mutliple vector fields concatenated)
-        virtual void div(SparseMatrix_ &dst, unsigned int fields=1) = 0;
-
-        // calculate Gradient operator
-        // Inputs:
-        //      SparseMatrix_ &dst - destination sparse matrix for operator
-        //      unsigned int fields - if there are multiple fields to concatenate (i.e. scalars concatenated by color channels)
-        virtual void grad(SparseMatrix_ &dst, unsigned int fields=1) = 0;
 
         // calculate Interpolation operator from grid values to point
         // Inputs:
@@ -128,6 +109,7 @@ class gridBase {
         //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
         virtual void insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields=1, InsertType itype=Replace) = 0;
 };
+
 } // namespace jfs
 
 #ifndef JFS_STATIC

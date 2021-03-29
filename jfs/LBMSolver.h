@@ -5,9 +5,11 @@
 
 #include <jfs/base/grid2D.h>
 
+#include <vector>
+
 namespace jfs {
 
-class LBMSolver : public grid2D<0> {
+class LBMSolver : public grid2D {
 
     public:
         // constructors

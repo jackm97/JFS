@@ -7,8 +7,7 @@
 namespace jfs {
 
 // gridBase derived class for 2D solvers
-template <int StorageOrder>
-class grid2D: virtual public gridBase<StorageOrder> {
+class grid2D: virtual public gridBase {
     public:
         grid2D(){}
 
@@ -16,33 +15,10 @@ class grid2D: virtual public gridBase<StorageOrder> {
 
     protected:
 
-        using SparseMatrix_ = typename gridBase<StorageOrder>::SparseMatrix_;
-        using SparseVector_ = typename gridBase<StorageOrder>::SparseVector_;
-        using Vector_ = typename gridBase<StorageOrder>::Vector_;
-
         // satisfy boundary conditions for based off BOUND property
         // Inputs:
         //      Vector_ &u - velocity field to be updated
         virtual void satisfyBC(float* field_data, FieldType ftype, int fields=1);
-
-        // calculate Laplace operator
-        // Inputs:
-        //      SparseMatrix_ &dst - destination sparse matrix for operator
-        //      unsigned int dims - dims used to specify scalar vs. vector Laplace
-        //      unsigned int fields - if there are multiple fields to concatenate (i.e. scalars concatenated by color channels)
-        virtual void Laplace(SparseMatrix_ &dst, unsigned int dims, unsigned int fields=1);
-
-        // calculate Divergence operator
-        // Inputs:
-        //      SparseMatrix_ &dst - destination sparse matrix for operator
-        //      unsigned int fields - if there are multiple fields to concatenate (i.e. mutliple vector fields concatenated)
-        virtual void div(SparseMatrix_ &dst, unsigned int fields=1);
-
-        // calculate Gradient operator
-        // Inputs:
-        //      SparseMatrix_ &dst - destination sparse matrix for operator
-        //      unsigned int fields - if there are multiple fields to concatenate (i.e. scalars concatenated by color channels)
-        virtual void grad(SparseMatrix_ &dst, unsigned int fields=1);
 
         // backstreams a quantity on the grid
         // Inputs:
