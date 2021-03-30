@@ -37,6 +37,10 @@ set(JFS_HEADERS_BASE    ${JFS_SOURCE_DIR}/base/grid2D.h
 set(JFS_HEADERS_DIFF_OPS    ${JFS_SOURCE_DIR}/differential_ops/grid_diff2d.h
                             ${JFS_SOURCE_DIR}/differential_ops/grid_diff3d.h)
 
+set(JFS_HEADERS_VIS     ${JFS_SOURCE_DIR}/visualization/grid_smoke_base.h
+                        ${JFS_SOURCE_DIR}/visualization/grid_smoke2d.h
+                        ${JFS_SOURCE_DIR}/visualization/grid_smoke3d.h)
+
 set(JFS_HEADERS_TOP     ${JFS_SOURCE_DIR}/static_build/jfs_inline.h
                         ${JFS_SOURCE_DIR}/JSSFSolverBase.h
                         ${JFS_SOURCE_DIR}/JSSFSolver.h
@@ -52,6 +56,10 @@ set(JFS_SRC_BASE    ${JFS_SOURCE_DIR}/base/grid2D.cpp
 set(JFS_SRC_DIFF_OPS    ${JFS_SOURCE_DIR}/differential_ops/grid_diff2d.cpp
                         ${JFS_SOURCE_DIR}/differential_ops/grid_diff3d.cpp)
 
+set(JFS_HEADERS_VIS     ${JFS_SOURCE_DIR}/visualization/grid_smoke_base.cpp
+                        ${JFS_SOURCE_DIR}/visualization/grid_smoke2d.cpp
+                        ${JFS_SOURCE_DIR}/visualization/grid_smoke3d.cpp)
+
 set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolverBase.cpp
                 ${JFS_SOURCE_DIR}/JSSFSolver.cpp
                 ${JFS_SOURCE_DIR}/JSSFSolver3D.cpp
@@ -60,7 +68,7 @@ set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolverBase.cpp
 
 # Add Library
 add_definitions(-DJFS_STATIC)
-add_library(jfs STATIC ${JFS_SRC_BASE} ${JFS_SRC_DIFF_OPS} ${JFS_SRC_TOP})
+add_library(jfs STATIC ${JFS_SRC_BASE} ${JFS_SRC_DIFF_OPS} ${JFS_HEADERS_VIS} ${JFS_SRC_TOP})
 
 # Installation of jfs files
 install(TARGETS jfs DESTINATION ${INSTALL_PATH}/lib)

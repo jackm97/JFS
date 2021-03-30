@@ -13,9 +13,9 @@ class JSSFSolver : virtual public JSSFSolverBase<LinearSolver, StorageOrder>, vi
     public:
         JSSFSolver(){};
 
-        JSSFSolver(unsigned int N, float L, BoundType btype, float dt, float visc=0, float diff=0, float diss=0);
+        JSSFSolver(unsigned int N, float L, BoundType btype, float dt, float visc=0);
 
-        void initialize(unsigned int N, float L, BoundType btype, float dt, float visc=0, float diff=0, float diss=0);
+        void initialize(unsigned int N, float L, BoundType btype, float dt, float visc=0);
 
         ~JSSFSolver(){}
     protected:

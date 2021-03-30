@@ -20,14 +20,14 @@ class JSSFSolverBase : virtual public gridBase{
     public:
         JSSFSolverBase(){};
 
-        virtual void initialize(unsigned int N, float L, BoundType btype, float dt, float visc=0, float diff=0, float diss=0) = 0;
+        virtual void initialize(unsigned int N, float L, BoundType btype, float dt, float visc=0) = 0;
 
         void resetFluid();
 
-        bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
+        bool calcNextStep(const std::vector<Force> forces);
 
         //inline getters
-        float* imageData(){return S.data();}
+        float* velocityData(){return U0.data();}
 
         ~JSSFSolverBase(){}
         
@@ -36,13 +36,9 @@ class JSSFSolverBase : virtual public gridBase{
         typedef typename Eigen::Matrix<float, Eigen::Dynamic, 1, StorageOrder> Vector_;
 
         float visc; // fluid viscosity
-        float diff; // particle diffusion
-        float diss; // particle dissipation
         
         SparseMatrix_ ADifU; // ADifU*x = b for diffuseSolveU
         LinearSolver diffuseSolveU;
-        SparseMatrix_ ADifS; // ADifS*x = b for diffuseSolveS
-        LinearSolver diffuseSolveS;
         LinearSolver projectSolve;
         SparseMatrix_ AProject; // AProject*x = b for projectSolve
 
@@ -55,12 +51,7 @@ class JSSFSolverBase : virtual public gridBase{
 
         Vector_ U; 
         Vector_ U0;
-        
-        Vector_ S;
-        Vector_ S0;
-
         Vector_ F;
-        Vector_ SF;
 
         bool calcNextStep( );
 
@@ -69,8 +60,6 @@ class JSSFSolverBase : virtual public gridBase{
         void projection(Vector_ &dst, const Vector_ &src);
 
         void diffuse(Vector_ &dst, const Vector_ &src, float dt, FieldType ftype);
-
-        void dissipate(Vector_ &dst, const Vector_ &src, float dt);
 };
 } // namespace jfs
 

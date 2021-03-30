@@ -13,9 +13,9 @@ class JSSFSolver3D : virtual public JSSFSolverBase<LinearSolver, StorageOrder>, 
     public:
         JSSFSolver3D(){};
 
-        JSSFSolver3D(unsigned int N, float L, BoundType btype, float dt, float visc=0, float diff=0, float diss=0);
+        JSSFSolver3D(unsigned int N, float L, BoundType btype, float dt, float visc=0);
 
-        void initialize(unsigned int N, float L, BoundType btype, float dt, float visc=0, float diff=0, float diss=0);
+        void initialize(unsigned int N, float L, BoundType btype, float dt, float visc=0);
 
         ~JSSFSolver3D(){}
     protected:

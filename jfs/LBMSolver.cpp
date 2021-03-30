@@ -18,8 +18,7 @@ JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, BoundType btype, 
     this->visc = visc;
     this->uref = uref;
 
-    if (is_initialized_)
-        clearGrid();
+    clearGrid();
     
     // lattice scaling stuff
     cs = 1/std::sqrt(3);
@@ -41,10 +40,6 @@ JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, BoundType btype, 
     rho_mapped_ = new float[3*N*N];
 
     U = new float[2*N*N];
-
-
-    S = new float[3*N*N];
-    S0 = new float[3*N*N];
 
     F = new float[2*N*N];
 
@@ -88,14 +83,6 @@ JFS_INLINE void LBMSolver::resetFluid()
     {
         U[2*i + 0] = 0;
         U[2*i + 1] = 0;
-
-        S[2*i + 0] = 0;
-        S[2*i + 1] = 0;
-        S[2*i + 2] = 0;
-
-        S0[3*i + 0] = 0;
-        S0[3*i + 1] = 0;
-        S0[3*i + 2] = 0;
 
         rho_[i] = rho0;
     }
@@ -362,17 +349,13 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         if (btype == DAMPED)
             doBoundaryDamping();
 
-        backstream(S, S0, U, dt, SCALAR_FIELD, 3);
-        std::memcpy(S0, S, 3*N*N*sizeof(float));
-        mapDensity();
-
         T += dt;
     }
 
     return false;
 }
 
-JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
+JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces)
 {
 
     bool failedStep = false;
@@ -391,20 +374,6 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const s
                 forces[i].pos[2]/this->D
             };
             this->interpPointToGrid(force, point, F, VECTOR_FIELD, 1, Add);
-        }
-        for (int i = 0; i < sources.size(); i++)
-        {
-            float color[3] = {
-                sources[i].color[0] * sources[i].strength * dt,
-                sources[i].color[1] * sources[i].strength * dt,
-                sources[i].color[2] * sources[i].strength * dt
-            };
-            float point[3] = {
-                sources[i].pos[0]/this->D,
-                sources[i].pos[1]/this->D,
-                sources[i].pos[2]/this->D
-            };
-            this->interpPointToGrid(color, point, S0, SCALAR_FIELD, 3, Add);
         }
 
         failedStep = calcNextStep();
@@ -428,13 +397,15 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces, const s
 
 JFS_INLINE void LBMSolver::clearGrid()
 {
+
+    if (!is_initialized_)
+        return;
+    
     delete [] f;
     delete [] f0;
     delete [] rho_;
     delete [] rho_mapped_;
     delete [] U;
-    delete [] S;
-    delete [] S0;
     delete [] F;
 
     is_initialized_ = false;

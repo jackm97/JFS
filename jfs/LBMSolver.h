@@ -24,7 +24,7 @@ class LBMSolver : public grid2D {
         void resetFluid();
 
         // do next simulation step
-        bool calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources);
+        bool calcNextStep(const std::vector<Force> forces);
 
         // apply force to reach velocity
         void forceVelocity(int i, int j, float ux, float uy);
@@ -41,11 +41,11 @@ class LBMSolver : public grid2D {
 
         float DeltaX(){return this->dx;}
 
-        float* imageData(){return this->S;}
-
         float* rhoData(){return this->rho_;}
 
-        float* mappedRhoData(){return this->rho_mapped_;}
+        float* mappedRhoData(){mapDensity(); return this->rho_mapped_;}
+
+        float* velocityData(){return this->U;}
 
         float soundSpeed(){return this->us;}
 
@@ -69,9 +69,6 @@ class LBMSolver : public grid2D {
         float* rho_mapped_; // rho_, but mapped to [0,1] with min/maxrho_
 
         float* U; 
-        
-        float* S;
-        float* S0;
 
         float* F;
 

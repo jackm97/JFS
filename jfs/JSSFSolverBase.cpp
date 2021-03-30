@@ -10,10 +10,6 @@ JFS_INLINE void JSSFSolverBase<LinearSolver, StorageOrder>::resetFluid()
     U0 = U;
 
     F.setZero();
-
-    S.setZero();
-    S0 = S;
-    SF.setZero();
 }
 
 template <class LinearSolver, int StorageOrder>
@@ -26,12 +22,6 @@ JFS_INLINE bool JSSFSolverBase<LinearSolver, StorageOrder>::calcNextStep()
     diffuse(U, U0, dt, VECTOR_FIELD);
     projection(U0, U);
 
-    addForce(S, S0, SF, dt);
-    this->backstream(S0.data(), S.data(), U0.data(), dt, SCALAR_FIELD, 3);
-    diffuse(S, S0, dt, SCALAR_FIELD);
-    dissipate(S0, S, dt);
-    S = S0;
-
     this->satisfyBC(U0.data(), VECTOR_FIELD, 1);
 
     return false;
@@ -39,7 +29,7 @@ JFS_INLINE bool JSSFSolverBase<LinearSolver, StorageOrder>::calcNextStep()
 
 template <class LinearSolver, int StorageOrder>
 JFS_INLINE bool JSSFSolverBase<LinearSolver, StorageOrder>::
-calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
+calcNextStep(const std::vector<Force> forces)
 {
     bool failedStep = false;
 
@@ -59,25 +49,10 @@ calcNextStep(const std::vector<Force> forces, const std::vector<Source> sources)
             };
             this->interpPointToGrid(force, point, F.data(), VECTOR_FIELD, 1, Add);
         }
-        for (int i = 0; i < sources.size(); i++)
-        {
-            float source[3] = {
-                sources[i].color[0] * sources[i].strength,
-                sources[i].color[1] * sources[i].strength,
-                sources[i].color[2] * sources[i].strength
-            };
-            float point[3] = {
-                sources[i].pos[0]/this->D,
-                sources[i].pos[1]/this->D,
-                sources[i].pos[2]/this->D
-            };
-            this->interpPointToGrid(source, point, SF.data(), SCALAR_FIELD, 3, Add);
-        }
 
         failedStep = calcNextStep();
 
         F.setZero();
-        SF.setZero();
     }
     catch(const std::exception& e)
     {
@@ -116,20 +91,12 @@ diffuse(Vector_ &dst, const Vector_ &src, float dt, FieldType ftype)
     switch (ftype)
     {
     case SCALAR_FIELD:
-        dst = (diffuseSolveS).solve(src);
         break;
     
     case VECTOR_FIELD:
         dst = (diffuseSolveU).solve(src);
         break;
     }
-}
-
-template <class LinearSolver, int StorageOrder>
-JFS_INLINE void JSSFSolverBase<LinearSolver, StorageOrder>::
-dissipate(Vector_ &dst, const Vector_ &src, float dt)
-{
-    dst = 1/(1 + dt * diss) * src;
 }
 
 // explicit instantiation of templates
