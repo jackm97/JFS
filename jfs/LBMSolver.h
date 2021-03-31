@@ -49,6 +49,8 @@ class LBMSolver : public grid2D {
 
         float soundSpeed(){return this->us;}
 
+        float Rho0(){return this->rho0;}
+
         //destructor
         ~LBMSolver(){ clearGrid(); };
 
