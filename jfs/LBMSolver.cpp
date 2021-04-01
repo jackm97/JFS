@@ -308,11 +308,8 @@ JFS_INLINE bool LBMSolver::calcNextStep()
                 fiStar = f0[N*9*(k-ciy) + 9*(j-cix) + i];
             else
             {
-                for (int i_bounce = 1; i_bounce < 9; i_bounce++)
-                {
-                    if (c[i_bounce][0] == -cix && c[i_bounce][1] == -ciy)
-                        fiStar = f0[N*9*k + 9*j + i_bounce];
-                }
+                int i_bounce = bounce_back_indices_[i];
+                fiStar = f0[N*9*k + 9*j + i_bounce];
             }
 
             f[N*9*k + 9*j + i] = fiStar; 

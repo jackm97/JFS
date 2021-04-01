@@ -80,7 +80,13 @@ class LBMSolver : public grid2D {
             {1,1}, {-1,1}, {1,-1}, {-1,-1}  // i = 5, 6, 7, 8
         };
 
-        float w[9] = { // lattice weights
+        const float bounce_back_indices_[9]{
+            0,
+            2, 1, 4, 3,
+            8, 7, 6, 5
+        };
+
+        const float w[9] = { // lattice weights
             4./9.,                          // i = 0
             1./9., 1./9., 1./9., 1./9.,     // i = 1, 2, 3, 4
             1./36., 1./36., 1./36., 1./36., // i = 5, 6, 7, 8 

@@ -4,6 +4,15 @@
 
 namespace jfs {
 
+JFS_INLINE void grid3D::initializeGrid(unsigned int N, float L, BoundType btype, float dt)
+{
+    this->N = N;
+    this->L = L;
+    this->D = L/(N-1);
+    this->bound_type_ = btype;
+    this->dt = dt;
+}
+
 JFS_INLINE void grid3D::satisfyBC(float* field_data, FieldType ftype, int fields)
 {
     auto btype = this->bound_type_;
@@ -141,9 +150,8 @@ JFS_INLINE void grid3D::backstream(float* dst_field, const float* src_field, con
             D*(k + .5f)
         };
 
-        using gridBase = gridBase;
         float x_new[3];
-        gridBase::backtrace(x_new, x, 3, ufield, -dt);
+        backtrace(x_new, x, ufield, -dt);
 
         float interp_point[3]{
             x_new[0]/D - .5f,
@@ -159,6 +167,32 @@ JFS_INLINE void grid3D::backstream(float* dst_field, const float* src_field, con
     }
 
     delete [] interp_quant;
+}
+
+JFS_INLINE void grid3D::
+backtrace(float* end_point, const float* start_point, const float* ufield, float dt)
+{
+    int size = 3;
+
+    int* start_indices = new int[size];
+    for (int i = 0; i < size; i++)
+        start_indices[i] = (int) ( start_point[i]/D - .5 );
+    
+    float* u = new float[size];
+    indexGrid(u, start_indices, ufield, VECTOR_FIELD);
+    
+    float* interp_indices = new float[size];
+    for (int i = 0; i < size; i++)
+        interp_indices[i] = 1/D * ( (float)start_point[i] + u[i] * dt/2) - .5;
+
+    
+    interpGridToPoint(u, interp_indices, ufield, VECTOR_FIELD);
+    for (int i = 0; i < size; i++)
+        end_point[i] = start_point[i] + dt * u[i];
+
+    delete [] start_indices;
+    delete [] u;
+    delete [] interp_indices;
 }
 
 JFS_INLINE void grid3D::

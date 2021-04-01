@@ -5,7 +5,7 @@
 namespace jfs {
 
 template <class SparseMatrix>
-JFS_INLINE void gridDiff2D<SparseMatrix>::Laplace(const gridBase* grid, SparseMatrix &dst, unsigned int dims, unsigned int fields)
+JFS_INLINE void gridDiff2D<SparseMatrix>::Laplace(const grid2D* grid, SparseMatrix &dst, unsigned int dims, unsigned int fields)
 {
     auto btype = grid->bound_type_;
     auto L = grid->L;
@@ -71,7 +71,7 @@ JFS_INLINE void gridDiff2D<SparseMatrix>::Laplace(const gridBase* grid, SparseMa
 
 
 template <class SparseMatrix>
-JFS_INLINE void gridDiff2D<SparseMatrix>::div(const gridBase* grid, SparseMatrix &dst, unsigned int fields)
+JFS_INLINE void gridDiff2D<SparseMatrix>::div(const grid2D* grid, SparseMatrix &dst, unsigned int fields)
 {
     auto btype = grid->bound_type_;
     auto L = grid->L;
@@ -137,7 +137,7 @@ JFS_INLINE void gridDiff2D<SparseMatrix>::div(const gridBase* grid, SparseMatrix
 
 
 template <class SparseMatrix>
-JFS_INLINE void gridDiff2D<SparseMatrix>::grad(const gridBase* grid, SparseMatrix &dst, unsigned int fields)
+JFS_INLINE void gridDiff2D<SparseMatrix>::grad(const grid2D* grid, SparseMatrix &dst, unsigned int fields)
 {
     auto btype = grid->bound_type_;
     auto L = grid->L;

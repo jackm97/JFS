@@ -2,25 +2,40 @@
 #define GRID_SMOKE3D_H
 #include "../jfs_inline.h"
 
-#include <jfs/visualization/grid_smoke_base.h>
 #include <jfs/base/grid3D.h>
+
+#include <vector>
 
 namespace jfs {
 
-class gridSmoke3D : public virtual gridSmokeBase, public virtual grid3D {
+class gridSmoke3D : public grid3D {
     public:
         gridSmoke3D(){}
 
         gridSmoke3D(unsigned int N, float L, BoundType btype, float dt, float diss=0);
 
-        virtual void initialize(unsigned int N, float L, BoundType btype, float dt, float diss=0);
+        void initialize(unsigned int N, float L, BoundType btype, float dt, float diss=0);
 
-        virtual void resetSmoke();
+        void resetSmoke();
+
+        void updateSmoke(std::vector<Source> sources, float* u_field);
+
+        //inline getters
+        float* smokeData(){return S_;}
 
         ~gridSmoke3D(){ clearGrid(); }
 
     protected:
-        virtual void dissipate();
+        bool is_init_ = false;
+
+        float* S_;
+        float* S0_;
+
+        float diss_;
+
+        void dissipate();
+
+        void clearGrid();
 };
 
 } // namespace jfs

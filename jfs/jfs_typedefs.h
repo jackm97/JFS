@@ -14,6 +14,11 @@ typedef enum {
     SCALAR_FIELD
 } FieldType;
 
+typedef enum {
+    Add,
+    Replace
+} InsertType;
+
 struct Force {
     float pos[3]{0.f};
     float force[3]{0.f};

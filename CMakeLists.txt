@@ -31,18 +31,15 @@ set(JFS_SOURCE_DIR ${PROJECT_SOURCE_DIR}/jfs)
 
 # Header Files
 set(JFS_HEADERS_BASE    ${JFS_SOURCE_DIR}/base/grid2D.h
-                        ${JFS_SOURCE_DIR}/base/grid3D.h
-                        ${JFS_SOURCE_DIR}/base/gridBase.h)
+                        ${JFS_SOURCE_DIR}/base/grid3D.h)
 
 set(JFS_HEADERS_DIFF_OPS    ${JFS_SOURCE_DIR}/differential_ops/grid_diff2d.h
                             ${JFS_SOURCE_DIR}/differential_ops/grid_diff3d.h)
 
-set(JFS_HEADERS_VIS     ${JFS_SOURCE_DIR}/visualization/grid_smoke_base.h
-                        ${JFS_SOURCE_DIR}/visualization/grid_smoke2d.h
+set(JFS_HEADERS_VIS     ${JFS_SOURCE_DIR}/visualization/grid_smoke2d.h
                         ${JFS_SOURCE_DIR}/visualization/grid_smoke3d.h)
 
 set(JFS_HEADERS_TOP     ${JFS_SOURCE_DIR}/static_build/jfs_inline.h
-                        ${JFS_SOURCE_DIR}/JSSFSolverBase.h
                         ${JFS_SOURCE_DIR}/JSSFSolver.h
                         ${JFS_SOURCE_DIR}/JSSFSolver3D.h
                         ${JFS_SOURCE_DIR}/LBMSolver.h)
@@ -50,18 +47,15 @@ set(JFS_HEADERS_TOP     ${JFS_SOURCE_DIR}/static_build/jfs_inline.h
 
 # Source Files
 set(JFS_SRC_BASE    ${JFS_SOURCE_DIR}/base/grid2D.cpp
-                    ${JFS_SOURCE_DIR}/base/grid3D.cpp
-                    ${JFS_SOURCE_DIR}/base/gridBase.cpp)
+                    ${JFS_SOURCE_DIR}/base/grid3D.cpp)
 
 set(JFS_SRC_DIFF_OPS    ${JFS_SOURCE_DIR}/differential_ops/grid_diff2d.cpp
                         ${JFS_SOURCE_DIR}/differential_ops/grid_diff3d.cpp)
 
-set(JFS_HEADERS_VIS     ${JFS_SOURCE_DIR}/visualization/grid_smoke_base.cpp
-                        ${JFS_SOURCE_DIR}/visualization/grid_smoke2d.cpp
+set(JFS_HEADERS_VIS     ${JFS_SOURCE_DIR}/visualization/grid_smoke2d.cpp
                         ${JFS_SOURCE_DIR}/visualization/grid_smoke3d.cpp)
 
-set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolverBase.cpp
-                ${JFS_SOURCE_DIR}/JSSFSolver.cpp
+set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolver.cpp
                 ${JFS_SOURCE_DIR}/JSSFSolver3D.cpp
                 ${JFS_SOURCE_DIR}/LBMSolver.cpp)
 
