@@ -83,6 +83,9 @@ JFS_INLINE void LBMSolver::resetFluid()
     {
         U[2*i + 0] = 0;
         U[2*i + 1] = 0;
+        
+        F[2*i + 0] = 0;
+        F[2*i + 1] = 0;
 
         rho_[i] = rho0;
     }
