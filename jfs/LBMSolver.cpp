@@ -301,51 +301,29 @@ JFS_INLINE bool LBMSolver::calcNextStep()
             idx_tmp -= j * 9;
             int i = idx_tmp;
 
-                    int cix = c[i][0];
-                    int ciy = c[i][1];
+            int cix = c[i][0];
+            int ciy = c[i][1];
 
-                    if ((k-ciy) >= 0 && (k-ciy) < N && (j-cix) >= 0 && (j-cix) < N)
-                        fiStar = f0[N*9*(k-ciy) + 9*(j-cix) + i];
-                    else
-                    {
-                        switch (i)
-                        {
-                        case 1:
-                            fiStar = f0[N*9*k + 9*j + 2];
-                            break;
-                        case 2:
-                            fiStar = f0[N*9*k + 9*j + 1];
-                            break;
-                        case 3:
-                            fiStar = f0[N*9*k + 9*j + 4];
-                            break;
-                        case 4:
-                            fiStar = f0[N*9*k + 9*j + 3];
-                            break;
-                        case 5:
-                            fiStar = f0[N*9*k + 9*j + 8];
-                            break;
-                        case 6:
-                            fiStar = f0[N*9*k + 9*j + 7];
-                            break;
-                        case 7:
-                            fiStar = f0[N*9*k + 9*j + 6];
-                            break;
-                        case 8:
-                            fiStar = f0[N*9*k + 9*j + 5];
-                            break;
-                        }
-                    }
+            if ((k-ciy) >= 0 && (k-ciy) < N && (j-cix) >= 0 && (j-cix) < N)
+                fiStar = f0[N*9*(k-ciy) + 9*(j-cix) + i];
+            else
+            {
+                for (int i_bounce = 1; i_bounce < 9; i_bounce++)
+                {
+                    if (c[i_bounce][0] == -cix && c[i_bounce][1] == -ciy)
+                        fiStar = f0[N*9*k + 9*j + i_bounce];
+                }
+            }
 
-                    f[N*9*k + 9*j + i] = fiStar; 
+            f[N*9*k + 9*j + i] = fiStar; 
 
-                    calcPhysicalVals(j, k);
+            calcPhysicalVals(j, k);
 
-                    float u[2];
-                    int indices[2]{j, k};
-                    indexGrid(u, indices, U, VECTOR_FIELD);
-                    if (std::isinf(u[0]) || std::isinf(u[1]) || std::isnan(u[0]) || std::isnan(u[1]))
-                        return true;
+            float u[2];
+            int indices[2]{j, k};
+            indexGrid(u, indices, U, VECTOR_FIELD);
+            if (std::isinf(u[0]) || std::isinf(u[1]) || std::isnan(u[0]) || std::isnan(u[1]))
+                return true;
         }
 
         // do any field manipulations before collision step
