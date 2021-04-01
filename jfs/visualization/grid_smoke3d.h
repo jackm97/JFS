@@ -17,7 +17,7 @@ class gridSmoke3D : public virtual gridSmokeBase, public virtual grid3D {
 
         virtual void resetSmoke();
 
-        ~gridSmoke3D(){}
+        ~gridSmoke3D(){ clearGrid(); }
 
     protected:
         virtual void dissipate();

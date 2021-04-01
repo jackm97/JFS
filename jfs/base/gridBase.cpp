@@ -34,6 +34,7 @@ backtrace(float* end_point, const float* start_point, int size, const float* ufi
 
     delete [] start_indices;
     delete [] u;
+    delete [] interp_indices;
 }
 
 } // namespace jfs
