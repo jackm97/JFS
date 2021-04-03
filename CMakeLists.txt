@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.13.0)
-project(jfs VERSION 0.1.0)
+project(jfs VERSION 0.1.0 LANGUAGES CUDA CXX)
+
+find_package(CUDA)
 
 #####################################################################
 # CUSTOM OPTIONS:
@@ -59,10 +61,24 @@ set(JFS_SRC_TOP ${JFS_SOURCE_DIR}/JSSFSolver.cpp
                 ${JFS_SOURCE_DIR}/JSSFSolver3D.cpp
                 ${JFS_SOURCE_DIR}/LBMSolver.cpp)
 
+# CUDA Header Files
+set(JFS_CUDA_HEADERS    ${JFS_SOURCE_DIR}/cuda/grid/cuda_grid2d.h
+                        ${JFS_SOURCE_DIR}/cuda/lbm_solver_cuda.h
+                        ${JFS_SOURCE_DIR}/cuda/lbm_cuda_kernels.h)
+
+# CUDA Source Files
+set(JFS_CUDA_SRC        ${JFS_SOURCE_DIR}/cuda/grid/cuda_grid2d.cu
+                        ${JFS_SOURCE_DIR}/cuda/lbm_solver_cuda.cu
+                        ${JFS_SOURCE_DIR}/cuda/lbm_cuda_kernels.cu)
+
+
 
 # Add Library
 add_definitions(-DJFS_STATIC)
-add_library(jfs STATIC ${JFS_SRC_BASE} ${JFS_SRC_DIFF_OPS} ${JFS_HEADERS_VIS} ${JFS_SRC_TOP})
+add_library(jfs STATIC ${JFS_SRC_BASE} ${JFS_SRC_DIFF_OPS} ${JFS_HEADERS_VIS} ${JFS_SRC_TOP} ${JFS_CUDA_SRC})
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true")
+set_target_properties(jfs PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+target_link_libraries(jfs PRIVATE ${CUDA_LIBRARIES} ${CUDA_cudadevrt_LIBRARY})
 
 # Installation of jfs files
 install(TARGETS jfs DESTINATION ${INSTALL_PATH}/lib)
