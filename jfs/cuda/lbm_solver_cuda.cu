@@ -104,11 +104,10 @@ JFS_INLINE bool cudaLBMSolver::calcNextStep(const std::vector<Force> forces)
 {
     bool failedStep = false;
     
+    float* field_tmp = new float[2*N*N];
     try
     {   
-        float* field_tmp = new float[2*N*N]; 
-        for (int i = 0; i < 2*N*N; i++)
-            field_tmp[i] = 0;
+        cudaMemcpy(field_tmp, F, 2*N*N*sizeof(float), cudaMemcpyDeviceToHost);
         
         for (int i = 0; i < forces.size(); i++)
         {
@@ -125,19 +124,23 @@ JFS_INLINE bool cudaLBMSolver::calcNextStep(const std::vector<Force> forces)
             this->interpPointToGrid(force, point, field_tmp, VECTOR_FIELD, 1, Add);
         }
         cudaMemcpy(F, field_tmp, 2*N*N*sizeof(float), cudaMemcpyHostToDevice);
+        
         for (int iter = 0; iter < iter_per_frame; iter++)
         {
             failedStep = calcNextStep();
             if (failedStep)
                 break;
         }
-        delete [] field_tmp;
     }
     catch(const std::exception& e)
     {
         std::cerr << e.what() << '\n';
         failedStep = true;
     }
+    for (int i = 0; i < 2*N*N; i++)
+        field_tmp[i] = 0;
+    cudaMemcpy(F, field_tmp, 2*N*N*sizeof(float), cudaMemcpyHostToDevice);
+    delete [] field_tmp;
 
     if (failedStep) resetFluid();
 
@@ -165,7 +168,7 @@ JFS_INLINE void cudaLBMSolver::forceVelocity(int i, int j, float ux, float uy)
             (u[0] - u_prev[0]) * rho / this->dt,
             (u[1] - u_prev[1]) * rho / this->dt
         };
-        insertIntoGrid(indices, force, F, VECTOR_FIELD, 1, Add);
+        insertIntoGrid(indices, force, F, VECTOR_FIELD, 1, Replace);
 
     #endif
 }
@@ -276,12 +279,12 @@ JFS_INLINE float cudaLBMSolver::calc_Fi(int i, int j, int k)
 
     float F_jk[2];
     indexGrid(F_jk, indices, F, VECTOR_FIELD);
-    F_jk[0] *= ( 1/rho0 * dx * std::pow(urefL/uref,2) );
-    F_jk[1] *= ( 1/rho0 * dx * std::pow(urefL/uref,2) );
+    F_jk[0] *= ( 1/rho0 * dx * powf(urefL/uref,2) );
+    F_jk[1] *= ( 1/rho0 * dx * powf(urefL/uref,2) );
 
     float Fi = (1 - tau/2) * wi * (
-         ( (1/std::pow(cs,2))*(ci[0] - u[0]) + (ci_dot_u/std::pow(cs,4)) * ci[0] )  * F_jk[0] + 
-         ( (1/std::pow(cs,2))*(ci[1] - u[1]) + (ci_dot_u/std::pow(cs,4)) * ci[1] )  * F_jk[1]
+         ( (1/powf(cs,2))*(ci[0] - u[0]) + (ci_dot_u/powf(cs,4)) * ci[0] )  * F_jk[0] + 
+         ( (1/powf(cs,2))*(ci[1] - u[1]) + (ci_dot_u/powf(cs,4)) * ci[1] )  * F_jk[1]
     );
 
     return Fi;
@@ -306,44 +309,10 @@ JFS_INLINE float cudaLBMSolver::calc_fbari(int i, int j, int k)
     float ci_dot_u = ci[0]*u[0] + ci[1]*u[1];
     float u_dot_u = u[0]*u[0] + u[1]*u[1];
 
-    fbari = wi * rho_jk/rho0 * ( 1 + ci_dot_u/(std::pow(cs,2)) + std::pow(ci_dot_u,2)/(2*std::pow(cs,4)) - u_dot_u/(2*std::pow(cs,2)) );
+    fbari = wi * rho_jk/rho0 * ( 1 + ci_dot_u/(powf(cs,2)) + powf(ci_dot_u,2)/(2*powf(cs,4)) - u_dot_u/(2*powf(cs,2)) );
 
     return fbari;
 }
-
-// __host__ __device__
-// JFS_INLINE void cudaLBMSolver::calcPhysicalVals()
-// {
-//     float rho_jk = 0;
-//     float momentum_jk[2]{0, 0};
-
-//     for (int j=0; j<N; j++)
-//     {
-//         for (int k=0; k<N; k++)
-//         {
-//             rho_jk = 0;
-//             momentum_jk[0] += 0;
-//             momentum_jk[1] += 0;
-
-//             for (int i=0; i<9; i++)
-//             {
-//                 rho_jk += f[N*9*k + 9*j + i];
-//                 momentum_jk[0] += c[i][0] * f[N*9*k + 9*j + i];
-//                 momentum_jk[1] += c[i][1] * f[N*9*k + 9*j + i];
-//             }
-
-//             float* u = momentum_jk;
-//             u[0] = uref/urefL * (momentum_jk[0]/rho_jk);
-//             u[1] = uref/urefL * (momentum_jk[1]/rho_jk);
-//             rho_jk = rho0 * rho_jk;
-
-//             int indices[2]{j, k};
-
-//             insertIntoGrid(indices, &rho_jk, rho_, SCALAR_FIELD);
-//             insertIntoGrid(indices, u, U, VECTOR_FIELD);
-//         }
-//     }
-// }
 
 __host__
 JFS_INLINE void cudaLBMSolver::mapDensity()
