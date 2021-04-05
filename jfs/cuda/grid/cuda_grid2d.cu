@@ -171,13 +171,7 @@ indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, in
 
     int& i = indices[0];
     int& j = indices[1];
-    for (int f = 0; f < fields; f++)
-    {
-        for (int d = 0; d < dims; d++)
-        {
-            dst[dims*f + d] = field_data[N*fields*dims*j + fields*dims*i + dims*f + d];
-        }
-    }
+    memcpy(dst, &(field_data[N*fields*dims*j + fields*dims*i]), dims*fields*sizeof(float));
 }
 
 __host__ __device__
@@ -197,21 +191,20 @@ insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int f
 
     int& i = indices[0];
     int& j = indices[1];
+    float* q_current;
 
-    for (int f = 0; f < fields; f++)
+    switch (itype)
     {
-        for (int d = 0; d < dims; d++)
-        {
-            switch (itype)
-            {
-            case Replace:
-                field_data[N*fields*dims*j + fields*dims*i + dims*f + d] = q[dims*f + d];
-                break;
-            case Add:
-                field_data[N*fields*dims*j + fields*dims*i + dims*f + d] += q[dims*f + d];
-                break;
-            }
-        }
+    case Replace:
+        memcpy(&(field_data[N*fields*dims*j + fields*dims*i]), q, dims*fields*sizeof(float));
+        break;
+    case Add:
+        q_current = new float[fields*dims];
+        indexGrid(q_current, indices, field_data, ftype, fields);
+        for (int idx = 0; idx < fields*dims; idx++) q_current[idx] += q_current[idx];
+        memcpy(&(field_data[N*fields*dims*j + fields*dims*i]), q_current, dims*fields*sizeof(float));
+        delete [] q_current;
+        break;
     }
 }
 
