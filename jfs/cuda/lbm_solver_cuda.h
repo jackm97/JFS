@@ -105,6 +105,10 @@ class cudaLBMSolver : public cudaGrid2D {
         __HOST__DEVICE__
         ~cudaLBMSolver();
 
+        //cuda operator=
+        __DEVICE__
+        void operator=(const cudaLBMSolver& src);
+
     #ifndef __CUDA_ARCH__
     private:
     #else
@@ -187,10 +191,6 @@ class cudaLBMSolver : public cudaGrid2D {
 
         __DEVICE__
         float calc_fbari(int i, int j, int k);
-
-        // calcs rho and U fields
-        // __HOST__DEVICE__
-        // void calcPhysicalVals();
 
         __DEVICE__
         void calcPhysicalVals(int j, int k);

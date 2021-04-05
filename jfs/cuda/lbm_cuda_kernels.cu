@@ -45,33 +45,94 @@ void resetDistributionKernel(void** gpu_this_ptr)
     int k = blockIdx.y * blockDim.y + threadIdx.y;
 
     #ifdef __CUDA_ARCH__
-        cudaLBMSolver* solver_ptr = (cudaLBMSolver*) *gpu_this_ptr;
+        cudaLBMSolver solver = *( (cudaLBMSolver*) *gpu_this_ptr );
 
-        int N = solver_ptr->N;
+        __syncthreads();
+
+        int N = solver.N;
 
         if (j >= N || k >= N)
             return;
             
         for (int i=0; i < 9; i++)
-            solver_ptr->f[N*9*k + 9*j + i] = solver_ptr->calc_fbari(i, j, k);
+            solver.f[N*9*k + 9*j + i] = solver.calc_fbari(i, j, k);
     #endif
 }
 
 __global__
 void collideKernel(void** gpu_this_ptr, bool* flag_ptr)
 {
-    int j = blockIdx.x * blockDim.x + threadIdx.x;
-    int k = blockIdx.y * blockDim.y + threadIdx.y;
+    int indices[2]{
+        (int) (blockIdx.x * blockDim.x + threadIdx.x),
+        (int) (blockIdx.y * blockDim.y + threadIdx.y)
+    };
+    int& j = indices[0];
+    int& k = indices[1];
 
     #ifdef __CUDA_ARCH__
-        cudaLBMSolver* solver_ptr = (cudaLBMSolver*) *gpu_this_ptr;
+        cudaLBMSolver solver = *( (cudaLBMSolver*) *gpu_this_ptr );
+
+        // __shared__ float f[256*9];
+        // float * f_tmp;
+        // __shared__ float rho[256];
+        // float * rho_tmp;
+        // __shared__ float U[256*2];
+        // float * U_tmp;
+        // __shared__ float F[256*2];
+        // float * F_tmp;
 
         // collide
-        int N = solver_ptr->N;
-        float tau = solver_ptr->tau;
+        int N = solver.N;
+        float tau = solver.tau;
 
         if (j >= N || k >= N)
             return;
+
+        float data[9];
+        
+        // solver.indexGrid(data, indices, solver.f, SCALAR_FIELD, 9);
+        // j -= blockIdx.x * blockDim.x;
+        // k -= blockIdx.y * blockDim.y;
+        // solver.N = 16;
+        // solver.insertIntoGrid(indices, data, f, SCALAR_FIELD, 9);
+        // f_tmp = solver.f;
+        // solver.f = f;
+        // j += blockIdx.x * blockDim.x;
+        // k += blockIdx.y * blockDim.y;
+        // solver.N = N;
+        
+        // solver.indexGrid(data, indices, solver.rho_, SCALAR_FIELD, 1);
+        // j -= blockIdx.x * blockDim.x;
+        // k -= blockIdx.y * blockDim.y;
+        // solver.N = 16;
+        // solver.insertIntoGrid(indices, data, rho, SCALAR_FIELD, 1);
+        // rho_tmp = solver.f;
+        // solver.rho_ = rho;
+        // j += blockIdx.x * blockDim.x;
+        // k += blockIdx.y * blockDim.y;
+        // solver.N = N;
+        
+        // solver.indexGrid(data, indices, solver.U, VECTOR_FIELD, 2);
+        // j -= blockIdx.x * blockDim.x;
+        // k -= blockIdx.y * blockDim.y;
+        // solver.N = 16;
+        // solver.insertIntoGrid(indices, data, U, VECTOR_FIELD, 2);
+        // U_tmp = solver.U;
+        // solver.U = U;
+        // j += blockIdx.x * blockDim.x;
+        // k += blockIdx.y * blockDim.y;
+        // solver.N = N;
+        
+        // solver.indexGrid(data, indices, solver.F, VECTOR_FIELD, 2);
+        // j -= blockIdx.x * blockDim.x;
+        // k -= blockIdx.y * blockDim.y;
+        // solver.N = 16;
+        // solver.insertIntoGrid(indices, data, F, VECTOR_FIELD, 2);
+        // F_tmp = solver.F;
+        // solver.F = F;
+
+        float* f_jk = data;
+        solver.indexGrid(f_jk, indices, solver.f, SCALAR_FIELD, 9);
 
         for (int i=0; i<9; i++)
         {
@@ -80,16 +141,51 @@ void collideKernel(void** gpu_this_ptr, bool* flag_ptr)
             float Omegai;
             float Fi;
             
-            fi = solver_ptr->f[N*9*k + 9*j + i];
+            fi = f_jk[i];
 
-            fbari = solver_ptr->calc_fbari(i, j, k);            
+            fbari = solver.calc_fbari(i, j, k);            
                 
-            Fi = solver_ptr->calc_Fi(i, j, k);
+            Fi = solver.calc_Fi(i, j, k);
 
             Omegai = -(fi - fbari)/tau;
 
-            solver_ptr->f[N*9*k + 9*j + i] = fi + Omegai + Fi;
+            f_jk[i] = fi + Omegai + Fi;
         }
+        solver.insertIntoGrid(indices, f_jk, solver.f, SCALAR_FIELD, 9);
+        
+        // solver.indexGrid(data, indices, f, SCALAR_FIELD, 9);
+        // j += blockIdx.x * blockDim.x;
+        // k += blockIdx.y * blockDim.y;
+        // solver.N = N;
+        // solver.insertIntoGrid(indices, data, f_tmp, SCALAR_FIELD, 9);
+        // j -= blockIdx.x * blockDim.x;
+        // k -= blockIdx.y * blockDim.y;
+        // solver.N = 16;
+        
+        // solver.indexGrid(data, indices, rho, SCALAR_FIELD, 1);
+        // j += blockIdx.x * blockDim.x;
+        // k += blockIdx.y * blockDim.y;
+        // solver.N = N;
+        // solver.insertIntoGrid(indices, data, rho_tmp, SCALAR_FIELD, 1);
+        // j -= blockIdx.x * blockDim.x;
+        // k -= blockIdx.y * blockDim.y;
+        // solver.N = 16;
+        
+        // solver.indexGrid(data, indices, U, VECTOR_FIELD, 2);
+        // j += blockIdx.x * blockDim.x;
+        // k += blockIdx.y * blockDim.y;
+        // solver.N = N;
+        // solver.insertIntoGrid(indices, data, U_tmp, VECTOR_FIELD, 2);
+        // j -= blockIdx.x * blockDim.x;
+        // k -= blockIdx.y * blockDim.y;
+        // solver.N = 16;
+        
+        // solver.indexGrid(data, indices, F, VECTOR_FIELD, 2);
+        // j += blockIdx.x * blockDim.x;
+        // k += blockIdx.y * blockDim.y;
+        // solver.N = N;
+        // solver.insertIntoGrid(indices, data, F_tmp, VECTOR_FIELD, 2);
+         
     #endif
 }
 
@@ -100,12 +196,14 @@ void streamKernel(void** gpu_this_ptr, bool* flag_ptr)
     int k = blockIdx.y * blockDim.y + threadIdx.y;
 
     #ifdef __CUDA_ARCH__
-        cudaLBMSolver* solver_ptr = (cudaLBMSolver*) *gpu_this_ptr;
+        cudaLBMSolver solver = *( (cudaLBMSolver*) *gpu_this_ptr );
+
+        __syncthreads();
 
         // stream
-        int N = solver_ptr->N;
-        const float (*c)[2] = solver_ptr->c;
-        const float* bounce_back_indices = solver_ptr->bounce_back_indices_;
+        int N = solver.N;
+        const float (*c)[2] = solver.c;
+        const float* bounce_back_indices = solver.bounce_back_indices_;
 
         if (j >= N || k >= N)
             return;
@@ -118,23 +216,23 @@ void streamKernel(void** gpu_this_ptr, bool* flag_ptr)
             int ciy = c[i][1];
 
             if ((k-ciy) >= 0 && (k-ciy) < N && (j-cix) >= 0 && (j-cix) < N)
-                fiStar = solver_ptr->f0[N*9*(k-ciy) + 9*(j-cix) + i];
+                fiStar = solver.f0[N*9*(k-ciy) + 9*(j-cix) + i];
             else
             {
                 int i_bounce = bounce_back_indices[i];
-                fiStar = solver_ptr->f0[N*9*k + 9*j + i_bounce];
+                fiStar = solver.f0[N*9*k + 9*j + i_bounce];
             }
 
-            solver_ptr->f[N*9*k + 9*j + i] = fiStar; 
+            solver.f[N*9*k + 9*j + i] = fiStar; 
 
             float u[2];
             int indices[2]{j, k};
-            solver_ptr->indexGrid(u, indices, solver_ptr->U, VECTOR_FIELD);
+            solver.indexGrid(u, indices, solver.U, VECTOR_FIELD);
             if (std::isinf(u[0]) || std::isinf(u[1]) || std::isnan(u[0]) || std::isnan(u[1]))
                 *flag_ptr = true;
         }
 
-        solver_ptr->calcPhysicalVals(j, k);
+        solver.calcPhysicalVals(j, k);
     #endif
 }
 
@@ -144,9 +242,11 @@ void boundaryDampKernel(void** gpu_this_ptr)
     int j = blockIdx.x * blockDim.x + threadIdx.x;
 
     #ifdef __CUDA_ARCH__
-        cudaLBMSolver* solver_ptr = (cudaLBMSolver*) *gpu_this_ptr;
+        cudaLBMSolver solver = *( (cudaLBMSolver*) *gpu_this_ptr );
 
-        int N = solver_ptr->N;
+        __syncthreads();
+
+        int N = solver.N;
 
         if (j >= N)
             return;
@@ -164,24 +264,24 @@ void boundaryDampKernel(void** gpu_this_ptr)
                 j
             };
             float u[2];
-            solver_ptr->indexGrid(u, indices, solver_ptr->U, VECTOR_FIELD);
+            solver.indexGrid(u, indices, solver.U, VECTOR_FIELD);
             float rho;
-            solver_ptr->indexGrid(&rho, indices, solver_ptr->rho_, SCALAR_FIELD);
+            solver.indexGrid(&rho, indices, solver.rho_, SCALAR_FIELD);
 
             indices[0] = i;
 
-            solver_ptr->insertIntoGrid(indices, &rho, solver_ptr->rho_, SCALAR_FIELD);
-            solver_ptr->insertIntoGrid(indices, u, solver_ptr->U, VECTOR_FIELD, 1);
+            solver.insertIntoGrid(indices, &rho, solver.rho_, SCALAR_FIELD);
+            solver.insertIntoGrid(indices, u, solver.U, VECTOR_FIELD, 1);
 
             float fbar[9];
             for (int k = 0; k < 9; k++)
             {
-                fbar[k] = solver_ptr->calc_fbari(k, i, j);
+                fbar[k] = solver.calc_fbari(k, i, j);
             }
 
-            solver_ptr->insertIntoGrid(indices, fbar, solver_ptr->f, SCALAR_FIELD, 9);
+            solver.insertIntoGrid(indices, fbar, solver.f, SCALAR_FIELD, 9);
 
-            solver_ptr->calcPhysicalVals(i, j);
+            solver.calcPhysicalVals(i, j);
         } 
 
         for (int i = 0; i < N; i+=(N-1))
@@ -197,24 +297,24 @@ void boundaryDampKernel(void** gpu_this_ptr)
                 i + step
             };
             float u[2];
-            solver_ptr->indexGrid(u, indices, solver_ptr->U, VECTOR_FIELD);
+            solver.indexGrid(u, indices, solver.U, VECTOR_FIELD);
             float rho;
-            solver_ptr->indexGrid(&rho, indices, solver_ptr->rho_, SCALAR_FIELD);
+            solver.indexGrid(&rho, indices, solver.rho_, SCALAR_FIELD);
 
             indices[1] = i;
 
-            solver_ptr->insertIntoGrid(indices, &rho, solver_ptr->rho_, SCALAR_FIELD);
-            solver_ptr->insertIntoGrid(indices, u, solver_ptr->U, VECTOR_FIELD, 1);
+            solver.insertIntoGrid(indices, &rho, solver.rho_, SCALAR_FIELD);
+            solver.insertIntoGrid(indices, u, solver.U, VECTOR_FIELD, 1);
 
             float fbar[9];
             for (int k = 0; k < 9; k++)
             {
-                fbar[k] = solver_ptr->calc_fbari(k, j, i);
+                fbar[k] = solver.calc_fbari(k, j, i);
             }
 
-            solver_ptr->insertIntoGrid(indices, fbar, solver_ptr->f, SCALAR_FIELD, 9);
+            solver.insertIntoGrid(indices, fbar, solver.f, SCALAR_FIELD, 9);
 
-            solver_ptr->calcPhysicalVals(j, i);
+            solver.calcPhysicalVals(j, i);
             
         }
     #endif

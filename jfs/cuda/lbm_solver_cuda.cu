@@ -440,4 +440,19 @@ JFS_INLINE cudaLBMSolver::~cudaLBMSolver()
     #endif
 }
 
+__device__
+JFS_INLINE void cudaLBMSolver::operator=(const cudaLBMSolver& src)
+{
+    #ifndef __CUDA_ARCH__
+        this->initialize(src.N, src.L, src.bound_type_, src.iter_per_frame, src.rho0, src.visc, src.uref);
+
+        this->rho_ = src.rho_;
+        this->rho_mapped_ = src.rho_mapped_;
+        this->f = src.f;
+        this->f0 = src.f0;
+        this->U = src.U;
+        this->F = src.F;
+    #endif
+}
+
 } // namespace jfs
