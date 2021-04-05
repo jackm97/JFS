@@ -41,15 +41,15 @@ class LBMSolver : public grid2D {
 
         float DeltaX(){return this->dx;}
 
+        float soundSpeed(){return this->us;}
+
+        float Rho0(){return this->rho0;}
+
         float* rhoData(){return this->rho_;}
 
         float* mappedRhoData(){mapDensity(); return this->rho_mapped_;}
 
         float* velocityData(){return this->U;}
-
-        float soundSpeed(){return this->us;}
-
-        float Rho0(){return this->rho0;}
 
         //destructor
         ~LBMSolver(){ clearGrid(); };

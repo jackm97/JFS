@@ -76,7 +76,7 @@ set(JFS_CUDA_SRC        ${JFS_SOURCE_DIR}/cuda/grid/cuda_grid2d.cu
 # Add Library
 add_definitions(-DJFS_STATIC)
 add_library(jfs STATIC ${JFS_SRC_BASE} ${JFS_SRC_DIFF_OPS} ${JFS_HEADERS_VIS} ${JFS_SRC_TOP} ${JFS_CUDA_SRC})
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -rdc=true -maxrregcount=40")
 set_target_properties(jfs PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 target_link_libraries(jfs PRIVATE ${CUDA_LIBRARIES} ${CUDA_cudadevrt_LIBRARY})
 

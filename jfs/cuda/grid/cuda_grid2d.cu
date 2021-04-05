@@ -17,12 +17,7 @@ JFS_INLINE void cudaGrid2D::initializeGrid(unsigned int N, float L, BoundType bt
 __host__ __device__
 JFS_INLINE void cudaGrid2D::satisfyBC(float* field_data, FieldType ftype, int fields)
 {
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
-    int dims;
+   int dims;
     switch (ftype)
     {
     case SCALAR_FIELD:
@@ -34,7 +29,7 @@ JFS_INLINE void cudaGrid2D::satisfyBC(float* field_data, FieldType ftype, int fi
     }
 
     int i,j;
-    if (btype == PERIODIC)
+    if (bound_type_ == PERIODIC)
     for (int idx=0; idx < N; idx++)
     {
         for (int f = 0; f < fields; f++)
@@ -54,7 +49,7 @@ JFS_INLINE void cudaGrid2D::satisfyBC(float* field_data, FieldType ftype, int fi
         }
     }
 
-    else if (btype == ZERO)
+    else if (bound_type_ == ZERO)
     for (int idx=0; idx < N; idx++)
     {
         for (int f = 0; f < fields; f++)
@@ -92,11 +87,6 @@ JFS_INLINE void cudaGrid2D::satisfyBC(float* field_data, FieldType ftype, int fi
 __host__ __device__
 JFS_INLINE void cudaGrid2D::backstream(float* dst_field, const float* src_field, const float* ufield, float dt, FieldType ftype, int fields)
 {
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
     int dims;
     switch (ftype)
     {
@@ -168,11 +158,6 @@ __host__ __device__
 JFS_INLINE void cudaGrid2D::
 indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, int fields)
 {
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
     int dims;
     switch (ftype)
     {
@@ -184,8 +169,8 @@ indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, in
         break;
     }
 
-    int i = indices[0];
-    int j = indices[1];
+    int& i = indices[0];
+    int& j = indices[1];
     for (int f = 0; f < fields; f++)
     {
         for (int d = 0; d < dims; d++)
@@ -199,11 +184,6 @@ __host__ __device__
 JFS_INLINE void cudaGrid2D::
 insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields, InsertType itype)
 {
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
     int dims;
     switch (ftype)
     {
@@ -215,8 +195,8 @@ insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int f
         break;
     }
 
-    int i = indices[0];
-    int j = indices[1];
+    int& i = indices[0];
+    int& j = indices[1];
 
     for (int f = 0; f < fields; f++)
     {
@@ -240,11 +220,6 @@ __host__ __device__
 JFS_INLINE void cudaGrid2D::
 interpGridToPoint(float* dst, const float* point, const float* field_data, FieldType ftype, unsigned int fields)
 {
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
     int dims;
     switch (ftype)
     {
@@ -262,7 +237,7 @@ interpGridToPoint(float* dst, const float* point, const float* field_data, Field
     float i0 = point[0];
     float j0 = point[1];
 
-    switch (btype)
+    switch (bound_type_)
     {
         case ZERO:
             i0 = (i0 < 0) ? 0:i0;
@@ -286,7 +261,6 @@ interpGridToPoint(float* dst, const float* point, const float* field_data, Field
     int j0_floor = (int) j0;
     int i0_ceil = i0_floor + 1;
     int j0_ceil = j0_floor + 1;
-    float part;
     
     float* indexed_quant = new float[fields*dims];
 
@@ -322,12 +296,7 @@ __host__ __device__
 JFS_INLINE void cudaGrid2D::
 interpPointToGrid(const float* q, const float* point, float* field_data, FieldType ftype, unsigned int fields, InsertType itype)
 {
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
-    int dims;
+   int dims;
     switch (ftype)
     {
     case SCALAR_FIELD:
@@ -341,7 +310,7 @@ interpPointToGrid(const float* q, const float* point, float* field_data, FieldTy
     float i0 = point[0];
     float j0 = point[1];
 
-    switch (btype)
+    switch (bound_type_)
     {
         case ZERO:
             i0 = (i0 < 0) ? 0:i0;
@@ -365,7 +334,6 @@ interpPointToGrid(const float* q, const float* point, float* field_data, FieldTy
     int j0_floor = (int) j0;
     int i0_ceil = i0_floor + 1;
     int j0_ceil = j0_floor + 1;
-    float part;
     float* q_part = new float[dims*fields];
     
 

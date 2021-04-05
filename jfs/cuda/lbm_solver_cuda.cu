@@ -319,11 +319,6 @@ JFS_INLINE void cudaLBMSolver::mapDensity()
 {
     rhoData();
 
-    auto btype = this->bound_type_;
-    auto L = this->L;
-    auto N = this->N;
-    auto D = this->D;
-
     float minrho = cpu_rho_[0];
     float maxrho = cpu_rho_[0];
     float meanrho = 0;
