@@ -265,28 +265,23 @@ __device__
 JFS_INLINE float cudaLBMSolver::calc_Fi(int i, int j, int k)
 {
     int indices[2]{j, k};
-    
-    float wi = w[i];
 
     float u[2];
     indexGrid(u, indices, U, VECTOR_FIELD);
     u[0] *= urefL/uref;
     u[1] *= urefL/uref;
-    float ci[2]{c[i][0], c[i][1]};
 
-    float ci_dot_u = ci[0]*u[0] + ci[1]*u[1];
+    float ci_dot_u = c[i][0]*u[0] + c[i][1]*u[1];
 
     float F_jk[2];
     indexGrid(F_jk, indices, F, VECTOR_FIELD);
     F_jk[0] *= ( 1/rho0 * dx * powf(urefL/uref,2) );
     F_jk[1] *= ( 1/rho0 * dx * powf(urefL/uref,2) );
 
-    float Fi = (1 - tau/2) * wi * (
-         ( (1/powf(cs,2))*(ci[0] - u[0]) + (ci_dot_u/powf(cs,4)) * ci[0] )  * F_jk[0] + 
-         ( (1/powf(cs,2))*(ci[1] - u[1]) + (ci_dot_u/powf(cs,4)) * ci[1] )  * F_jk[1]
+    return (1 - tau/2) * w[i] * (
+         ( (1/powf(cs,2))*(c[i][0] - u[0]) + (ci_dot_u/powf(cs,4)) * c[i][0] )  * F_jk[0] + 
+         ( (1/powf(cs,2))*(c[i][1] - u[1]) + (ci_dot_u/powf(cs,4)) * c[i][1] )  * F_jk[1]
     );
-
-    return Fi;
 }
 
 __device__
@@ -294,23 +289,18 @@ JFS_INLINE float cudaLBMSolver::calc_fbari(int i, int j, int k)
 {
     int indices[2]{j, k};
     
-    float fbari;
-    float rho_jk; // rho_ at point P -> (j,k)
+    float rho_jk; 
     indexGrid(&rho_jk, indices, rho_, SCALAR_FIELD);
-    float wi = w[i];
 
     float u[2];
     indexGrid(u, indices, U, VECTOR_FIELD);
     u[0] *= urefL/uref;
     u[1] *= urefL/uref;
-    float ci[2]{c[i][0], c[i][1]};
 
-    float ci_dot_u = ci[0]*u[0] + ci[1]*u[1];
+    float ci_dot_u = c[i][0]*u[0] + c[i][1]*u[1];
     float u_dot_u = u[0]*u[0] + u[1]*u[1];
 
-    fbari = wi * rho_jk/rho0 * ( 1 + ci_dot_u/(powf(cs,2)) + powf(ci_dot_u,2)/(2*powf(cs,4)) - u_dot_u/(2*powf(cs,2)) );
-
-    return fbari;
+    return w[i] * rho_jk/rho0 * ( 1 + ci_dot_u/(powf(cs,2)) + powf(ci_dot_u,2)/(2*powf(cs,4)) - u_dot_u/(2*powf(cs,2)) );
 }
 
 __host__
@@ -386,7 +376,7 @@ JFS_INLINE void cudaLBMSolver::calcPhysicalVals(int j, int k)
         momentum_jk[1] += c[i][1] * f[N*9*k + 9*j + i];
     }
 
-    float* u = momentum_jk;
+    float (&u)[2] = momentum_jk;
     u[0] = uref/urefL * (momentum_jk[0]/rho_jk);
     u[1] = uref/urefL * (momentum_jk[1]/rho_jk);
     rho_jk = rho0 * rho_jk;

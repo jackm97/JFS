@@ -72,14 +72,14 @@ void collideKernel(void** gpu_this_ptr, bool* flag_ptr)
     #ifdef __CUDA_ARCH__
         cudaLBMSolver solver = *( (cudaLBMSolver*) *gpu_this_ptr );
 
-        // __shared__ float f[256*9];
-        // float * f_tmp;
-        // __shared__ float rho[256];
-        // float * rho_tmp;
-        // __shared__ float U[256*2];
-        // float * U_tmp;
-        // __shared__ float F[256*2];
-        // float * F_tmp;
+        __shared__ float f[256*9];
+        float * f_tmp;
+        __shared__ float rho[256]; // not modified
+        float * rho_tmp;
+        __shared__ float U[256*2]; // not modified
+        float * U_tmp;
+        __shared__ float F[256*2]; // not modified
+        float * F_tmp;
 
         // collide
         int N = solver.N;
@@ -90,101 +90,63 @@ void collideKernel(void** gpu_this_ptr, bool* flag_ptr)
 
         float data[9];
         
-        // solver.indexGrid(data, indices, solver.f, SCALAR_FIELD, 9);
-        // j -= blockIdx.x * blockDim.x;
-        // k -= blockIdx.y * blockDim.y;
-        // solver.N = 16;
-        // solver.insertIntoGrid(indices, data, f, SCALAR_FIELD, 9);
-        // f_tmp = solver.f;
-        // solver.f = f;
-        // j += blockIdx.x * blockDim.x;
-        // k += blockIdx.y * blockDim.y;
-        // solver.N = N;
+        solver.indexGrid(data, indices, solver.f, SCALAR_FIELD, 9);
+        j -= blockIdx.x * blockDim.x;
+        k -= blockIdx.y * blockDim.y;
+        solver.N = 16;
+        solver.insertIntoGrid(indices, data, f, SCALAR_FIELD, 9);
+        f_tmp = solver.f;
+        solver.f = f;
+        j += blockIdx.x * blockDim.x;
+        k += blockIdx.y * blockDim.y;
+        solver.N = N;
         
-        // solver.indexGrid(data, indices, solver.rho_, SCALAR_FIELD, 1);
-        // j -= blockIdx.x * blockDim.x;
-        // k -= blockIdx.y * blockDim.y;
-        // solver.N = 16;
-        // solver.insertIntoGrid(indices, data, rho, SCALAR_FIELD, 1);
-        // rho_tmp = solver.f;
-        // solver.rho_ = rho;
-        // j += blockIdx.x * blockDim.x;
-        // k += blockIdx.y * blockDim.y;
-        // solver.N = N;
+        solver.indexGrid(data, indices, solver.rho_, SCALAR_FIELD, 1);
+        j -= blockIdx.x * blockDim.x;
+        k -= blockIdx.y * blockDim.y;
+        solver.N = 16;
+        solver.insertIntoGrid(indices, data, rho, SCALAR_FIELD, 1);
+        rho_tmp = solver.rho_;
+        solver.rho_ = rho;
+        j += blockIdx.x * blockDim.x;
+        k += blockIdx.y * blockDim.y;
+        solver.N = N;
         
-        // solver.indexGrid(data, indices, solver.U, VECTOR_FIELD, 2);
-        // j -= blockIdx.x * blockDim.x;
-        // k -= blockIdx.y * blockDim.y;
-        // solver.N = 16;
-        // solver.insertIntoGrid(indices, data, U, VECTOR_FIELD, 2);
-        // U_tmp = solver.U;
-        // solver.U = U;
-        // j += blockIdx.x * blockDim.x;
-        // k += blockIdx.y * blockDim.y;
-        // solver.N = N;
+        solver.indexGrid(data, indices, solver.U, VECTOR_FIELD, 1);
+        j -= blockIdx.x * blockDim.x;
+        k -= blockIdx.y * blockDim.y;
+        solver.N = 16;
+        solver.insertIntoGrid(indices, data, U, VECTOR_FIELD, 1);
+        U_tmp = solver.U;
+        solver.U = U;
+        j += blockIdx.x * blockDim.x;
+        k += blockIdx.y * blockDim.y;
+        solver.N = N;
         
-        // solver.indexGrid(data, indices, solver.F, VECTOR_FIELD, 2);
-        // j -= blockIdx.x * blockDim.x;
-        // k -= blockIdx.y * blockDim.y;
-        // solver.N = 16;
-        // solver.insertIntoGrid(indices, data, F, VECTOR_FIELD, 2);
-        // F_tmp = solver.F;
-        // solver.F = F;
+        solver.indexGrid(data, indices, solver.F, VECTOR_FIELD, 1);
+        j -= blockIdx.x * blockDim.x;
+        k -= blockIdx.y * blockDim.y;
+        solver.N = 16;
+        solver.insertIntoGrid(indices, data, F, VECTOR_FIELD, 1);
+        F_tmp = solver.F;
+        solver.F = F;
 
-        float* f_jk = data;
+        float (&f_jk)[9] = data;
         solver.indexGrid(f_jk, indices, solver.f, SCALAR_FIELD, 9);
 
         for (int i=0; i<9; i++)
         {
-            float fi;
-            float fbari;
-            float Omegai;
-            float Fi;
-            
-            fi = f_jk[i];
+            float& fi = f_jk[i];
 
-            fbari = solver.calc_fbari(i, j, k);            
-                
-            Fi = solver.calc_Fi(i, j, k);
-
-            Omegai = -(fi - fbari)/tau;
-
-            f_jk[i] = fi + Omegai + Fi;
+            f_jk[i] = fi -(fi - solver.calc_fbari(i, j, k))/tau + solver.calc_Fi(i, j, k);
         }
         solver.insertIntoGrid(indices, f_jk, solver.f, SCALAR_FIELD, 9);
         
-        // solver.indexGrid(data, indices, f, SCALAR_FIELD, 9);
-        // j += blockIdx.x * blockDim.x;
-        // k += blockIdx.y * blockDim.y;
-        // solver.N = N;
-        // solver.insertIntoGrid(indices, data, f_tmp, SCALAR_FIELD, 9);
-        // j -= blockIdx.x * blockDim.x;
-        // k -= blockIdx.y * blockDim.y;
-        // solver.N = 16;
-        
-        // solver.indexGrid(data, indices, rho, SCALAR_FIELD, 1);
-        // j += blockIdx.x * blockDim.x;
-        // k += blockIdx.y * blockDim.y;
-        // solver.N = N;
-        // solver.insertIntoGrid(indices, data, rho_tmp, SCALAR_FIELD, 1);
-        // j -= blockIdx.x * blockDim.x;
-        // k -= blockIdx.y * blockDim.y;
-        // solver.N = 16;
-        
-        // solver.indexGrid(data, indices, U, VECTOR_FIELD, 2);
-        // j += blockIdx.x * blockDim.x;
-        // k += blockIdx.y * blockDim.y;
-        // solver.N = N;
-        // solver.insertIntoGrid(indices, data, U_tmp, VECTOR_FIELD, 2);
-        // j -= blockIdx.x * blockDim.x;
-        // k -= blockIdx.y * blockDim.y;
-        // solver.N = 16;
-        
-        // solver.indexGrid(data, indices, F, VECTOR_FIELD, 2);
-        // j += blockIdx.x * blockDim.x;
-        // k += blockIdx.y * blockDim.y;
-        // solver.N = N;
-        // solver.insertIntoGrid(indices, data, F_tmp, VECTOR_FIELD, 2);
+        solver.indexGrid(data, indices, f, SCALAR_FIELD, 9);
+        j += blockIdx.x * blockDim.x;
+        k += blockIdx.y * blockDim.y;
+        solver.N = N;
+        solver.insertIntoGrid(indices, data, f_tmp, SCALAR_FIELD, 9);
          
     #endif
 }
