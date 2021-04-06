@@ -70,8 +70,7 @@ JFS_INLINE void cudaLBMSolver::initialize(unsigned int N, float L, BoundType bty
         setupGPULBM<<<1, 1>>>(gpu_this_ptr, props);
         cudaDeviceSynchronize();
 
-        if (N!=1)
-            resetFluid();
+        resetFluid();
 
         is_initialized_ = true;
 
