@@ -1,3 +1,11 @@
 {
-    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+    "files.associations": {
+        "*.cu": "cpp",
+        "*.traits": "cpp",
+        "fft": "cpp",
+        "random": "cpp",
+        "queue": "cpp",
+        "stack": "cpp",
+        "cmath": "cpp"
+    }
 }

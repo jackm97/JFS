@@ -1,109 +1,135 @@
 #ifndef CUDA_GRID2D_H
 #define CUDA_GRID2D_H
-#include "../../jfs_inline.h"
 
 #ifndef __CUDA_ARCH__
     #define __HOST__DEVICE__
+    #define __HOST__
+    #define __DEVICE__
 #else
     #define __HOST__DEVICE__ __host__ __device__
+    #define __HOST__ __host__
+    #define __DEVICE__ __device__
 #endif
+
 
 namespace jfs {
+    
+    typedef unsigned short ushort;
+    
+    namespace FieldType2D
+    {    
+        enum : ushort {
+            Scalar = 1,
+            Vector = 2
+        };
+    };
 
-class cudaGrid2D {
-    public:
-        __HOST__DEVICE__
-        cudaGrid2D(){}
+    template <ushort Options>
+    class CudaGrid2D {
+        public:
+            // constructors
+            __HOST__DEVICE__
+            CudaGrid2D(){}
 
-        __HOST__DEVICE__
-        ~cudaGrid2D(){}
+            __HOST__DEVICE__
+            CudaGrid2D(ushort size, ushort fields);
 
-    #ifndef __CUDA_ARCH__
-    protected:
-    #else
-    public:
-    #endif
-        
-        unsigned int N; // num pixels/voxels per side
-        float L; // grid side length
-        float D; // pixel/voxel size
-        float dt; // time step
-        
-        BoundType bound_type_;
+            __HOST__DEVICE__
+            CudaGrid2D(const CudaGrid2D<Options>& src);
 
-        // calls initializeGridProperties and setXGrid
-        // calculates LAPLACE, VEC_LAPLACE, DIV, and GRAD
-        __HOST__DEVICE__
-        void initializeGrid(unsigned int N, float L, BoundType btype, float dt);
+            __HOST__DEVICE__
+            // If called on host, data is on host. If called on device, data is on device
+            // To copy data from device when called from host, use CopyDeviceData()
+            CudaGrid2D(const float* data, ushort size, ushort fields);
+            // end constructors
 
-        // satisfy boundary conditions for based off BOUND property
-        // Inputs:
-        //      Vector_ &u - velocity field to be updated
-        __HOST__DEVICE__
-        void satisfyBC(float* field_data, FieldType ftype, int fields=1);
+            // Resize, if fields = 0 the number of fields remains unchaged
+            // If grid hasn't been allocated, fields=0 allocates grid with 1 field
+            __HOST__DEVICE__
+            void Resize(ushort size, ushort fields = 0);
 
-        // calculate Interpolation operator from grid values to point
-        // Inputs:
-        //      SparseMatrix_ &dst - destination sparse matrix for operator (dst*q = value where q is grid quantity interpolated to value)
-        //      Vector_ &ij0 - grid index values used to interpolate, can be floats
-        //      int dims - dimensions of quantity to be interpolated
-        //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels
-        __HOST__DEVICE__
-        void interpGridToPoint(float* dst, const float* point, const float* field_data, FieldType ftype, unsigned int fields=1);
+            // copy data that is stored on device to grid
+            __HOST__
+            void CopyDeviceData(const float* data, ushort size, ushort fields);
 
-        // calculate Interpolation operator from grid values to point
-        // Inputs:
-        //      SparseMatrix_ &dst - destination sparse matrix for operator (dst*q = value where q is grid quantity interpolated to value)
-        //      Vector_ &ij0 - grid index values used to interpolate, can be floats
-        //      int dims - dimensions of quantity to be interpolated
-        //      unsigned int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        __HOST__DEVICE__
-        void interpPointToGrid(const float* q, const float* point, float* field_data, FieldType ftype, unsigned int fields=1, InsertType itype=Replace); 
+            // map device data to grid, mapped data is never freed
+            __HOST__DEVICE__
+            void MapData(float* data, ushort size, ushort fields);
 
-        // indexes a scalar or vector field
-        // Inputs:
-        //      Eigen::VectorXi indices - indices to index field (i,j,k) (or for 2D only (i,j))
-        //      Vector_ &src - field quantity to index
-        //      int dims - dimensions of quantity to be interpolated
-        //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        // Returns:
-        //      Vector_ q - indexed quantity where q(dims*field + dim) is stored structure
-        __HOST__DEVICE__
-        void indexGrid(float* dst, int* indices, const float* field_data, FieldType ftype, int fields=1); 
+            // set grid to value
+            __HOST__
+            void SetGridToValue(float val, ushort f, ushort d);
 
-        // inserts a scalar or vector into field
-        // Inputs:
-        //      Eigen::VectorXi indices - indices to index field (i,j,k) (or for 2D only (i,j))
-        //      Vector_ q - insert quantity where q(dims*field + dim) is stored structure
-        //      Vector_ &dst - field quantity inserting into
-        //      int dims - dimensions of quantity to be interpolated
-        //      int fields - number of fields of quantity to be interpolated (i.e. scalars concatenated by color channels)
-        __HOST__DEVICE__
-        void insertIntoGrid(int* indices, float* q, float* field_data, FieldType ftype, int fields=1, InsertType itype=Replace);
+            // return grid size
+            __HOST__DEVICE__
+            ushort Size() {return size_;}
 
-        // backstreams a quantity on the grid
-        // Inputs:
-        //      Vector_ &dst - destination grid quantity
-        //      Vector_ &src - input grid quantity 
-        //      Vector_ &u - velocity used to stream quantity
-        //      float dt - time step
-        //      float dims - dimensions of grid quantity
-        __HOST__DEVICE__
-        void backstream(float* dst, const float* src, const float* ufield, float dt, FieldType ftype, int fields=1);
+            // return number of fields per node
+            __HOST__DEVICE__
+            ushort Fields() {return fields_;}
+    
+            // returns pointer to device data
+            __HOST__DEVICE__
+            float* Data() {return data_;};
+    
+            // returns pointer to host data
+            __HOST__
+            float* HostData();
 
-        // determines the location of a partice on a grid node at time t+dt
-        // Inputs:
-        //      Vector_ &X0 - destination at t+dt (X0 is chosen because usually dt is negative)
-        //      Vector_ &X - desitination at t 
-        //      Vector_ &u - velocity used to stream quantity
-        //      float dt - time step
-        __HOST__DEVICE__
-        void backtrace(float* end_point, const float* start_point, const float* ufield, float dt);
-};
+            // iterpolate quantity to grid
+            __HOST__DEVICE__
+            void InterpToGrid(float q, float i, float j, ushort f, ushort d);
+
+            // interpolate quantity from grid
+            __HOST__DEVICE__
+            float InterpFromGrid(float i, float j, ushort f, ushort d);
+
+            // overloaded operators
+            __HOST__DEVICE__
+            void operator=(const CudaGrid2D<Options>& src);
+
+            // operator() indexes the grid. When called by device, indexed quantity is returned by reference.
+            // When called on host, indexed value is returned by value.
+            #ifndef __CUDA_ARCH__
+            __HOST__
+            float operator()(int i, int j, int f, int d);
+            #else
+            __DEVICE__
+            float& operator()(int i, int j, int f, int d);
+            #endif
+
+            __HOST__DEVICE__
+            ~CudaGrid2D(){ FreeGridData(); }
+
+        private:
+
+            // allocation flag
+            bool is_allocated_ = false;
+            
+            // grid size
+            ushort size_;
+            // number of fields per node
+            ushort fields_ = 1;
+            // number of dims per node
+            const ushort dims_ = Options;
+
+            // cuda device data
+            float* data_;
+
+            // true if using mapped device data
+            bool mapped_data_ = false;
+
+            // host specific members
+            #ifndef __CUDA_ARCH__
+            // host data
+            float* host_data_;
+            #endif
+
+        private:
+            __HOST__DEVICE__
+            void FreeGridData();
+    };
+
 } // namespace jfs
-
-#ifndef JFS_STATIC
-#   include <jfs/cuda/grid/cuda_grid2d.cu>
-#endif
 
 #endif

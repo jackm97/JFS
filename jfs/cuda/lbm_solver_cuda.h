@@ -6,16 +6,7 @@
 #include <jfs/cuda/grid/cuda_grid2d.h>
 
 #include <vector>
-
-#ifndef __CUDA_ARCH__
-    #define __HOST__DEVICE__
-    #define __HOST__
-    #define __DEVICE__
-#else
-    #define __HOST__DEVICE__ __host__ __device__
-    #define __HOST__ __host__
-    #define __DEVICE__ __device__
-#endif
+#include <cmath>
 
 namespace jfs {
 
@@ -24,185 +15,126 @@ namespace jfs {
 // the solver
 struct LBMSolverProps
 {
-    int N;
-    float L;
+    ushort grid_size;
+    float grid_length;
     BoundType btype;
-    int iter_per_frame;
+
     float rho0;
     float visc;
+    float lat_visc;
+    float lat_tau;
     float uref;
+    float dt;
 
-    float* rho;
-    float* rho_mapped;
+    float* rho_grid;
 
-    float* f;
-    float* f0;
+    float* f_grid;
+    float* f0_grid;
 
-    float* U;
-    float* F;
+    float* u_grid;
+    float* force_grid;
+
+    bool failed_step;
 };
 
-class cudaLBMSolver : public cudaGrid2D {
+class CudaLBMSolver {
 
     public:
         // constructors
-        __HOST__DEVICE__
-        cudaLBMSolver(){};
+        CudaLBMSolver() : cs_{ 1/sqrtf(3) }{}
         
-        __HOST__
-        cudaLBMSolver(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0=1.3, float visc = 1e-4, float uref = 1);
+        CudaLBMSolver(ushort grid_size, float grid_length, BoundType btype, float rho0=1.3, float visc = 1e-4, float uref = 1);
 
         // initializer
-        __HOST__DEVICE__
-        void initialize(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0=1.3, float visc = 1e-4, float uref = 1);
+        void Initialize(ushort grid_size, float grid_length, BoundType btype, float rho0=1.3, float visc = 1e-4, float uref = 1);
 
         // reset simulation data
-        __HOST__
-        void resetFluid();
+        void ResetFluid();
 
         // do next simulation steps
-        __HOST__
-        bool calcNextStep(const std::vector<Force> forces);
+        bool CalcNextStep(const std::vector<Force> forces);
 
         // apply force to reach velocity
-        __HOST__DEVICE__
-        void forceVelocity(int i, int j, float ux, float uy);
+        void ForceVelocity(ushort i, ushort j, float ux, float uy);
 
         // density mapping
-        __HOST__
-        void setDensityMapping(float minrho, float maxrho);
+        void SetDensityMapping(float minrho, float maxrho);
 
-        __HOST__
-        void densityExtrema(float minmax_rho[2]);
+        void DensityExtrema(float minmax_rho[2]);
 
         // inline getters:
-        __HOST__DEVICE__
-        float TimeStep(){return this->dt;}
+        float TimeStep(){return dt_;}
 
-        __HOST__DEVICE__
-        float Time(){return this->T;}
+        float Time(){return time_;}
 
-        __HOST__DEVICE__
-        float DeltaX(){return this->dx;}
+        float DeltaX(){return dx_;}
 
-        __HOST__DEVICE__
-        float soundSpeed(){return this->us;}
+        float SoundSpeed(){return us_;}
 
-        __HOST__DEVICE__
-        float Rho0(){return this->rho0;}
+        float Rho0(){return rho0_;}
 
-        // non-inline getters
-        __HOST__
-        float* rhoData();
+        float* RhoData(){return rho_grid_.HostData();}
 
-        __HOST__
-        float* mappedRhoData();
+        float* MappedRhoData(){MapDensity(); return rho_grid_mapped_.HostData();}
 
-        __HOST__
-        float* velocityData();
+        float* VelocityData(){return u_grid_.HostData();}
 
         //destructor
-        __HOST__DEVICE__
-        ~cudaLBMSolver();
-
-        //cuda operator=
-        __DEVICE__
-        void operator=(const cudaLBMSolver& src);
-
-    #ifndef __CUDA_ARCH__
+        ~CudaLBMSolver(){}
     private:
-    #else
-    public:
-    #endif
 
         // DEV NOTES:
         // The paper uses fi to represent the discretized distribution function
         // Because of this, j,k,l are now used to index x,y,z positions on the grid
 
-        bool is_initialized_ = false;
+        // grid stuff
+        BoundType btype_;
+        ushort grid_size_;
+        float grid_length_;
 
-        float* f; // the distribution function
-        float* f0; // the distribution function
+        CudaGrid2D<FieldType2D::Scalar> f_grid_; // the distribution function
+        CudaGrid2D<FieldType2D::Scalar> f0_grid_; // the distribution function
 
-        float* rho_; // calculated rho from distribution function
-        float* cpu_rho_; // calculated rho from distribution function
+        CudaGrid2D<FieldType2D::Scalar> rho_grid_; // calculated rho from distribution function
         float minrho_; 
         float maxrho_;
-        float* rho_mapped_; // rho_, but mapped to [0,1] with min/maxrho_
-        float* cpu_rho_mapped_ ;
+        CudaGrid2D<FieldType2D::Scalar> rho_grid_mapped_; // rho_, but mapped to [0,1] with min/maxrho_
 
-        float* U;
-        float* cpu_U_ ;
+        CudaGrid2D<FieldType2D::Vector> u_grid_;
 
-        float* F;
-
-        const float c[9][2]{ // D2Q9 velocity dicretization
-            {0,0},                                // i = 0
-            {1,0}, {-1,0}, {0,1}, {0,-1},   // i = 1, 2, 3, 4
-            {1,1}, {-1,1}, {1,-1}, {-1,-1}  // i = 5, 6, 7, 8
-        };
-
-        const float bounce_back_indices_[9]{
-            0,
-            2, 1, 4, 3,
-            8, 7, 6, 5
-        };
-
-        const float w[9] = { // lattice weights
-            4./9.,                          // i = 0
-            1./9., 1./9., 1./9., 1./9.,     // i = 1, 2, 3, 4
-            1./36., 1./36., 1./36., 1./36., // i = 5, 6, 7, 8 
-        };
-
-        int iter_per_frame;
-
+        CudaGrid2D<FieldType2D::Vector> force_grid_;
        
-        float rho0; // typical physical density of fluid
+        float rho0_; // typical physical density of fluid
 
-        float uref; // physical reference velocity scale
-        const float urefL = .2; // LBM reference velocity
-        float us;  // speed of sound of fluid
-        float cs; // lattice speed of sound
+        float uref_; // physical reference velocity scale
+        const float lat_uref_ = .2; // LBM reference velocity
+        float us_;  // speed of sound of fluid
+        const float cs_; // lattice speed of sound
 
-        float &dx = D; // to keep notation same as the paper, reference variable to D (D notation from Jo Stam)
-        const float dxL = 1.; // LBM delta x
+        float dx_; // to keep notation same as the paper, reference variable to D (D notation from Jo Stam)
+        const float lat_dx_ = 1.; // LBM delta x
 
-        float dt; // physical time step
-        const float dtL = 1.; // LBM delta t
-        float T; // current simulation time
+        float dt_; // physical time step
+        const float lat_dt_ = 1.; // LBM delta t
+        float time_; // current simulation time
         
-        float visc; // fluid viscosity
-        float viscL; // lattice viscosity
-        float tau; // relaxation time in lattice units
+        float visc_; // fluid viscosity
+        float lat_visc_; // lattice viscosity
+        float lat_tau_; // relaxation time in lattice units
 
-        void** gpu_this_ptr; // shallow copy of this pointer on gpu
-
-    #ifndef __CUDA_ARCH__
     private:
-    #else
-    public:
-    #endif
-        __HOST__
-        bool calcNextStep();
+        bool CalcNextStep();
 
         // calc Fi approximation
-        __DEVICE__
-        float calc_Fi(int i, int j, int k);
+        float Calc_Fi(int i, int j, int k);
 
-        __DEVICE__
-        float calc_fbari(int i, int j, int k);
+        float Calc_fbari(int i, int j, int k);
 
-        __DEVICE__
-        void calcPhysicalVals(int j, int k);
+        void CalcPhysicalVals(int j, int k);
 
-        __HOST__
-        void mapDensity(); // used by cuda kernel, must be public
+        void MapDensity(); // used by cuda kernel, must be public
 
-        __HOST__
-        void doBoundaryDamping();
-
-        __HOST__DEVICE__
-        void clearGrid();
+        LBMSolverProps SolverProps();
 };
 
 } // namespace jfs

@@ -8,7 +8,7 @@ namespace jfs {
 
 JFS_INLINE LBMSolver::LBMSolver(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0, float visc, float uref)
 {
-    initialize(N, L, btype, iter_per_frame, rho0, visc, us);
+    initialize(N, L, btype, iter_per_frame, rho0, visc, uref);
 }
 
 JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0, float visc, float uref)
