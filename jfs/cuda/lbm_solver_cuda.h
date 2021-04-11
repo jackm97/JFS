@@ -42,7 +42,7 @@ class CudaLBMSolver {
     public:
         // constructors
         CudaLBMSolver() : cs_{ 1/sqrtf(3) }{}
-        
+
         CudaLBMSolver(ushort grid_size, float grid_length, BoundType btype, float rho0=1.3, float visc = 1e-4, float uref = 1);
 
         // initializer
@@ -52,13 +52,13 @@ class CudaLBMSolver {
         void ResetFluid();
 
         // do next simulation steps
-        bool CalcNextStep(const std::vector<Force> forces);
+        bool CalcNextStep(const std::vector<Force>& forces);
 
         // apply force to reach velocity
         void ForceVelocity(ushort i, ushort j, float ux, float uy);
 
         // density mapping
-        void SetDensityMapping(float minrho, float maxrho);
+        void SetDensityMapping(float min_rho, float max_rho);
 
         void DensityExtrema(float minmax_rho[2]);
 
@@ -89,48 +89,41 @@ class CudaLBMSolver {
 
         // grid stuff
         BoundType btype_;
-        ushort grid_size_;
-        float grid_length_;
+        uint grid_size_{};
+        float grid_length_{};
 
         CudaGrid2D<FieldType2D::Scalar> f_grid_; // the distribution function
         CudaGrid2D<FieldType2D::Scalar> f0_grid_; // the distribution function
 
         CudaGrid2D<FieldType2D::Scalar> rho_grid_; // calculated rho from distribution function
-        float minrho_; 
-        float maxrho_;
-        CudaGrid2D<FieldType2D::Scalar> rho_grid_mapped_; // rho_, but mapped to [0,1] with min/maxrho_
+        float min_rho_{};
+        float max_rho_{};
+        CudaGrid2D<FieldType2D::Scalar> rho_grid_mapped_; // rho_, but mapped to [0,1] with min/max_rho_
 
         CudaGrid2D<FieldType2D::Vector> u_grid_;
 
         CudaGrid2D<FieldType2D::Vector> force_grid_;
        
-        float rho0_; // typical physical density of fluid
+        float rho0_{}; // typical physical density of fluid
 
-        float uref_; // physical reference velocity scale
+        float uref_{}; // physical reference velocity scale
         const float lat_uref_ = .2; // LBM reference velocity
-        float us_;  // speed of sound of fluid
+        float us_{};  // speed of sound of fluid
         const float cs_; // lattice speed of sound
 
-        float dx_; // to keep notation same as the paper, reference variable to D (D notation from Jo Stam)
+        float dx_{}; // to keep notation same as the paper, reference variable to D (D notation from Jo Stam)
         const float lat_dx_ = 1.; // LBM delta x
 
-        float dt_; // physical time step
+        float dt_{}; // physical time step
         const float lat_dt_ = 1.; // LBM delta t
-        float time_; // current simulation time
+        float time_{}; // current simulation time
         
-        float visc_; // fluid viscosity
-        float lat_visc_; // lattice viscosity
-        float lat_tau_; // relaxation time in lattice units
+        float visc_{}; // fluid viscosity
+        float lat_visc_{}; // lattice viscosity
+        float lat_tau_{}; // relaxation time in lattice units
 
     private:
         bool CalcNextStep();
-
-        // calc Fi approximation
-        float Calc_Fi(int i, int j, int k);
-
-        float Calc_fbari(int i, int j, int k);
-
-        void CalcPhysicalVals(int j, int k);
 
         void MapDensity(); // used by cuda kernel, must be public
 

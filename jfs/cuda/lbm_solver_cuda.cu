@@ -1,7 +1,6 @@
 #include "lbm_solver_cuda.h"
 
 #include <jfs/cuda/lbm_cuda_kernels.h>
-#include <cuda_runtime.h>
 
 #include <cstring>
 #include <iostream>
@@ -29,7 +28,7 @@ JFS_INLINE void CudaLBMSolver::Initialize(ushort grid_size, float grid_length, B
     
     dx_ = grid_length_ / (float)grid_size_;
     lat_visc_ = lat_uref_/(uref_ * dx_) * visc;
-    lat_tau_ = (3*lat_visc_ + .5);
+    lat_tau_ = (3.f * lat_visc_ + .5f);
     dt_ = lat_uref_/uref_ * dx_ * lat_dt_;
 
     f_grid_.Resize(grid_size_, 9);
@@ -61,30 +60,30 @@ JFS_INLINE void CudaLBMSolver::ResetFluid()
 
     int threads_per_block = 256;
     int num_blocks = (9*(int)grid_size_*(int)grid_size_) / threads_per_block + 1;
-    resetDistributionKernel KERNEL_ARG2(num_blocks, threads_per_block) (f_grid_.Data());
+    resetDistributionKernel <<<num_blocks, threads_per_block>>> (f_grid_.Data());
     cudaDeviceSynchronize();
 
     time_ = 0;
 }
 
-JFS_INLINE bool CudaLBMSolver::CalcNextStep(const std::vector<Force> forces)
+JFS_INLINE bool CudaLBMSolver::CalcNextStep(const std::vector<Force>& forces)
 {
     bool failedStep = false;
     try
     {   
-        for (int i = 0; i < forces.size(); i++)
+        for (const auto & i : forces)
         {
             float force[3] = {
-                forces[i].force[0],
-                forces[i].force[1],
-                forces[i].force[2]
+                i.force[0],
+                i.force[1],
+                i.force[2]
             };
             float point[3] = {
-                forces[i].pos[0]/grid_length_ * grid_size_,
-                forces[i].pos[1]/grid_length_ * grid_size_,
-                forces[i].pos[2]/grid_length_ * grid_size_
+                i.pos[0]/grid_length_ * (float)grid_size_,
+                i.pos[1]/grid_length_ * (float)grid_size_,
+                i.pos[2]/grid_length_ * (float)grid_size_
             };
-            if (point[0] < grid_size_ && point[0] >= 0 && point[1] < grid_size_ && point[1] >= 0)
+            if (point[0] < (float)grid_size_ && point[0] >= 0 && point[1] < (float)grid_size_ && point[1] >= 0)
                 for (int d = 0; d < 2; d++)
                 {
                     force_grid_.InterpToGrid(force[d], point[0], point[1], 0, d);
@@ -110,72 +109,79 @@ JFS_INLINE bool CudaLBMSolver::CalcNextStep(const std::vector<Force> forces)
 
 JFS_INLINE void CudaLBMSolver::ForceVelocity(ushort i, ushort j, float ux, float uy)
 {
-    forceVelocityKernel KERNEL_ARG2(1, 1) (i, j, ux, uy);
-    cudaDeviceSynchronize();
-}
-
-JFS_INLINE void CudaLBMSolver::SetDensityMapping(float minrho, float maxrho)
-{
-    minrho_ = minrho;
-    maxrho_ = maxrho;
-}
-
-JFS_INLINE void CudaLBMSolver::DensityExtrema(float minmax_rho[2])
-{
-    float* rho_grid_host = rho_grid_.HostData();
-
-    float minrho = rho_grid_host[0];
-    float maxrho = rho_grid_host[0];
-
-    for (int i=0; i < grid_size_*grid_size_; i++)
-    {
-        if (rho_grid_host[i] < minrho)
-            minrho = rho_grid_host[i];
-    }
-
-    for (int i=0; i < grid_size_*grid_size_; i++)
-    {
-        if (rho_grid_host[i] > maxrho)
-            maxrho = rho_grid_host[i];
-    }
-
-    minmax_rho[0] = minrho;
-    minmax_rho[1] = maxrho;
-}
-
-JFS_INLINE bool CudaLBMSolver::CalcNextStep()
-{
     if (current_cuda_lbm_solver != this)
     {
         LBMSolverProps props = SolverProps();
         cudaMemcpyToSymbol(const_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
         current_cuda_lbm_solver = this;
     }
-    bool failed_step = false;
+
+    forceVelocityKernel <<<1, 1>>> (i, j, ux, uy);
+    cudaDeviceSynchronize();
+}
+
+JFS_INLINE void CudaLBMSolver::SetDensityMapping(float minrho, float maxrho)
+{
+    min_rho_ = minrho;
+    max_rho_ = maxrho;
+}
+
+JFS_INLINE void CudaLBMSolver::DensityExtrema(float minmax_rho[2])
+{
+    float* rho_grid_host = rho_grid_.HostData();
+
+    float min_rho = rho_grid_host[0];
+    float max_rho = rho_grid_host[0];
+
+    for (int i=0; i < grid_size_*grid_size_; i++)
+    {
+        if (rho_grid_host[i] < min_rho)
+            min_rho = rho_grid_host[i];
+    }
+
+    for (int i=0; i < grid_size_*grid_size_; i++)
+    {
+        if (rho_grid_host[i] > max_rho)
+            max_rho = rho_grid_host[i];
+    }
+
+    minmax_rho[0] = min_rho;
+    minmax_rho[1] = max_rho;
+}
+
+JFS_INLINE bool CudaLBMSolver::CalcNextStep()
+{
+    LBMSolverProps props{};
+    if (current_cuda_lbm_solver != this)
+    {
+        props = SolverProps();
+        cudaMemcpyToSymbol(const_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
+        current_cuda_lbm_solver = this;
+    }
 
     int threads_per_block = 256;
     int num_blocks = (9*(int)grid_size_*(int)grid_size_) / threads_per_block + 1;
     
-    resetDistributionKernel KERNEL_ARG2(num_blocks, threads_per_block) (f0_grid_.Data());
-    collideKernel KERNEL_ARG2(num_blocks, threads_per_block) ();
+    resetDistributionKernel <<<num_blocks, threads_per_block>>> (f0_grid_.Data());
+    collideKernel <<<num_blocks, threads_per_block>>> ();
     cudaDeviceSynchronize();
 
-    streamKernel KERNEL_ARG2(num_blocks, threads_per_block) ();
+    streamKernel <<<num_blocks, threads_per_block>>> ();
     cudaDeviceSynchronize();
 
-    calcPhysicalKernel KERNEL_ARG2(num_blocks/9, threads_per_block) ();
+    calcPhysicalKernel <<<num_blocks/9, threads_per_block>>> ();
     cudaDeviceSynchronize();
 
     // do any field manipulations before next step
     if (btype_ == DAMPED)
     {
-        boundaryDampKernel KERNEL_ARG2(num_blocks/9, threads_per_block) ();
-        resetDistributionKernel KERNEL_ARG2(num_blocks, threads_per_block) (f_grid_.Data());
+        boundaryDampKernel <<<grid_size_/threads_per_block + 1, threads_per_block>>> ();
     }
 
     time_ += dt_;
-    
-    return failed_step;
+
+    cudaMemcpyFromSymbol(&props, const_props, sizeof(LBMSolverProps), 0, cudaMemcpyDeviceToHost);
+    return props.failed_step;
 }
 
 __host__
@@ -183,38 +189,38 @@ JFS_INLINE void CudaLBMSolver::MapDensity()
 {
     float* host_rho_grid = RhoData();
 
-    float minrho = host_rho_grid[0];
-    float maxrho = host_rho_grid[0];
-    float meanrho = 0;
+    float min_rho = host_rho_grid[0];
+    float max_rho = host_rho_grid[0];
+    float mean_rho = 0;
     for (int i = 0; i < grid_size_*grid_size_; i++)
-        meanrho += host_rho_grid[i];
-    meanrho /= grid_size_*grid_size_;
+        mean_rho += host_rho_grid[i];
+    mean_rho /= (float)grid_size_ * (float)grid_size_;
 
-    for (int i=0; i < grid_size_*grid_size_ && minrho_ == -1; i++)
+    for (int i=0; i < grid_size_*grid_size_ && min_rho_ == -1; i++)
     {
-        if (host_rho_grid[i] < minrho)
-            minrho = host_rho_grid[i];
+        if (host_rho_grid[i] < min_rho)
+            min_rho = host_rho_grid[i];
     }
 
-    if (minrho_ != -1)
-        minrho = minrho_;
+    if (min_rho_ != -1)
+        min_rho = min_rho_;
 
-    for (int i=0; i < grid_size_*grid_size_ && maxrho_ == -1; i++)
+    for (int i=0; i < grid_size_*grid_size_ && max_rho_ == -1; i++)
     {
-        if (host_rho_grid[i] > maxrho)
-            maxrho = host_rho_grid[i];
+        if (host_rho_grid[i] > max_rho)
+            max_rho = host_rho_grid[i];
     }
 
-    if (maxrho_ == -1 && minrho_ == -1)
+    if (max_rho_ == -1 && min_rho_ == -1)
     {
-        if (maxrho - meanrho > meanrho - minrho)
-            minrho = meanrho - (maxrho - meanrho);
+        if (max_rho - mean_rho > mean_rho - min_rho)
+            min_rho = mean_rho - (max_rho - mean_rho);
         else
-            maxrho = meanrho - (minrho - meanrho);
+            max_rho = mean_rho - (min_rho - mean_rho);
     }
 
-    if (maxrho_ != -1)
-        maxrho = maxrho_;
+    if (max_rho_ != -1)
+        max_rho = max_rho_;
 
 
     float* rho_grid_mapped_host = rho_grid_mapped_.HostData();
@@ -223,8 +229,8 @@ JFS_INLINE void CudaLBMSolver::MapDensity()
         {
             float rho;
             rho = host_rho_grid[grid_size_*j + i];
-            if ((maxrho - minrho) != 0)
-                rho = (rho- minrho)/(maxrho - minrho);
+            if ((max_rho - min_rho) != 0)
+                rho = (rho - min_rho) / (max_rho - min_rho);
             else
                 rho = 0 * rho;
 
@@ -242,7 +248,7 @@ JFS_INLINE void CudaLBMSolver::MapDensity()
 JFS_INLINE LBMSolverProps CudaLBMSolver::SolverProps()
 {
 
-    LBMSolverProps props;
+    LBMSolverProps props{};
     props.grid_size = grid_size_;
     props.grid_length = grid_length_;
     props.btype = btype_;

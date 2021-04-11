@@ -15,24 +15,24 @@ class LBMSolver : public grid2D {
         // constructors
         LBMSolver(){};
         
-        LBMSolver(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0=1.3, float visc = 1e-4, float uref = 1);
+        LBMSolver(unsigned int N, float L, BoundType btype, float rho0=1.3, float visc = 1e-4, float uref = 1);
 
         // initializer
-        void initialize(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0=1.3, float visc = 1e-4, float uref = 1);
+        void Initialize(unsigned int N, float L, BoundType btype, float rho0= 1.3, float visc = 1e-4, float uref = 1);
 
         // reset simulation data
-        void resetFluid();
+        void ResetFluid();
 
         // do next simulation step
-        bool calcNextStep(const std::vector<Force> forces);
+        bool CalcNextStep(const std::vector<Force> forces);
 
         // apply force to reach velocity
-        void forceVelocity(int i, int j, float ux, float uy);
+        void ForceVelocity(int i, int j, float ux, float uy);
 
         // density mapping
-        void setDensityMapping(float minrho, float maxrho);
+        void SetDensityMapping(float minrho, float maxrho);
 
-        void densityExtrema(float minmax_rho[2]);
+        void DensityExtrema(float *minmax_rho);
 
         // inline getters:
         float TimeStep(){return this->dt;}
@@ -41,18 +41,18 @@ class LBMSolver : public grid2D {
 
         float DeltaX(){return this->dx;}
 
-        float soundSpeed(){return this->us;}
+        float SoundSpeed(){return this->us;}
 
         float Rho0(){return this->rho0;}
 
-        float* rhoData(){return this->rho_;}
+        float* RhoData(){return this->rho_;}
 
-        float* mappedRhoData(){mapDensity(); return this->rho_mapped_;}
+        float* MappedRhoData(){ MapDensity(); return this->rho_mapped_;}
 
-        float* velocityData(){return this->U;}
+        float* VelocityData(){return this->U;}
 
         //destructor
-        ~LBMSolver(){ clearGrid(); };
+        ~LBMSolver(){ ClearGrid(); };
 
     private:
 
@@ -92,8 +92,6 @@ class LBMSolver : public grid2D {
             1./36., 1./36., 1./36., 1./36., // i = 5, 6, 7, 8 
         };
 
-        int iter_per_frame;
-
        
         float rho0; // typical physical density of fluid
 
@@ -115,24 +113,24 @@ class LBMSolver : public grid2D {
 
     private:
 
-        void clearGrid();
+        void ClearGrid();
 
         bool calcNextStep();
 
         // calcs fbar for the ith velocity at the grid position (j,k)
-        float calc_fbari(int i, int j, int k);
+        float CalcEquilibriumDistribution(int i, int j, int k);
 
         // calc Fi approximation
-        float calc_Fi(int i, int j, int k);
+        float CalcLatticeForce(int i, int j, int k);
 
         // calcs rho and U fields
-        void calcPhysicalVals();
+        void CalcPhysicalVals();
 
-        void calcPhysicalVals(int j, int k);
+        void CalcPhysicalVals(int j, int k);
 
-        void doBoundaryDamping();
+        void DoBoundaryDamping();
 
-        void mapDensity();
+        void MapDensity();
 };
 
 } // namespace jfs

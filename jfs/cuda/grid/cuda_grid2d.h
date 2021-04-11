@@ -14,17 +14,17 @@
 
 namespace jfs {
     
-    typedef unsigned short ushort;
+    typedef unsigned int uint;
     
     namespace FieldType2D
     {    
-        enum : ushort {
+        enum : uint {
             Scalar = 1,
             Vector = 2
         };
     };
 
-    template <ushort Options>
+    template <uint Options>
     class CudaGrid2D {
         public:
             // constructors
@@ -32,7 +32,7 @@ namespace jfs {
             CudaGrid2D(){}
 
             __HOST__DEVICE__
-            CudaGrid2D(ushort size, ushort fields);
+            CudaGrid2D(uint size, uint fields);
 
             __HOST__DEVICE__
             CudaGrid2D(const CudaGrid2D<Options>& src);
@@ -40,33 +40,33 @@ namespace jfs {
             __HOST__DEVICE__
             // If called on host, data is on host. If called on device, data is on device
             // To copy data from device when called from host, use CopyDeviceData()
-            CudaGrid2D(const float* data, ushort size, ushort fields);
+            CudaGrid2D(const float* data, uint size, uint fields);
             // end constructors
 
             // Resize, if fields = 0 the number of fields remains unchaged
             // If grid hasn't been allocated, fields=0 allocates grid with 1 field
             __HOST__DEVICE__
-            void Resize(ushort size, ushort fields = 0);
+            void Resize(uint size, uint fields = 0);
 
             // copy data that is stored on device to grid
             __HOST__
-            void CopyDeviceData(const float* data, ushort size, ushort fields);
+            void CopyDeviceData(const float* data, uint size, uint fields);
 
             // map device data to grid, mapped data is never freed
             __HOST__DEVICE__
-            void MapData(float* data, ushort size, ushort fields);
+            void MapData(float* data, uint size, uint fields);
 
             // set grid to value
             __HOST__
-            void SetGridToValue(float val, ushort f, ushort d);
+            void SetGridToValue(float val, uint f, uint d);
 
             // return grid size
             __HOST__DEVICE__
-            ushort Size() {return size_;}
+            uint Size() {return size_;}
 
             // return number of fields per node
             __HOST__DEVICE__
-            ushort Fields() {return fields_;}
+            uint Fields() {return fields_;}
     
             // returns pointer to device data
             __HOST__DEVICE__
@@ -76,17 +76,17 @@ namespace jfs {
             __HOST__
             float* HostData();
 
-            // iterpolate quantity to grid
+            // interpolate quantity to grid
             __HOST__DEVICE__
-            void InterpToGrid(float q, float i, float j, ushort f, ushort d);
+            void InterpToGrid(float q, float i, float j, uint f, uint d);
 
             // interpolate quantity from grid
-            __HOST__DEVICE__
-            float InterpFromGrid(float i, float j, ushort f, ushort d);
+//            __HOST__DEVICE__
+//            float InterpFromGrid(float i, float j, uint f, uint d);
 
             // overloaded operators
             __HOST__DEVICE__
-            void operator=(const CudaGrid2D<Options>& src);
+            CudaGrid2D <Options> & operator=(const CudaGrid2D<Options>& src);
 
             // operator() indexes the grid. When called by device, indexed quantity is returned by reference.
             // When called on host, indexed value is returned by value.
@@ -107,11 +107,11 @@ namespace jfs {
             bool is_allocated_ = false;
             
             // grid size
-            ushort size_;
+            uint size_;
             // number of fields per node
-            ushort fields_ = 1;
+            uint fields_ = 1;
             // number of dims per node
-            const ushort dims_ = Options;
+            const uint dims_ = Options;
 
             // cuda device data
             float* data_;

@@ -6,19 +6,18 @@
 
 namespace jfs {
 
-JFS_INLINE LBMSolver::LBMSolver(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0, float visc, float uref)
+JFS_INLINE LBMSolver::LBMSolver(unsigned int N, float L, BoundType btype, float rho0, float visc, float uref)
 {
-    initialize(N, L, btype, iter_per_frame, rho0, visc, uref);
+    Initialize(N, L, btype, rho0, visc, uref);
 }
 
-JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, BoundType btype, int iter_per_frame, float rho0, float visc, float uref)
+JFS_INLINE void LBMSolver::Initialize(unsigned int N, float L, BoundType btype, float rho0, float visc, float uref)
 {
-    this->iter_per_frame = iter_per_frame;
     this->rho0 = rho0;
     this->visc = visc;
     this->uref = uref;
 
-    clearGrid();
+    ClearGrid();
     
     // lattice scaling stuff
     cs = 1/std::sqrt(3);
@@ -43,18 +42,18 @@ JFS_INLINE void LBMSolver::initialize(unsigned int N, float L, BoundType btype, 
 
     F = new float[2*N*N];
 
-    resetFluid();
+    ResetFluid();
 
     is_initialized_ = true;
 }
 
-JFS_INLINE void LBMSolver::setDensityMapping(float minrho, float maxrho)
+JFS_INLINE void LBMSolver::SetDensityMapping(float minrho, float maxrho)
 {
     minrho_ = minrho;
     maxrho_ = maxrho;
 }
 
-JFS_INLINE void LBMSolver::densityExtrema(float minmax_rho[2])
+JFS_INLINE void LBMSolver::DensityExtrema(float *minmax_rho)
 {
 
     float minrho_ = rho_[0];
@@ -76,7 +75,7 @@ JFS_INLINE void LBMSolver::densityExtrema(float minmax_rho[2])
     minmax_rho[1] = maxrho_;
 }
 
-JFS_INLINE void LBMSolver::resetFluid()
+JFS_INLINE void LBMSolver::ResetFluid()
 {
 
     for (int i = 0; i < N*N; i++)
@@ -94,12 +93,12 @@ JFS_INLINE void LBMSolver::resetFluid()
     for (int j=0; j < N; j++)
         for (int k=0; k < N; k++)
             for (int i=0; i < 9; i++)
-                f[N*9*k + 9*j + i] = calc_fbari(i, j, k);
+                f[N*9*k + 9*j + i] = CalcEquilibriumDistribution(i, j, k);
 
     T = 0;
 }
 
-JFS_INLINE void LBMSolver::mapDensity()
+JFS_INLINE void LBMSolver::MapDensity()
 {
     auto btype = this->bound_type_;
     auto L = this->L;
@@ -159,7 +158,7 @@ JFS_INLINE void LBMSolver::mapDensity()
         }
 }
 
-JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
+JFS_INLINE void LBMSolver::ForceVelocity(int i, int j, float ux, float uy)
 {
 
     int indices[2]{i, j};
@@ -179,7 +178,7 @@ JFS_INLINE void LBMSolver::forceVelocity(int i, int j, float ux, float uy)
     insertIntoGrid(indices, f, F, VECTOR_FIELD, 1, Add);
 }
 
-JFS_INLINE void LBMSolver::doBoundaryDamping()
+JFS_INLINE void LBMSolver::DoBoundaryDamping()
 {
     for (int i = 0; i < N; i+=(N-1))
     {
@@ -207,12 +206,12 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             float fbar[9];
             for (int k = 0; k < 9; k++)
             {
-                fbar[k] = calc_fbari(k, i, j);
+                fbar[k] = CalcEquilibriumDistribution(k, i, j);
             }
 
             insertIntoGrid(indices, fbar, f, SCALAR_FIELD, 9);
 
-            calcPhysicalVals(i, j);
+            CalcPhysicalVals(i, j);
         }
     } 
 
@@ -242,12 +241,12 @@ JFS_INLINE void LBMSolver::doBoundaryDamping()
             float fbar[9];
             for (int k = 0; k < 9; k++)
             {
-                fbar[k] = calc_fbari(k, j, i);
+                fbar[k] = CalcEquilibriumDistribution(k, j, i);
             }
 
             insertIntoGrid(indices, fbar, f, SCALAR_FIELD, 9);
 
-            calcPhysicalVals(j, i);
+            CalcPhysicalVals(j, i);
         }
     }
 }
@@ -257,83 +256,79 @@ JFS_INLINE bool LBMSolver::calcNextStep()
 
     BoundType btype = this->bound_type_;
 
-    int iterations = iter_per_frame;
-    for (int iter = 0; iter < iterations; iter++)
-    {        
-        // collide
-        for (int idx=0; idx<(N*N*9); idx++)
-        {
+    // collide
+    for (int idx=0; idx<(N*N*9); idx++)
+    {
 
-            float fi;
-            float fbari;
-            float Omegai;
-            float Fi;
+        float fi;
+        float fbari;
+        float Omegai;
+        float Fi;
 
-            int idx_tmp = idx;
-            int k = idx_tmp / (N*9);
-            idx_tmp -= k * (N*9);
-            int j = idx_tmp / 9;
-            idx_tmp -= j * 9;
-            int i = idx_tmp;
-            
-            fi = f[N*9*k + 9*j + i];
+        int idx_tmp = idx;
+        int k = idx_tmp / (N*9);
+        idx_tmp -= k * (N*9);
+        int j = idx_tmp / 9;
+        idx_tmp -= j * 9;
+        int i = idx_tmp;
 
-            fbari = calc_fbari(i, j, k);            
-                
-            Fi = calc_Fi(i, j, k);
+        fi = f[N*9*k + 9*j + i];
 
-            Omegai = -(fi - fbari)/tau;
+        fbari = CalcEquilibriumDistribution(i, j, k);
 
-            f[N*9*k + 9*j + i] = fi + Omegai + Fi;
-        }
+        Fi = CalcLatticeForce(i, j, k);
 
-        std::memcpy(f0, f, 9*N*N*sizeof(float));
-        
-        // stream
-        for (int idx=0; idx<(N*N*9); idx++)
-        {
-            float fiStar;
-            
-            int idx_tmp = idx;
-            int k = idx_tmp / (N*9);
-            idx_tmp -= k * (N*9);
-            int j = idx_tmp / 9;
-            idx_tmp -= j * 9;
-            int i = idx_tmp;
+        Omegai = -(fi - fbari)/tau;
 
-            int cix = c[i][0];
-            int ciy = c[i][1];
-
-            if ((k-ciy) >= 0 && (k-ciy) < N && (j-cix) >= 0 && (j-cix) < N)
-                fiStar = f0[N*9*(k-ciy) + 9*(j-cix) + i];
-            else
-            {
-                int i_bounce = bounce_back_indices_[i];
-                fiStar = f0[N*9*k + 9*j + i_bounce];
-            }
-
-            f[N*9*k + 9*j + i] = fiStar; 
-
-            calcPhysicalVals(j, k);
-
-            float u[2];
-            int indices[2]{j, k};
-            indexGrid(u, indices, U, VECTOR_FIELD);
-            if (std::isinf(u[0]) || std::isinf(u[1]) || std::isnan(u[0]) || std::isnan(u[1]))
-                return true;
-        }
-
-        // do any field manipulations before collision step
-        if (btype == DAMPED)
-            doBoundaryDamping();
-
-        T += dt;
+        f[N*9*k + 9*j + i] = fi + Omegai + Fi;
     }
+
+    std::memcpy(f0, f, 9*N*N*sizeof(float));
+
+    // stream
+    for (int idx=0; idx<(N*N*9); idx++)
+    {
+        float fiStar;
+
+        int idx_tmp = idx;
+        int k = idx_tmp / (N*9);
+        idx_tmp -= k * (N*9);
+        int j = idx_tmp / 9;
+        idx_tmp -= j * 9;
+        int i = idx_tmp;
+
+        int cix = c[i][0];
+        int ciy = c[i][1];
+
+        if ((k-ciy) >= 0 && (k-ciy) < N && (j-cix) >= 0 && (j-cix) < N)
+            fiStar = f0[N*9*(k-ciy) + 9*(j-cix) + i];
+        else
+        {
+            int i_bounce = bounce_back_indices_[i];
+            fiStar = f0[N*9*k + 9*j + i_bounce];
+        }
+
+        f[N*9*k + 9*j + i] = fiStar;
+
+        CalcPhysicalVals(j, k);
+
+        float u[2];
+        int indices[2]{j, k};
+        indexGrid(u, indices, U, VECTOR_FIELD);
+        if (std::isinf(u[0]) || std::isinf(u[1]) || std::isnan(u[0]) || std::isnan(u[1]))
+            return true;
+    }
+
+    // do any field manipulations before collision step
+    if (btype == DAMPED)
+        DoBoundaryDamping();
+
+    T += dt;
 
     return false;
 }
 
-JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces)
+JFS_INLINE bool LBMSolver::CalcNextStep(const std::vector<Force> forces)
 {
 
     bool failedStep = false;
@@ -368,12 +363,12 @@ JFS_INLINE bool LBMSolver::calcNextStep(const std::vector<Force> forces)
         failedStep = true;
     }
 
-    if (failedStep) resetFluid();
+    if (failedStep) ResetFluid();
 
     return failedStep;
 }
 
-JFS_INLINE void LBMSolver::clearGrid()
+JFS_INLINE void LBMSolver::ClearGrid()
 {
 
     if (!is_initialized_)
@@ -389,7 +384,7 @@ JFS_INLINE void LBMSolver::clearGrid()
     is_initialized_ = false;
 }
 
-JFS_INLINE float LBMSolver::calc_fbari(int i, int j, int k)
+JFS_INLINE float LBMSolver::CalcEquilibriumDistribution(int i, int j, int k)
 {
     int indices[2]{j, k};
     
@@ -412,7 +407,7 @@ JFS_INLINE float LBMSolver::calc_fbari(int i, int j, int k)
     return fbari;
 }
 
-JFS_INLINE float LBMSolver::calc_Fi(int i, int j, int k)
+JFS_INLINE float LBMSolver::CalcLatticeForce(int i, int j, int k)
 {
     int indices[2]{j, k};
     
@@ -439,7 +434,7 @@ JFS_INLINE float LBMSolver::calc_Fi(int i, int j, int k)
     return Fi;
 }
 
-JFS_INLINE void LBMSolver::calcPhysicalVals()
+JFS_INLINE void LBMSolver::CalcPhysicalVals()
 {
     float rho_jk = 0;
     float momentum_jk[2]{0, 0};
@@ -472,7 +467,7 @@ JFS_INLINE void LBMSolver::calcPhysicalVals()
     }
 }
 
-JFS_INLINE void LBMSolver::calcPhysicalVals(int j, int k)
+JFS_INLINE void LBMSolver::CalcPhysicalVals(int j, int k)
 {
     float rho_jk = 0;
     float momentum_jk[2]{0, 0};

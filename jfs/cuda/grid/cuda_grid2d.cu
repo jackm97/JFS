@@ -1,42 +1,24 @@
 #include "./cuda_grid2d.h"
 
-
-#ifdef __INTELLISENSE__
-void __syncthreads();  // workaround __syncthreads warning
-#define KERNEL_ARG2(grid, block)
-#define KERNEL_ARG3(grid, block, sh_mem)
-#define KERNEL_ARG4(grid, block, sh_mem, stream)
-#define __GLOBAL__
-#define __LAUNCH_BOUNDS__(max_threads, min_blocks)
-#else
-#define KERNEL_ARG2(grid, block) <<< grid, block >>>
-#define KERNEL_ARG3(grid, block, sh_mem) <<< grid, block, sh_mem >>>
-#define KERNEL_ARG4(grid, block, sh_mem, stream) <<< grid, block, sh_mem, stream >>>
-#define __GLOBAL__ __global__
-#define __LAUNCH_BOUNDS__(max_threads, min_blocks) __launch_bounds__(max_threads, min_blocks)
-#endif
-
-#include <cuda_runtime.h>
-
 namespace jfs {
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__DEVICE__
-    CudaGrid2D<Options>::CudaGrid2D(ushort size, ushort fields)
+    CudaGrid2D<Options>::CudaGrid2D(uint size, uint fields)
     {
         Resize(size, fields);
     }
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__DEVICE__
     CudaGrid2D<Options>::CudaGrid2D(const CudaGrid2D<Options>& src)
     {
         *this = src;
     }
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__DEVICE__
-    CudaGrid2D<Options>::CudaGrid2D(const float* data, ushort size, ushort fields)
+    CudaGrid2D<Options>::CudaGrid2D(const float* data, uint size, uint fields)
     {
         Resize(size, fields);
         int total_size = (int)size_*(int)size_*(int)dims_*(int)fields_;
@@ -49,9 +31,9 @@ namespace jfs {
         #endif
     }
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__DEVICE__
-    void CudaGrid2D<Options>::Resize(ushort size, ushort fields)
+    void CudaGrid2D<Options>::Resize(uint size, uint fields)
     {
         FreeGridData();
 
@@ -68,9 +50,9 @@ namespace jfs {
         is_allocated_ = true;
     }
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__
-    void CudaGrid2D<Options>::CopyDeviceData(const float* data, ushort size, ushort fields)
+    void CudaGrid2D<Options>::CopyDeviceData(const float* data, uint size, uint fields)
     {
         Resize(size, fields);
         int total_size = (int)size_*(int)size_*(int)dims_*(int)fields_;
@@ -85,9 +67,9 @@ namespace jfs {
         mapped_data_ = false;
     }
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__DEVICE__
-    void CudaGrid2D<Options>::MapData(float* data, ushort size, ushort fields)
+    void CudaGrid2D<Options>::MapData(float* data, uint size, uint fields)
     {
         FreeGridData();
 
@@ -111,13 +93,13 @@ namespace jfs {
     CUDA KERNEL
     *
     */
-    template <ushort Options>
-    __GLOBAL__
-    __LAUNCH_BOUNDS__(256, 6)
-    void setGridKernel(float val, ushort f, ushort d, float* grid_data, ushort grid_size, ushort fields)
+    template <uint Options>
+    __global__
+    __launch_bounds__(256, 6)
+    void setGridKernel(float val, uint f, uint d, float* grid_data, uint grid_size, uint fields)
     {
-        ushort i = blockIdx.x * blockDim.x + threadIdx.x;
-        ushort j = blockIdx.y * blockDim.y + threadIdx.y;
+        uint i = blockIdx.x * blockDim.x + threadIdx.x;
+        uint j = blockIdx.y * blockDim.y + threadIdx.y;
 
         #ifdef __CUDA_ARCH__
         if (i >= grid_size || j >= grid_size)
@@ -133,19 +115,19 @@ namespace jfs {
     *
     */
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__
-    void CudaGrid2D<Options>::SetGridToValue(float val, ushort field, ushort dim)
+    void CudaGrid2D<Options>::SetGridToValue(float val, uint field, uint dim)
     {
         dim3 threads_per_block(16, 16);
         dim3 num_blocks(size_ / threads_per_block.x + 1, size_ / threads_per_block.y + 1);
 
-        setGridKernel<Options> KERNEL_ARG2(num_blocks, threads_per_block)(val, field, dim, data_, size_, fields_);
+        setGridKernel<Options> <<<num_blocks, threads_per_block>>>(val, field, dim, data_, size_, fields_);
 
         cudaDeviceSynchronize();
     }
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__
     float* CudaGrid2D<Options>::HostData()
     {
@@ -155,7 +137,7 @@ namespace jfs {
 
         return host_data_;
         #else
-        return NULL; // this is just here to stop compiler warning, not a device function
+        return nullptr; // this is just here to stop compiler warning, not a device function
         #endif 
     }
 
@@ -164,9 +146,9 @@ namespace jfs {
     CUDA KERNEL
     *
     */
-    template <ushort Options>
-    __GLOBAL__
-    void InterpToGridKernel(float val, float i, float j, ushort f, ushort d, float* grid_data, ushort grid_size, ushort fields)
+    template <uint Options>
+    __global__
+    void InterpToGridKernel(float val, float i, float j, uint f, uint d, float* grid_data, uint grid_size, uint fields)
     {
         #ifdef __CUDA_ARCH__
         CudaGrid2D<Options> grid;
@@ -180,13 +162,13 @@ namespace jfs {
     *
     */
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__DEVICE__
-    void CudaGrid2D<Options>::InterpToGrid(float q, float i, float j, ushort f, ushort d)
+    void CudaGrid2D<Options>::InterpToGrid(float q, float i, float j, uint f, uint d)
     {
         #ifndef __CUDA_ARCH__
 
-        InterpToGridKernel<Options> KERNEL_ARG2(1, 1)(q, i, j, f, d, data_, size_, fields_);
+        InterpToGridKernel<Options> <<<1, 1>>>(q, i, j, f, d, data_, size_, fields_);
 
         cudaDeviceSynchronize();
 
@@ -216,9 +198,9 @@ namespace jfs {
         #endif
     }
 
-    // template<ushort Options>
+    // template<uint Options>
     // __HOST__DEVICE__
-    // float CudaGrid2D<Options>::InterpFromGrid(float i, float j, ushort f, ushort d)
+    // float CudaGrid2D<Options>::InterpFromGrid(float i, float j, uint f, uint d)
     // {
 
     //     int i0 = (int) i;
@@ -249,9 +231,9 @@ namespace jfs {
     //     return q;
     // }
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__DEVICE__
-    void CudaGrid2D<Options>::operator=(const CudaGrid2D<Options>& src)
+    CudaGrid2D<Options>& CudaGrid2D<Options>::operator=(const CudaGrid2D<Options>& src)
     {
         Resize(src.size_, src.fields_);
         int total_size = (int)size_*(int)size_*(int)dims_*(int)fields_;
@@ -264,9 +246,11 @@ namespace jfs {
         #endif
 
         mapped_data_ = false;
+
+        return *this;
     }
 
-    template<ushort Options>
+    template<uint Options>
     #ifndef __CUDA_ARCH__
     __HOST__
     float CudaGrid2D<Options>::operator()(int i, int j, int f, int d)
@@ -286,7 +270,7 @@ namespace jfs {
         #endif
     }
 
-    template<ushort Options>
+    template<uint Options>
     __HOST__DEVICE__
     void CudaGrid2D<Options>::FreeGridData()
     {
@@ -304,10 +288,10 @@ namespace jfs {
 
     template class CudaGrid2D<FieldType2D::Scalar>;
     template class CudaGrid2D<FieldType2D::Vector>;
-    template __GLOBAL__ void InterpToGridKernel<FieldType2D::Scalar>(float val, float i, float j, ushort f, ushort d, float* grid_data, ushort grid_size, ushort fields);
-    template __GLOBAL__ void InterpToGridKernel<FieldType2D::Vector>(float val, float i, float j, ushort f, ushort d, float* grid_data, ushort grid_size, ushort fields);
-    template __GLOBAL__ __LAUNCH_BOUNDS__(256, 6) void setGridKernel<FieldType2D::Scalar>(float val, ushort f, ushort d, float* grid_data, ushort grid_size, ushort fields);
-    template __GLOBAL__ __LAUNCH_BOUNDS__(256, 6) void setGridKernel<FieldType2D::Vector>(float val, ushort f, ushort d, float* grid_data, ushort grid_size, ushort fields);
+    template __global__ void InterpToGridKernel<FieldType2D::Scalar>(float val, float i, float j, uint f, uint d, float* grid_data, uint grid_size, uint fields);
+    template __global__ void InterpToGridKernel<FieldType2D::Vector>(float val, float i, float j, uint f, uint d, float* grid_data, uint grid_size, uint fields);
+    template __global__ __launch_bounds__(256, 6) void setGridKernel<FieldType2D::Scalar>(float val, uint f, uint d, float* grid_data, uint grid_size, uint fields);
+    template __global__ __launch_bounds__(256, 6) void setGridKernel<FieldType2D::Vector>(float val, uint f, uint d, float* grid_data, uint grid_size, uint fields);
 
 } // namespace jfs
 
