@@ -80,7 +80,7 @@ class LBMSolver : public grid2D {
             {1,1}, {-1,1}, {1,-1}, {-1,-1}  // i = 5, 6, 7, 8
         };
 
-        const float bounce_back_indices_[9]{
+        const int bounce_back_indices_[9]{
             0,
             2, 1, 4, 3,
             8, 7, 6, 5

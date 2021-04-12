@@ -263,24 +263,26 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         float fi;
         float fbari;
         float Omegai;
-        float Fi;
+        float lat_force;
 
         int idx_tmp = idx;
-        int k = idx_tmp / (N*9);
-        idx_tmp -= k * (N*9);
-        int j = idx_tmp / 9;
-        idx_tmp -= j * 9;
-        int i = idx_tmp;
+        int j = idx_tmp / (N * 9);
+        idx_tmp -= j * (N * 9);
+        int i = idx_tmp / 9;
+        idx_tmp -= i * 9;
+        int alpha = idx_tmp;
 
-        fi = f[N*9*k + 9*j + i];
+        fi = f[N * 9 * j + 9 * i + alpha];
 
-        fbari = CalcEquilibriumDistribution(i, j, k);
+        fbari = CalcEquilibriumDistribution(alpha, i, j);
 
-        Fi = CalcLatticeForce(i, j, k);
+        lat_force = CalcLatticeForce(alpha, i, j);
+        if (i == 32 && j == 32)
+            printf("%i,%.6f\n", alpha, lat_force);
 
         Omegai = -(fi - fbari)/tau;
 
-        f[N*9*k + 9*j + i] = fi + Omegai + Fi;
+        f[N * 9 * j + 9 * i + alpha] = fi + Omegai + lat_force;
     }
 
     std::memcpy(f0, f, 9*N*N*sizeof(float));
@@ -291,29 +293,29 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         float fiStar;
 
         int idx_tmp = idx;
-        int k = idx_tmp / (N*9);
-        idx_tmp -= k * (N*9);
-        int j = idx_tmp / 9;
-        idx_tmp -= j * 9;
-        int i = idx_tmp;
+        int j = idx_tmp / (N * 9);
+        idx_tmp -= j * (N * 9);
+        int i = idx_tmp / 9;
+        idx_tmp -= i * 9;
+        int alpha = idx_tmp;
 
-        int cix = c[i][0];
-        int ciy = c[i][1];
+        int cix = c[alpha][0];
+        int ciy = c[alpha][1];
 
-        if ((k-ciy) >= 0 && (k-ciy) < N && (j-cix) >= 0 && (j-cix) < N)
-            fiStar = f0[N*9*(k-ciy) + 9*(j-cix) + i];
+        if ((j - ciy) >= 0 && (j - ciy) < N && (i - cix) >= 0 && (i - cix) < N)
+            fiStar = f0[N*9*(j - ciy) + 9 * (i - cix) + alpha];
         else
         {
-            int i_bounce = bounce_back_indices_[i];
-            fiStar = f0[N*9*k + 9*j + i_bounce];
+            int alpha_bounce = bounce_back_indices_[alpha];
+            fiStar = f0[N * 9 * j + 9 * i + alpha_bounce];
         }
 
-        f[N*9*k + 9*j + i] = fiStar;
+        f[N * 9 * j + 9 * i + alpha] = fiStar;
 
-        CalcPhysicalVals(j, k);
+        CalcPhysicalVals(i, j);
 
         float u[2];
-        int indices[2]{j, k};
+        int indices[2]{i, j};
         indexGrid(u, indices, U, VECTOR_FIELD);
         if (std::isinf(u[0]) || std::isinf(u[1]) || std::isnan(u[0]) || std::isnan(u[1]))
             return true;

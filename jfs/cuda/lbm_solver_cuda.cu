@@ -26,7 +26,7 @@ JFS_INLINE void CudaLBMSolver::Initialize(ushort grid_size, float grid_length, B
     // lattice scaling stuff
     us_ = cs_/lat_uref_ * uref_;
     
-    dx_ = grid_length_ / (float)grid_size_;
+    dx_ = grid_length_ / (float)(grid_size_ - 1);
     lat_visc_ = lat_uref_/(uref_ * dx_) * visc;
     lat_tau_ = (3.f * lat_visc_ + .5f);
     dt_ = lat_uref_/uref_ * dx_ * lat_dt_;
@@ -41,16 +41,16 @@ JFS_INLINE void CudaLBMSolver::Initialize(ushort grid_size, float grid_length, B
 
     force_grid_.Resize(grid_size_, 1);
 
-    LBMSolverProps props = SolverProps();
-    cudaMemcpyToSymbol(const_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
-    current_cuda_lbm_solver = this;
-    cudaDeviceSynchronize();
-
     ResetFluid();
 }
 
 JFS_INLINE void CudaLBMSolver::ResetFluid()
 {
+    LBMSolverProps props = SolverProps();
+    cudaMemcpyToSymbol(const_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
+    current_cuda_lbm_solver = this;
+    cudaDeviceSynchronize();
+
     for (int d = 0; d < 2; d++)
     {
         u_grid_.SetGridToValue(0, 0, d);
@@ -68,7 +68,7 @@ JFS_INLINE void CudaLBMSolver::ResetFluid()
 
 JFS_INLINE bool CudaLBMSolver::CalcNextStep(const std::vector<Force>& forces)
 {
-    bool failedStep = false;
+    bool failed_step = false;
     try
     {   
         for (const auto & i : forces)
@@ -79,9 +79,9 @@ JFS_INLINE bool CudaLBMSolver::CalcNextStep(const std::vector<Force>& forces)
                 i.force[2]
             };
             float point[3] = {
-                i.pos[0]/grid_length_ * (float)grid_size_,
-                i.pos[1]/grid_length_ * (float)grid_size_,
-                i.pos[2]/grid_length_ * (float)grid_size_
+                i.pos[0]/dx_,
+                i.pos[1]/dx_,
+                i.pos[2]/dx_
             };
             if (point[0] < (float)grid_size_ && point[0] >= 0 && point[1] < (float)grid_size_ && point[1] >= 0)
                 for (int d = 0; d < 2; d++)
@@ -89,25 +89,25 @@ JFS_INLINE bool CudaLBMSolver::CalcNextStep(const std::vector<Force>& forces)
                     force_grid_.InterpToGrid(force[d], point[0], point[1], 0, d);
                 }
         }
-        
-        failedStep = CalcNextStep();
+
+        failed_step = CalcNextStep();
     }
     catch(const std::exception& e)
     {
         std::cerr << e.what() << '\n';
-        failedStep = true;
+        failed_step = true;
     }
     for (int d = 0; d < 2; d++)
     {
         force_grid_.SetGridToValue(0, 0, d);
     }
 
-    if (failedStep) ResetFluid();
+    if (failed_step) ResetFluid();
 
-    return failedStep;
+    return failed_step;
 }
 
-JFS_INLINE void CudaLBMSolver::ForceVelocity(ushort i, ushort j, float ux, float uy)
+JFS_INLINE void CudaLBMSolver::ForceVelocity(int i, int j, float ux, float uy)
 {
     if (current_cuda_lbm_solver != this)
     {
@@ -120,10 +120,10 @@ JFS_INLINE void CudaLBMSolver::ForceVelocity(ushort i, ushort j, float ux, float
     cudaDeviceSynchronize();
 }
 
-JFS_INLINE void CudaLBMSolver::SetDensityMapping(float minrho, float maxrho)
+JFS_INLINE void CudaLBMSolver::SetDensityMapping(float min_rho, float max_rho)
 {
-    min_rho_ = minrho;
-    max_rho_ = maxrho;
+    min_rho_ = min_rho;
+    max_rho_ = max_rho;
 }
 
 JFS_INLINE void CudaLBMSolver::DensityExtrema(float minmax_rho[2])
@@ -161,15 +161,16 @@ JFS_INLINE bool CudaLBMSolver::CalcNextStep()
 
     int threads_per_block = 256;
     int num_blocks = (9*(int)grid_size_*(int)grid_size_) / threads_per_block + 1;
-    
-    resetDistributionKernel <<<num_blocks, threads_per_block>>> (f0_grid_.Data());
+
+    cudaDeviceSynchronize();
     collideKernel <<<num_blocks, threads_per_block>>> ();
     cudaDeviceSynchronize();
 
     streamKernel <<<num_blocks, threads_per_block>>> ();
     cudaDeviceSynchronize();
 
-    calcPhysicalKernel <<<num_blocks/9, threads_per_block>>> ();
+    num_blocks = ((int)grid_size_*(int)grid_size_) / threads_per_block + 1;
+    calcPhysicalKernel <<<num_blocks, threads_per_block>>> ();
     cudaDeviceSynchronize();
 
     // do any field manipulations before next step

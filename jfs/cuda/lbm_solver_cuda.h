@@ -55,7 +55,7 @@ class CudaLBMSolver {
         bool CalcNextStep(const std::vector<Force>& forces);
 
         // apply force to reach velocity
-        void ForceVelocity(ushort i, ushort j, float ux, float uy);
+        void ForceVelocity(int i, int j, float ux, float uy);
 
         // density mapping
         void SetDensityMapping(float min_rho, float max_rho);

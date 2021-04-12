@@ -27,7 +27,7 @@ __constant__ float w[9] = { // lattice weights
     1./36., 1./36., 1./36., 1./36., // i = 5, 6, 7, 8 
 };
 
-__constant__ LBMSolverProps const_props[1];
+__constant__ LBMSolverProps const_props[1]{};
 CudaLBMSolver* current_cuda_lbm_solver = nullptr;
 
 /*
@@ -37,10 +37,18 @@ DEVICE FUNCTIONS
 */
 // alpha represents the lattice index
 __DEVICE__
-float calcEquilibrium(int alpha, const float* u, float uref, float rho, float rho0)
+float calcEquilibrium(int alpha, int i, int j)
 {
     #ifdef __CUDA_ARCH__
     float ci[2]{(float)c[alpha][0], (float)c[alpha][1]};
+
+    const float& rho =  *(const_props[0].rho_grid + const_props[0].grid_size*1*j + 1*i);
+
+    const float* u = const_props[0].u_grid + const_props[0].grid_size*2*j + 2*i;
+
+    float& rho0 = const_props[0].rho0;
+    float& uref = const_props[0].uref;
+
     float u_cpy[2]{u[0], u[1]};
     u_cpy[0] *= lat_uref/uref;
     u_cpy[1] *= lat_uref/uref;
@@ -48,43 +56,68 @@ float calcEquilibrium(int alpha, const float* u, float uref, float rho, float rh
     float ci_dot_u = ci[0]*u_cpy[0] + ci[1]*u_cpy[1];
     float u_dot_u = u_cpy[0]*u_cpy[0] + u_cpy[1]*u_cpy[1];
 
-    return  w[alpha] * rho/rho0 * ( 1 + ci_dot_u/(powf(cs,2)) + powf(ci_dot_u,2)/(2*powf(cs,4)) - u_dot_u/(2*powf(cs,2)) );
+    return  w[alpha] * rho/rho0 * ( 1 + ci_dot_u/(powf(1/sqrtf(3),2)) + powf(ci_dot_u,2)/(2*powf(1/sqrtf(3),4)) - u_dot_u/(2*powf(1/sqrtf(3),2)) );
     #endif
 }
 __DEVICE__
-float calcLatticeForce(int alpha, float lat_tau, float dx, const float* force, const float* u, float uref, float rho, float rho0)
+float calcLatticeForce(int alpha, int i, int j)
 {
     #ifdef __CUDA_ARCH__
-    float ci[2]{(float)c[alpha][0], (float)c[alpha][1]};
+    const float ci[2]{(float)c[alpha][0], (float)c[alpha][1]};
 
-    float fx = force[0] * 1/rho0 * dx * powf(lat_uref/uref, 2);
-    float fy = force[1] * 1/rho0 * dx * powf(lat_uref/uref, 2);
+    const float& rho =  *(const_props[0].rho_grid + const_props[0].grid_size*1*j + 1*i);
 
-    float ci_dot_u = ci[0]*u[0]*lat_uref/uref + ci[1]*u[1]*lat_uref/uref;
+    const float* u = const_props[0].u_grid + const_props[0].grid_size*2*j + 2*i;
 
-    return (1 - lat_tau/2) * w[alpha] * (
-         ( (1/powf(cs,2))*(ci[0] - u[0]*lat_uref/uref) + (ci_dot_u/powf(cs,4)) * ci[0] )  * fx + 
-         ( (1/powf(cs,2))*(ci[1] - u[1]*lat_uref/uref) + (ci_dot_u/powf(cs,4)) * ci[1] )  * fy
+    const float* force = const_props[0].force_grid + const_props[0].grid_size*2*j + 2*i;
+
+    const float& rho0 = const_props[0].rho0;
+    const float dx = const_props[0].grid_length/( (float)const_props[0].grid_size - 1.f);
+    const float& uref = const_props[0].uref;
+
+    float force_cpy[2]{force[0], force[1]};
+    force_cpy[0] *= 1/rho0 * dx * powf(lat_uref/uref, 2);
+    force_cpy[1] *= 1/rho0 * dx * powf(lat_uref/uref, 2);
+
+    float u_cpy[2]{u[0], u[1]};
+    u_cpy[0] *= lat_uref/uref;
+    u_cpy[1] *= lat_uref/uref;
+
+    float ci_dot_u = ci[0]*u_cpy[0]* + ci[1]*u_cpy[1];
+
+    return (1 - const_props[0].lat_tau/2) * w[alpha] * (
+         ( (1/powf(cs,2))*(ci[0] - u_cpy[0]) + (ci_dot_u/powf(cs,4)) * ci[0] )  * force_cpy[0] +
+         ( (1/powf(cs,2))*(ci[1] - u_cpy[1]) + (ci_dot_u/powf(cs,4)) * ci[1] )  * force_cpy[1]
     );
     #endif
 }
 
 __DEVICE__
-void calcPhysicalProps(const float* f, float* u_data, float uref, float* rho_data, float rho0)
+void calcPhysicalProps(int i, int j)
 {
     #ifdef __CUDA_ARCH__
-    u_data[0] = 0;
-    u_data[1] = 0;
-    rho_data[0] = 0;
+
+    const float* f = const_props[0].f_grid + const_props[0].grid_size*9*j + 9*i;
+
+    float& rho =  *(const_props[0].rho_grid + const_props[0].grid_size*1*j + 1*i);
+
+    float* u = const_props[0].u_grid + const_props[0].grid_size*2*j + 2*i;
+
+    float& rho0 = const_props[0].rho0;
+    float& uref = const_props[0].uref;
+
+    u[0] = 0;
+    u[1] = 0;
+    rho = 0;
     for (int alpha = 0; alpha < 9; alpha++)
     {
-        rho_data[0] += f[alpha];
-        u_data[0] += (float)c[alpha][0] * f[alpha];
-        u_data[1] += (float)c[alpha][1] * f[alpha];
+        rho += f[alpha];
+        u[0] += (float)c[alpha][0] * f[alpha];
+        u[1] += (float)c[alpha][1] * f[alpha];
     }
-    u_data[0] = uref/lat_uref * (u_data[0] / rho_data[0]);
-    u_data[1] = uref/lat_uref * (u_data[1] / rho_data[0]);
-    rho_data[0] *= rho0;
+    u[0] = uref / lat_uref * (u[0] / rho);
+    u[1] = uref / lat_uref * (u[1] / rho);
+    rho *= rho0;
     #endif
 }
 /*
@@ -93,7 +126,7 @@ END DEVICE FUNCTIONS
 *
 */
 __global__
-void forceVelocityKernel(ushort i, ushort j, float ux, float uy)
+void forceVelocityKernel(int i, int j, float ux, float uy)
 {
     
     #ifdef __CUDA_ARCH__
@@ -127,15 +160,12 @@ void resetDistributionKernel(float* f_data)
 
     float* f = f_data + grid_size*9*j + 9*i;
 
-    const float* u_ptr = const_props[0].u_grid + grid_size*2*j + 2*i;
-
-    float rho = *(const_props[0].rho_grid + grid_size*1*j + 1*i);
-
-    f[alpha] = calcEquilibrium(alpha, u_ptr, const_props[0].uref, rho, const_props[0].rho0);
+    f[alpha] = calcEquilibrium(alpha, i, j);
     #endif
 }
 
 __global__
+__launch_bounds__(256, 6)
 void collideKernel()
 {
 
@@ -152,20 +182,12 @@ void collideKernel()
             return;
 
         float* f = const_props[0].f_grid + grid_size*9*j + 9*i;
-        
-        float* fbar = const_props[0].f0_grid + grid_size*9*j + 9*i;
-        
-        float rho =  *(const_props[0].rho_grid + grid_size*1*j + 1*i);
-        
-        const float* u_ptr = const_props[0].u_grid + grid_size*2*j + 2*i;
-        
-        const float* force_ptr = const_props[0].force_grid + grid_size*2*j + 2*i;
 
-        float lat_force;
+        float lat_force = calcLatticeForce(alpha, i, j);
+        float fbar = calcEquilibrium(alpha, i, j);
 
-        lat_force = calcLatticeForce(alpha, const_props[0].lat_tau, const_props[0].dt, force_ptr, u_ptr, const_props[0].uref, rho, const_props[0].rho0);
-        f[alpha] += lat_force - (f[alpha] - fbar[alpha])/const_props[0].lat_tau;
-        fbar[alpha] = f[alpha];
+        f[alpha] += lat_force - (f[alpha] - fbar)/const_props[0].lat_tau;
+        *(const_props[0].f0_grid + grid_size*9*j + 9*i + alpha) = f[alpha];
     #endif
 }
 
@@ -196,9 +218,11 @@ void streamKernel()
         }
         else {
             float* f0 = const_props[0].f0_grid + grid_size * 9 * j + 9 * i;
-            alpha = bounce_back_indices[alpha];
-            f[alpha] = f0[alpha];
+            int alpha_bounce = bounce_back_indices[alpha];
+            f[alpha] = f0[alpha_bounce];
         }
+//        if ( isnan(f[alpha]) || isinf(f[alpha]) )
+//            const_props[0].failed_step = true;
     #endif
 }
 
@@ -208,29 +232,11 @@ void calcPhysicalKernel()
 
     int grid_size = const_props[0].grid_size;
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int j = i/(grid_size);
-    i -= grid_size*j;
+    int j = i / grid_size;
+    i -= j * grid_size;
 
     #ifdef __CUDA_ARCH__
-
-        if (i >= grid_size || j >= grid_size)
-            return;
-    
-        float* f = const_props[0].f_grid + grid_size*9*j + 9*i;
-        float* u_data = const_props[0].u_grid + grid_size*2*j + 2*i;
-        float* rho_data = const_props[0].rho_grid + grid_size*1*j + 1*i;
-        u_data[0] = 0;
-        u_data[1] = 0;
-        rho_data[0] = 0;
-        for (int alpha = 0; alpha < 9; alpha++)
-        {
-            rho_data[0] += f[alpha];
-            u_data[0] += (float)c[alpha][0] * f[alpha];
-            u_data[1] += (float)c[alpha][1] * f[alpha];
-        }
-        u_data[0] = const_props[0].uref/lat_uref * (u_data[0] / rho_data[0]);
-        u_data[1] = const_props[0].uref/lat_uref * (u_data[1] / rho_data[0]);
-        rho_data[0] *= const_props[0].rho0;
+    calcPhysicalProps(i, j);
     #endif
 }
 
@@ -267,8 +273,8 @@ void boundaryDampKernel()
         i -= step;
 
         for (int alpha = 0; alpha < 9; alpha++){
-            const_props[0].f_grid[grid_size*9*j + 9*i + alpha] = calcEquilibrium(alpha, const_props[0].u_grid + grid_size*2*j + 2*i, const_props[0].uref, const_props[0].rho_grid[grid_size*j + i], const_props[0].rho0);
-            const_props[0].f_grid[grid_size*9*i + 9*j + alpha] = calcEquilibrium(alpha, const_props[0].u_grid + grid_size*2*i + 2*j, const_props[0].uref, const_props[0].rho_grid[grid_size*i + j], const_props[0].rho0);
+            const_props[0].f_grid[grid_size*9*j + 9*i + alpha] = calcEquilibrium(alpha, i, j);
+            const_props[0].f_grid[grid_size*9*i + 9*j + alpha] = calcEquilibrium(alpha, j, i);
         }
     }
     #endif

@@ -9,7 +9,7 @@ extern __constant__ LBMSolverProps const_props[1];
 extern CudaLBMSolver* current_cuda_lbm_solver;
 
 __global__
-void forceVelocityKernel(ushort i, ushort j, float ux, float uy);
+void forceVelocityKernel(int i, int j, float ux, float uy);
 
 __global__
 void resetDistributionKernel(float* f_data);
