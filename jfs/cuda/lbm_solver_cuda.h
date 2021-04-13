@@ -79,6 +79,10 @@ class CudaLBMSolver {
 
         float* VelocityData(){return u_grid_.HostData();}
 
+        // inline indexers:
+
+        float IndexRhoData(int i, int j){return rho_grid_(i, j, 0, 0);}
+
         //destructor
         ~CudaLBMSolver(){}
     private:

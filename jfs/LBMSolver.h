@@ -35,21 +35,21 @@ class LBMSolver : public grid2D {
         void DensityExtrema(float *minmax_rho);
 
         // inline getters:
-        float TimeStep(){return this->dt;}
+        float TimeStep(){return this->dt_;}
 
-        float Time(){return this->T;}
+        float Time(){return this->time_;}
 
-        float DeltaX(){return this->dx;}
+        float DeltaX(){return this->dx_;}
 
-        float SoundSpeed(){return this->us;}
+        float SoundSpeed(){return this->us_;}
 
-        float Rho0(){return this->rho0;}
+        float Rho0(){return this->rho0_;}
 
         float* RhoData(){return this->rho_;}
 
         float* MappedRhoData(){ MapDensity(); return this->rho_mapped_;}
 
-        float* VelocityData(){return this->U;}
+        float* VelocityData(){return this->u_grid_;}
 
         //destructor
         ~LBMSolver(){ ClearGrid(); };
@@ -62,17 +62,17 @@ class LBMSolver : public grid2D {
 
         bool is_initialized_ = false;
 
-        float* f; // the distribution function
-        float* f0; // the distribution function
+        float* f_grid_; // the distribution function
+        float* f0_grid_; // the distribution function
 
         float* rho_; // calculated rho from distribution function
         float minrho_; 
         float maxrho_;
         float* rho_mapped_; // rho_, but mapped to [0,1] with min/maxrho_
 
-        float* U; 
+        float* u_grid_;
 
-        float* F;
+        float* force_grid_;
 
         const float c[9][2]{ // D2Q9 velocity dicretization
             {0,0},                                // i = 0
@@ -93,23 +93,22 @@ class LBMSolver : public grid2D {
         };
 
        
-        float rho0; // typical physical density of fluid
+        float rho0_; // typical physical density of fluid
 
-        float uref; // physical reference velocity scale
-        const float urefL = .2; // LBM reference velocity
-        float us;  // speed of sound of fluid
-        float cs; // lattice speed of sound
+        float uref_; // physical reference velocity scale
+        const float lat_uref_ = .2; // LBM reference velocity
+        float us_;  // speed of sound of fluid
+        float cs_; // lattice speed of sound
 
-        float &dx = D; // to keep notation same as the paper, reference variable to D (D notation from Jo Stam)
-        const float dxL = 1.; // LBM delta x
+        float &dx_ = D; // to keep notation same as the paper, reference variable to D (D notation from Jo Stam)
 
-        float dt; // physical time step
-        const float dtL = 1.; // LBM delta t
-        float T; // current simulation time
+        float dt_; // physical time step
+        const float lat_dt_ = 1.; // LBM delta t
+        float time_; // current simulation time
         
-        float visc; // fluid viscosity
-        float viscL; // lattice viscosity
-        float tau; // relaxation time in lattice units
+        float visc_; // fluid viscosity
+        float lat_visc_; // lattice viscosity
+        float lat_tau_; // relaxation time in lattice units
 
     private:
 
@@ -122,9 +121,6 @@ class LBMSolver : public grid2D {
 
         // calc Fi approximation
         float CalcLatticeForce(int i, int j, int k);
-
-        // calcs rho and U fields
-        void CalcPhysicalVals();
 
         void CalcPhysicalVals(int j, int k);
 

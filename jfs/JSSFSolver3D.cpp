@@ -1,4 +1,4 @@
-#include <jfs/JSSFSolver3D.h>
+#include "JSSFSolver3D.h"
 #include <jfs/differential_ops/grid_diff3d.h>
 
 #include <iostream>
@@ -39,9 +39,9 @@ initialize(unsigned int N, float L, BoundType btype, float dt, float visc)
     gridDiff3D<SparseMatrix_>::grad(this, this->GRAD);
     gridDiff3D<SparseMatrix_>::div(this, this->DIV);
     
-    this->U.resize(N*N*N*3);
+    this->U.resize(N * N * N * 3);
 
-    this->F.resize(N*N*N*3);
+    this->F.resize(N * N * N * 3);
 
     this->resetFluid();
 }

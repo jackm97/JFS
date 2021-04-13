@@ -1,4 +1,4 @@
-#include <jfs/LBMSolver.h>
+#include "LBMSolver.h"
 
 #include <cmath>
 #include <cstring>
@@ -13,34 +13,34 @@ JFS_INLINE LBMSolver::LBMSolver(unsigned int N, float L, BoundType btype, float 
 
 JFS_INLINE void LBMSolver::Initialize(unsigned int N, float L, BoundType btype, float rho0, float visc, float uref)
 {
-    this->rho0 = rho0;
-    this->visc = visc;
-    this->uref = uref;
+    this->rho0_ = rho0;
+    this->visc_ = visc;
+    this->uref_ = uref;
 
     ClearGrid();
     
     // lattice scaling stuff
-    cs = 1/std::sqrt(3);
-    us = cs/urefL * uref;
+    cs_ = 1 / std::sqrt(3);
+    us_ = cs_ / lat_uref_ * uref;
 
-    // dummy dt because it is calculated
+    // dummy dt_ because it is calculated
     float dummy_dt;
 
     initializeGrid(N, L, btype, dummy_dt);
-    
-    viscL = urefL/(uref * dx) * visc;
-    tau = (3*viscL + .5);
-    dt = urefL/uref * dx * dtL;
 
-    f = new float[9*N*N];
-    f0 = new float[9*N*N];
+    lat_visc_ = lat_uref_ / (uref * dx_) * visc;
+    lat_tau_ = (3 * lat_visc_ + .5);
+    dt_ = lat_uref_ / uref * dx_ * lat_dt_;
+
+    f_grid_ = new float[9 * N * N];
+    f0_grid_ = new float[9 * N * N];
 
     rho_ = new float[N*N];
     rho_mapped_ = new float[3*N*N];
 
-    U = new float[2*N*N];
+    u_grid_ = new float[2 * N * N];
 
-    F = new float[2*N*N];
+    force_grid_ = new float[2 * N * N];
 
     ResetFluid();
 
@@ -80,22 +80,22 @@ JFS_INLINE void LBMSolver::ResetFluid()
 
     for (int i = 0; i < N*N; i++)
     {
-        U[2*i + 0] = 0;
-        U[2*i + 1] = 0;
-        
-        F[2*i + 0] = 0;
-        F[2*i + 1] = 0;
+        u_grid_[2 * i + 0] = 0;
+        u_grid_[2 * i + 1] = 0;
 
-        rho_[i] = rho0;
+        force_grid_[2 * i + 0] = 0;
+        force_grid_[2 * i + 1] = 0;
+
+        rho_[i] = rho0_;
     }
 
     // reset distribution
     for (int j=0; j < N; j++)
         for (int k=0; k < N; k++)
             for (int i=0; i < 9; i++)
-                f[N*9*k + 9*j + i] = CalcEquilibriumDistribution(i, j, k);
+                f_grid_[N * 9 * k + 9 * j + i] = CalcEquilibriumDistribution(i, j, k);
 
-    T = 0;
+    time_ = 0;
 }
 
 JFS_INLINE void LBMSolver::MapDensity()
@@ -166,16 +166,16 @@ JFS_INLINE void LBMSolver::ForceVelocity(int i, int j, float ux, float uy)
     float u[2]{ux, uy};
 
     float u_prev[2];
-    indexGrid(u_prev, indices, U, VECTOR_FIELD);
+    indexGrid(u_prev, indices, u_grid_, VECTOR_FIELD);
 
     float rho;
     indexGrid(&rho, indices, rho_, SCALAR_FIELD);
 
     float f[2]{
-        (u[0] - u_prev[0]) * rho / this->dt,
-        (u[1] - u_prev[1]) * rho / this->dt
+        (u[0] - u_prev[0]) * rho / this->dt_,
+        (u[1] - u_prev[1]) * rho / this->dt_
     };
-    insertIntoGrid(indices, f, F, VECTOR_FIELD, 1, Add);
+    insertIntoGrid(indices, f, force_grid_, VECTOR_FIELD, 1, Add);
 }
 
 JFS_INLINE void LBMSolver::DoBoundaryDamping()
@@ -194,14 +194,14 @@ JFS_INLINE void LBMSolver::DoBoundaryDamping()
                 j
             };
             float u[2];
-            indexGrid(u, indices, U, VECTOR_FIELD);
+            indexGrid(u, indices, u_grid_, VECTOR_FIELD);
             float rho;
             indexGrid(&rho, indices, rho_, SCALAR_FIELD);
 
             indices[0] = i;
 
             insertIntoGrid(indices, &rho, rho_, SCALAR_FIELD);
-            insertIntoGrid(indices, u, U, VECTOR_FIELD, 1);
+            insertIntoGrid(indices, u, u_grid_, VECTOR_FIELD, 1);
 
             float fbar[9];
             for (int k = 0; k < 9; k++)
@@ -209,7 +209,7 @@ JFS_INLINE void LBMSolver::DoBoundaryDamping()
                 fbar[k] = CalcEquilibriumDistribution(k, i, j);
             }
 
-            insertIntoGrid(indices, fbar, f, SCALAR_FIELD, 9);
+            insertIntoGrid(indices, fbar, f_grid_, SCALAR_FIELD, 9);
 
             CalcPhysicalVals(i, j);
         }
@@ -229,14 +229,14 @@ JFS_INLINE void LBMSolver::DoBoundaryDamping()
                 i + step
             };
             float u[2];
-            indexGrid(u, indices, U, VECTOR_FIELD);
+            indexGrid(u, indices, u_grid_, VECTOR_FIELD);
             float rho;
             indexGrid(&rho, indices, rho_, SCALAR_FIELD);
 
             indices[1] = i;
 
             insertIntoGrid(indices, &rho, rho_, SCALAR_FIELD);
-            insertIntoGrid(indices, u, U, VECTOR_FIELD, 1);
+            insertIntoGrid(indices, u, u_grid_, VECTOR_FIELD, 1);
 
             float fbar[9];
             for (int k = 0; k < 9; k++)
@@ -244,7 +244,7 @@ JFS_INLINE void LBMSolver::DoBoundaryDamping()
                 fbar[k] = CalcEquilibriumDistribution(k, j, i);
             }
 
-            insertIntoGrid(indices, fbar, f, SCALAR_FIELD, 9);
+            insertIntoGrid(indices, fbar, f_grid_, SCALAR_FIELD, 9);
 
             CalcPhysicalVals(j, i);
         }
@@ -272,7 +272,7 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         idx_tmp -= i * 9;
         int alpha = idx_tmp;
 
-        fi = f[N * 9 * j + 9 * i + alpha];
+        fi = f_grid_[N * 9 * j + 9 * i + alpha];
 
         fbari = CalcEquilibriumDistribution(alpha, i, j);
 
@@ -280,12 +280,12 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         if (i == 32 && j == 32)
             printf("%i,%.6f\n", alpha, lat_force);
 
-        Omegai = -(fi - fbari)/tau;
+        Omegai = -(fi - fbari) / lat_tau_;
 
-        f[N * 9 * j + 9 * i + alpha] = fi + Omegai + lat_force;
+        f_grid_[N * 9 * j + 9 * i + alpha] = fi + Omegai + lat_force;
     }
 
-    std::memcpy(f0, f, 9*N*N*sizeof(float));
+    std::memcpy(f0_grid_, f_grid_, 9 * N * N * sizeof(float));
 
     // stream
     for (int idx=0; idx<(N*N*9); idx++)
@@ -303,20 +303,20 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         int ciy = c[alpha][1];
 
         if ((j - ciy) >= 0 && (j - ciy) < N && (i - cix) >= 0 && (i - cix) < N)
-            fiStar = f0[N*9*(j - ciy) + 9 * (i - cix) + alpha];
+            fiStar = f0_grid_[N * 9 * (j - ciy) + 9 * (i - cix) + alpha];
         else
         {
             int alpha_bounce = bounce_back_indices_[alpha];
-            fiStar = f0[N * 9 * j + 9 * i + alpha_bounce];
+            fiStar = f0_grid_[N * 9 * j + 9 * i + alpha_bounce];
         }
 
-        f[N * 9 * j + 9 * i + alpha] = fiStar;
+        f_grid_[N * 9 * j + 9 * i + alpha] = fiStar;
 
         CalcPhysicalVals(i, j);
 
         float u[2];
         int indices[2]{i, j};
-        indexGrid(u, indices, U, VECTOR_FIELD);
+        indexGrid(u, indices, u_grid_, VECTOR_FIELD);
         if (std::isinf(u[0]) || std::isinf(u[1]) || std::isnan(u[0]) || std::isnan(u[1]))
             return true;
     }
@@ -325,7 +325,7 @@ JFS_INLINE bool LBMSolver::calcNextStep()
     if (btype == DAMPED)
         DoBoundaryDamping();
 
-    T += dt;
+    time_ += dt_;
 
     return false;
 }
@@ -348,15 +348,15 @@ JFS_INLINE bool LBMSolver::CalcNextStep(const std::vector<Force> forces)
                 forces[i].pos[1]/this->D,
                 forces[i].pos[2]/this->D
             };
-            this->interpPointToGrid(force, point, F, VECTOR_FIELD, 1, Add);
+            this->interpPointToGrid(force, point, force_grid_, VECTOR_FIELD, 1, Add);
         }
 
         failedStep = calcNextStep();
 
         for (int i = 0; i < N*N; i++)
         {
-            F[2*i + 0] = 0;
-            F[2*i + 1] = 0;
+            force_grid_[2 * i + 0] = 0;
+            force_grid_[2 * i + 1] = 0;
         }
     }
     catch(const std::exception& e)
@@ -376,12 +376,12 @@ JFS_INLINE void LBMSolver::ClearGrid()
     if (!is_initialized_)
         return;
     
-    delete [] f;
-    delete [] f0;
+    delete [] f_grid_;
+    delete [] f0_grid_;
     delete [] rho_;
     delete [] rho_mapped_;
-    delete [] U;
-    delete [] F;
+    delete [] u_grid_;
+    delete [] force_grid_;
 
     is_initialized_ = false;
 }
@@ -396,15 +396,15 @@ JFS_INLINE float LBMSolver::CalcEquilibriumDistribution(int i, int j, int k)
     float wi = w[i];
 
     float u[2];
-    indexGrid(u, indices, U, VECTOR_FIELD);
-    u[0] *= urefL/uref;
-    u[1] *= urefL/uref;
+    indexGrid(u, indices, u_grid_, VECTOR_FIELD);
+    u[0] *= lat_uref_ / uref_;
+    u[1] *= lat_uref_ / uref_;
     float ci[2]{c[i][0], c[i][1]};
 
     float ci_dot_u = ci[0]*u[0] + ci[1]*u[1];
     float u_dot_u = u[0]*u[0] + u[1]*u[1];
 
-    fbari = wi * rho_jk/rho0 * ( 1 + ci_dot_u/(std::pow(cs,2)) + std::pow(ci_dot_u,2)/(2*std::pow(cs,4)) - u_dot_u/(2*std::pow(cs,2)) );
+    fbari = wi * rho_jk / rho0_ * (1 + ci_dot_u / (std::pow(cs_, 2)) + std::pow(ci_dot_u, 2) / (2 * std::pow(cs_, 4)) - u_dot_u / (2 * std::pow(cs_, 2)) );
 
     return fbari;
 }
@@ -416,80 +416,47 @@ JFS_INLINE float LBMSolver::CalcLatticeForce(int i, int j, int k)
     float wi = w[i];
 
     float u[2];
-    indexGrid(u, indices, U, VECTOR_FIELD);
-    u[0] *= urefL/uref;
-    u[1] *= urefL/uref;
+    indexGrid(u, indices, u_grid_, VECTOR_FIELD);
+    u[0] *= lat_uref_ / uref_;
+    u[1] *= lat_uref_ / uref_;
     float ci[2]{c[i][0], c[i][1]};
 
     float ci_dot_u = ci[0]*u[0] + ci[1]*u[1];
 
     float F_jk[2];
-    indexGrid(F_jk, indices, F, VECTOR_FIELD);
-    F_jk[0] *= ( 1/rho0 * dx * std::pow(urefL/uref,2) );
-    F_jk[1] *= ( 1/rho0 * dx * std::pow(urefL/uref,2) );
+    indexGrid(F_jk, indices, force_grid_, VECTOR_FIELD);
+    F_jk[0] *= (1 / rho0_ * dx_ * std::pow(lat_uref_ / uref_, 2) );
+    F_jk[1] *= (1 / rho0_ * dx_ * std::pow(lat_uref_ / uref_, 2) );
 
-    float Fi = (1 - tau/2) * wi * (
-         ( (1/std::pow(cs,2))*(ci[0] - u[0]) + (ci_dot_u/std::pow(cs,4)) * ci[0] )  * F_jk[0] + 
-         ( (1/std::pow(cs,2))*(ci[1] - u[1]) + (ci_dot_u/std::pow(cs,4)) * ci[1] )  * F_jk[1]
+    float Fi = (1 - lat_tau_ / 2) * wi * (
+                                          ((1/std::pow(cs_, 2)) * (ci[0] - u[0]) + (ci_dot_u / std::pow(cs_, 4)) * ci[0] ) * F_jk[0] +
+                                          ((1/std::pow(cs_, 2)) * (ci[1] - u[1]) + (ci_dot_u / std::pow(cs_, 4)) * ci[1] ) * F_jk[1]
     );
 
     return Fi;
 }
 
-JFS_INLINE void LBMSolver::CalcPhysicalVals()
-{
-    float rho_jk = 0;
-    float momentum_jk[2]{0, 0};
-
-    for (int j=0; j<N; j++)
-    {
-        for (int k=0; k<N; k++)
-        {
-            rho_jk = 0;
-            momentum_jk[0] += 0;
-            momentum_jk[1] += 0;
-
-            for (int i=0; i<9; i++)
-            {
-                rho_jk += f[N*9*k + 9*j + i];
-                momentum_jk[0] += c[i][0] * f[N*9*k + 9*j + i];
-                momentum_jk[1] += c[i][1] * f[N*9*k + 9*j + i];
-            }
-
-            float* u = momentum_jk;
-            u[0] = uref/urefL * (momentum_jk[0]/rho_jk);
-            u[1] = uref/urefL * (momentum_jk[1]/rho_jk);
-            rho_jk = rho0 * rho_jk;
-
-            int indices[2]{j, k};
-
-            insertIntoGrid(indices, &rho_jk, rho_, SCALAR_FIELD);
-            insertIntoGrid(indices, u, U, VECTOR_FIELD);
-        }
-    }
-}
-
-JFS_INLINE void LBMSolver::CalcPhysicalVals(int j, int k)
+    JFS_INLINE void LBMSolver::CalcPhysicalVals(int j, int k)
 {
     float rho_jk = 0;
     float momentum_jk[2]{0, 0};
 
     for (int i=0; i<9; i++)
     {
-        rho_jk += f[N*9*k + 9*j + i];
-        momentum_jk[0] += c[i][0] * f[N*9*k + 9*j + i];
-        momentum_jk[1] += c[i][1] * f[N*9*k + 9*j + i];
+        rho_jk += f_grid_[N * 9 * k + 9 * j + i];
+        momentum_jk[0] += c[i][0] * f_grid_[N * 9 * k + 9 * j + i];
+        momentum_jk[1] += c[i][1] * f_grid_[N * 9 * k + 9 * j + i];
     }
 
     float* u = momentum_jk;
-    u[0] = uref/urefL * (momentum_jk[0]/rho_jk);
-    u[1] = uref/urefL * (momentum_jk[1]/rho_jk);
-    rho_jk = rho0 * rho_jk;
+    u[0] = uref_ / lat_uref_ * (momentum_jk[0] / rho_jk);
+    u[1] = uref_ / lat_uref_ * (momentum_jk[1] / rho_jk);
+    rho_jk = rho0_ * rho_jk;
 
     int indices[2]{j, k};
 
     insertIntoGrid(indices, &rho_jk, rho_, SCALAR_FIELD);
-    insertIntoGrid(indices, u, U, VECTOR_FIELD);
+    insertIntoGrid(indices, u, u_grid_, VECTOR_FIELD);
 }
 
 } // namespace jfs
