@@ -13,46 +13,47 @@ namespace jfs {
 // struct to pass solver properties to
 // kernel that creates gpu copy of
 // the solver
-struct LBMSolverProps
-{
-    ushort grid_size;
-    float grid_length;
-    BoundType btype;
+    struct LBMSolverProps {
+        ushort grid_size;
+        float grid_length;
+        BoundType btype;
 
-    float rho0;
-    float visc;
-    float lat_visc;
-    float lat_tau;
-    float uref;
-    float dt;
+        float rho0;
+        float visc;
+        float lat_visc;
+        float lat_tau;
+        float uref;
+        float dt;
 
-    float* rho_grid;
+        float *rho_grid;
 
-    float* f_grid;
-    float* f0_grid;
+        float *f_grid;
+        float *f0_grid;
 
-    float* u_grid;
-    float* force_grid;
+        float *u_grid;
+        float *force_grid;
 
-    bool failed_step;
-};
+        bool failed_step;
+    };
 
-class CudaLBMSolver {
+    class CudaLBMSolver {
 
     public:
         // constructors
-        CudaLBMSolver() : cs_{ 1/sqrtf(3) }{}
+        CudaLBMSolver() : cs_{1 / sqrtf(3)} {}
 
-        CudaLBMSolver(ushort grid_size, float grid_length, BoundType btype, float rho0=1.3, float visc = 1e-4, float uref = 1);
+        CudaLBMSolver(ushort grid_size, float grid_length, BoundType btype, float rho0 = 1.3, float visc = 1e-4,
+                      float uref = 1);
 
         // initializer
-        void Initialize(ushort grid_size, float grid_length, BoundType btype, float rho0=1.3, float visc = 1e-4, float uref = 1);
+        void Initialize(ushort grid_size, float grid_length, BoundType btype, float rho0 = 1.3, float visc = 1e-4,
+                        float uref = 1);
 
         // reset simulation data
         void ResetFluid();
 
         // do next simulation steps
-        bool CalcNextStep(const std::vector<Force>& forces);
+        bool CalcNextStep(const std::vector<Force> &forces);
 
         // apply force to reach velocity
         void ForceVelocity(int i, int j, float ux, float uy);
@@ -63,28 +64,32 @@ class CudaLBMSolver {
         void DensityExtrema(float minmax_rho[2]);
 
         // inline getters:
-        float TimeStep(){return dt_;}
+        float TimeStep() { return dt_; }
 
-        float Time(){return time_;}
+        float Time() { return time_; }
 
-        float DeltaX(){return dx_;}
+        float DeltaX() { return dx_; }
 
-        float SoundSpeed(){return us_;}
+        float SoundSpeed() { return us_; }
 
-        float Rho0(){return rho0_;}
+        float Rho0() { return rho0_; }
 
-        float* RhoData(){return rho_grid_.HostData();}
+        float *RhoData() { return rho_grid_.HostData(); }
 
-        float* MappedRhoData(){MapDensity(); return rho_grid_mapped_.HostData();}
+        float *MappedRhoData() {
+            MapDensity();
+            return rho_grid_mapped_.HostData();
+        }
 
-        float* VelocityData(){return u_grid_.HostData();}
+        float *VelocityData() { return u_grid_.HostData(); }
 
         // inline indexers:
 
-        float IndexRhoData(int i, int j){return rho_grid_(i, j, 0, 0);}
+        float IndexRhoData(int i, int j) { return rho_grid_(i, j, 0, 0); }
 
         //destructor
-        ~CudaLBMSolver(){}
+        ~CudaLBMSolver() {}
+
     private:
 
         // DEV NOTES:
@@ -107,7 +112,7 @@ class CudaLBMSolver {
         CudaGrid2D<FieldType2D::Vector> u_grid_;
 
         CudaGrid2D<FieldType2D::Vector> force_grid_;
-       
+
         float rho0_{}; // typical physical density of fluid
 
         float uref_{}; // physical reference velocity scale
@@ -121,7 +126,7 @@ class CudaLBMSolver {
         float dt_{}; // physical time step
         const float lat_dt_ = 1.; // LBM delta t
         float time_{}; // current simulation time
-        
+
         float visc_{}; // fluid viscosity
         float lat_visc_{}; // lattice viscosity
         float lat_tau_{}; // relaxation time in lattice units
@@ -132,7 +137,7 @@ class CudaLBMSolver {
         void MapDensity(); // used by cuda kernel, must be public
 
         LBMSolverProps SolverProps();
-};
+    };
 
 } // namespace jfs
 
