@@ -277,8 +277,6 @@ JFS_INLINE bool LBMSolver::calcNextStep()
         fbari = CalcEquilibriumDistribution(alpha, i, j);
 
         lat_force = CalcLatticeForce(alpha, i, j);
-        if (i == 32 && j == 32)
-            printf("%i,%.6f\n", alpha, lat_force);
 
         Omegai = -(fi - fbari) / lat_tau_;
 
