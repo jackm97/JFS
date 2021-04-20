@@ -32,8 +32,6 @@ namespace jfs {
 
         float *u_grid;
         float *force_grid;
-
-        bool failed_step;
     };
 
     class CudaLBMSolver {

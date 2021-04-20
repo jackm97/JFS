@@ -144,14 +144,19 @@ namespace jfs {
             current_cuda_lbm_solver = this;
         }
 
+        bool failed_step = false;
+        bool *flag_ptr;
+        cudaMalloc(&flag_ptr, sizeof (bool) );
+        cudaMemcpy(flag_ptr, &failed_step, sizeof(bool), cudaMemcpyHostToDevice);
+
         int threads_per_block = 256;
         int num_blocks = (9 * (int) grid_size_ * (int) grid_size_) / threads_per_block + 1;
 
         cudaDeviceSynchronize();
-        collideKernel <<<num_blocks, threads_per_block>>>();
+        collideKernel <<<num_blocks, threads_per_block>>>(flag_ptr);
         cudaDeviceSynchronize();
 
-        streamKernel <<<num_blocks, threads_per_block>>>();
+        streamKernel <<<num_blocks, threads_per_block>>>(flag_ptr);
         cudaDeviceSynchronize();
 
         num_blocks = ((int) grid_size_ * (int) grid_size_) / threads_per_block + 1;
@@ -165,8 +170,9 @@ namespace jfs {
 
         time_ += dt_;
 
-        cudaMemcpyFromSymbol(&props, const_props, sizeof(LBMSolverProps), 0, cudaMemcpyDeviceToHost);
-        return props.failed_step;
+        cudaMemcpy(&failed_step, flag_ptr, sizeof(bool), cudaMemcpyDeviceToHost);
+        cudaFree(flag_ptr);
+        return failed_step;
     }
 
     __host__
@@ -243,7 +249,6 @@ namespace jfs {
         props.f0_grid = f0_grid_.Data();
         props.u_grid = u_grid_.Data();
         props.force_grid = force_grid_.Data();
-        props.failed_step = false;
 
         return props;
     }

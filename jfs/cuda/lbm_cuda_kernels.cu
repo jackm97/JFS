@@ -66,8 +66,6 @@ DEVICE FUNCTIONS
 #ifdef __CUDA_ARCH__
         const float ci[2]{(float) c[alpha][0], (float) c[alpha][1]};
 
-        const float &rho = *(const_props[0].rho_grid + const_props[0].grid_size * 1 * j + 1 * i);
-
         const float *u = const_props[0].u_grid + const_props[0].grid_size * 2 * j + 2 * i;
 
         const float *force = const_props[0].force_grid + const_props[0].grid_size * 2 * j + 2 * i;
@@ -165,7 +163,7 @@ END DEVICE FUNCTIONS
     __global__
     __launch_bounds__(256, 6)
 
-    void collideKernel() {
+    void collideKernel(bool *flag_ptr) {
 
         int grid_size = const_props[0].grid_size;
         int alpha = blockIdx.x * blockDim.x + threadIdx.x;
@@ -186,11 +184,14 @@ END DEVICE FUNCTIONS
 
         f[alpha] += lat_force - (f[alpha] - fbar) / const_props[0].lat_tau;
         *(const_props[0].f0_grid + grid_size * 9 * j + 9 * i + alpha) = f[alpha];
+
+        if (isnan(f[alpha]) || isinf(f[alpha]))
+            *flag_ptr = true;
 #endif
     }
 
     __global__
-    void streamKernel() {
+    void streamKernel(bool *flag_ptr) {
 
         int grid_size = const_props[0].grid_size;
         int alpha = blockIdx.x * blockDim.x + threadIdx.x;
@@ -217,8 +218,10 @@ END DEVICE FUNCTIONS
             int alpha_bounce = bounce_back_indices[alpha];
             f[alpha] = f0[alpha_bounce];
         }
-//        if ( isnan(f[alpha]) || isinf(f[alpha]) )
-//            const_props[0].failed_step = true;
+
+        if (isnan(f[alpha]) || isinf(f[alpha])) {
+            *flag_ptr = true;
+        }
 #endif
     }
 
