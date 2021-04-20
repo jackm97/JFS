@@ -234,6 +234,10 @@ END DEVICE FUNCTIONS
         i -= j * grid_size;
 
 #ifdef __CUDA_ARCH__
+
+        if (i >= grid_size || j >= grid_size)
+            return;
+
         calcPhysicalProps(i, j);
 #endif
     }
