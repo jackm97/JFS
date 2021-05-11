@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.17)
 project(jfs VERSION 0.1.0 LANGUAGES CXX CUDA)
 
 set(CMAKE_CUDA_STANDARD 14)
@@ -48,12 +48,10 @@ set(JFS_HEADERS
 # CUDA Files
 set(JFS_CUDA_SRC
         ${JFS_SOURCE_DIR}/cuda/grid/cuda_grid2d.cu
-        ${JFS_SOURCE_DIR}/cuda/lbm_solver_cuda.cu
-        ${JFS_SOURCE_DIR}/cuda/lbm_cuda_kernels.cu)
+        ${JFS_SOURCE_DIR}/cuda/lbm_solver_cuda.cu)
 set(JFS_CUDA_HEADERS
-        ${JFS_SOURCE_DIR}/cuda/grid/cuda_grid2d.cu
-        ${JFS_SOURCE_DIR}/cuda/lbm_solver_cuda.cu
-        ${JFS_SOURCE_DIR}/cuda/lbm_cuda_kernels.cu)
+        ${JFS_SOURCE_DIR}/cuda/grid/cuda_grid2d.h
+        ${JFS_SOURCE_DIR}/cuda/lbm_solver_cuda.h)
 
 
 
@@ -63,8 +61,9 @@ add_library(jfs STATIC ${JFS_SRC} ${JFS_HEADERS} ${JFS_CUDA_SRC} ${JFS_CUDA_HEAD
 set_target_properties(
         jfs
         PROPERTIES
-        CUDA_SEPARABLE_COMPILATION ON)
+        CUDA_SEPARABLE_COMPILATION OFF)
 set_property(TARGET jfs PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+set_property(TARGET jfs PROPERTY CUDA_ARCHITECTURES 86)
 
 find_package(CUDAToolkit REQUIRED)
 target_link_libraries(jfs PRIVATE CUDA::cudart -L${CUDAToolkit_LIBRARY_DIR} -lcudadevrt)

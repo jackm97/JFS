@@ -1,7 +1,5 @@
 #include "lbm_cuda_kernels.h"
 
-#include <jfs/cuda/grid/cuda_grid2d.h>
-
 namespace jfs {
 
     using FieldType2D::Vector;
@@ -9,26 +7,32 @@ namespace jfs {
 
     __constant__ float cs = 0.57735026919;
     __constant__ float lat_uref = .2;
-    __constant__ int c[9][2] { // D2Q9 velocity discretization
-        {0,0},                                // i = 0
-        {1,0}, {-1,0}, {0,1}, {0,-1},   // i = 1, 2, 3, 4
-        {1,1}, {-1,1}, {1,-1}, {-1,-1}  // i = 5, 6, 7, 8
+    __constant__ int c[9][2]{ // D2Q9 velocity discretization
+            {0,  0},                                // i = 0
+            {1,  0},
+            {-1, 0},
+            {0,  1},
+            {0,  -1},   // i = 1, 2, 3, 4
+            {1,  1},
+            {-1, 1},
+            {1,  -1},
+            {-1, -1}  // i = 5, 6, 7, 8
     };
 
     __constant__ int bounce_back_indices[9]{
-        0,
-        2, 1, 4, 3,
-        8, 7, 6, 5
+            0,
+            2, 1, 4, 3,
+            8, 7, 6, 5
     };
 
     __constant__ float w[9] = { // lattice weights
-        4./9.,                          // i = 0
-        1./9., 1./9., 1./9., 1./9.,     // i = 1, 2, 3, 4
-        1./36., 1./36., 1./36., 1./36., // i = 5, 6, 7, 8
+            4. / 9.,                          // i = 0
+            1. / 9., 1. / 9., 1. / 9., 1. / 9.,     // i = 1, 2, 3, 4
+            1. / 36., 1. / 36., 1. / 36., 1. / 36., // i = 5, 6, 7, 8
     };
 
     __constant__ LBMSolverProps const_props[1]{};
-    CudaLBMSolver* current_cuda_lbm_solver = nullptr;
+    CudaLBMSolver *current_cuda_lbm_solver = nullptr;
 
 /*
 *
@@ -127,15 +131,51 @@ END DEVICE FUNCTIONS
     void forceVelocityKernel(int i, int j, float ux, float uy) {
 
 #ifdef __CUDA_ARCH__
-        CudaGrid2D<Vector> u_grid;
-        u_grid.MapData(const_props[0].u_grid, const_props[0].grid_size, 1);
-        CudaGrid2D<Vector> force_grid;
-        force_grid.MapData(const_props[0].force_grid, const_props[0].grid_size, 1);
-        CudaGrid2D<Scalar> rho_grid;
-        rho_grid.MapData(const_props[0].rho_grid, const_props[0].grid_size, 1);
+        int grid_size = const_props[0].grid_size;
+        float &ux_old = *(const_props[0].u_grid + grid_size * 2 * j + 2 * i + 0);
+        float &uy_old = *(const_props[0].u_grid + grid_size * 2 * j + 2 * i + 1);
+        float &force_x = *(const_props[0].force_grid + grid_size * 2 * j + 2 * i + 0);
+        float &force_y = *(const_props[0].force_grid + grid_size * 2 * j + 2 * i + 1);
+        float &rho = *(const_props[0].rho_grid + grid_size * j + i);
 
-        force_grid(i, j, 0, 0) += (ux - u_grid(i, j, 0, 0)) * rho_grid(i, j, 0, 0) / const_props[0].dt;
-        force_grid(i, j, 0, 1) += (uy - u_grid(i, j, 0, 1)) * rho_grid(i, j, 0, 0) / const_props[0].dt;
+        float *f = const_props[0].f_grid + grid_size * 9 * j + 9 * i;
+        float *f0 = const_props[0].f0_grid + grid_size * 9 * j + 9 * i;
+
+        for (int alpha = 0; alpha < 9; alpha++) {
+            float lat_force = calcLatticeForce(alpha, i, j);
+            float fbar = calcEquilibrium(alpha, i, j);
+            f[alpha] -= (lat_force - (f0[alpha] - fbar) / const_props[0].lat_tau);
+        }
+
+        ux_old -= force_x * const_props[0].dt / (2 * rho);
+        uy_old -= force_y * const_props[0].dt / (2 * rho);
+
+        force_x = (ux - ux_old) * rho / const_props[0].dt;
+        force_y = (uy - uy_old) * rho / const_props[0].dt;
+
+
+        ux_old += force_x * const_props[0].dt / (2 * rho);
+        uy_old += force_y * const_props[0].dt / (2 * rho);
+
+        for (int alpha = 0; alpha < 9; alpha++) {
+            float lat_force = calcLatticeForce(alpha, i, j);
+            float fbar = calcEquilibrium(alpha, i, j);
+            f[alpha] += (lat_force - (f[alpha] - fbar) / const_props[0].lat_tau);
+        }
+#endif
+    }
+    __global__
+    void addMassKernel(int i, int j, float rho) {
+
+#ifdef __CUDA_ARCH__
+        int grid_size = const_props[0].grid_size;
+
+        float *f = const_props[0].f_grid + grid_size * 9 * j + 9 * i;
+        rho = rho / const_props[0].rho0;
+
+        for (int alpha = 0; alpha < 9; alpha++) {
+            f[alpha] += w[alpha] * rho;
+        }
 #endif
     }
 
@@ -178,12 +218,11 @@ END DEVICE FUNCTIONS
             return;
 
         float *f = const_props[0].f_grid + grid_size * 9 * j + 9 * i;
-
+        *(const_props[0].f0_grid + grid_size * 9 * j + 9 * i + alpha) = f[alpha];
         float lat_force = calcLatticeForce(alpha, i, j);
         float fbar = calcEquilibrium(alpha, i, j);
 
         f[alpha] += lat_force - (f[alpha] - fbar) / const_props[0].lat_tau;
-        *(const_props[0].f0_grid + grid_size * 9 * j + 9 * i + alpha) = f[alpha];
 
         if (isnan(f[alpha]) || isinf(f[alpha]))
             *flag_ptr = true;
@@ -209,37 +248,89 @@ END DEVICE FUNCTIONS
         int ciy = c[alpha][1];
 
         float *f = const_props[0].f_grid + grid_size * 9 * j + 9 * i;
+        int alpha_bounce = bounce_back_indices[alpha];
+        int i_back = (i - cix);
+        int j_back = (j - ciy);
+        bool is_bounce = ( i_back < 0 || i_back == grid_size || j_back < 0 || j_back == grid_size );
 
-        if ((j - ciy) >= 0 && (j - ciy) < grid_size && (i - cix) >= 0 && (i - cix) < grid_size) {
-            float *f0 = const_props[0].f0_grid + grid_size * 9 * (j - ciy) + 9 * (i - cix);
-            f[alpha] = f0[alpha];
-        } else {
-            float *f0 = const_props[0].f0_grid + grid_size * 9 * j + 9 * i;
-            int alpha_bounce = bounce_back_indices[alpha];
-            f[alpha] = f0[alpha_bounce];
-        }
+        float *f0 = (is_bounce) ? const_props[0].f0_grid + grid_size * 9 * j + 9 * i :
+                const_props[0].f0_grid + grid_size * 9 * j_back + 9 * i_back;
 
-        if (isnan(f[alpha]) || isinf(f[alpha])) {
+        f[alpha] = (is_bounce) ? f0[alpha_bounce] : f0[alpha];
+
+        float f_val = f[alpha];
+        if (isnan(f_val) || isinf(f_val)) {
             *flag_ptr = true;
         }
 #endif
     }
 
     __global__
-    void calcPhysicalKernel() {
+    void calcRhoKernel() {
 
         int grid_size = const_props[0].grid_size;
         int i = blockIdx.x * blockDim.x + threadIdx.x;
-        int j = i / grid_size;
-        i -= j * grid_size;
+        int j = i / (grid_size);
+        i -= grid_size * j;
 
 #ifdef __CUDA_ARCH__
 
         if (i >= grid_size || j >= grid_size)
             return;
 
-        calcPhysicalProps(i, j);
+        const float *f = const_props[0].f_grid + grid_size * 9 * j + 9 * i;
+
+        float rho = 0;
+
+        float rho0 = const_props[0].rho0;
+
+        for (int alpha = 0; alpha < 9; alpha++)
+            rho += f[alpha] * rho0;
+
+        *(const_props[0].rho_grid + grid_size * j + i) = rho;
 #endif
+    }
+
+    __global__ void calcVelocityKernel() {
+
+        int grid_size = const_props[0].grid_size;
+        int i = blockIdx.x * blockDim.x + threadIdx.x;
+        int j = i / (grid_size);
+        i -= grid_size * j;
+
+#ifdef __CUDA_ARCH__
+
+        if (i >= grid_size || j >= grid_size)
+            return;
+
+        float rho = *(const_props[0].rho_grid + grid_size * j + i);
+        float rho0 = const_props[0].rho0;
+        float uref = const_props[0].uref;
+
+        const float *f = const_props[0].f_grid + grid_size * 9 * j + 9 * i;
+
+        float u[2]{0.f, 0.f};
+
+        for (int alpha = 0; alpha < 9; alpha++) {
+            float f_alpha = f[alpha];
+            u[0] += (float) c[alpha][0] * f_alpha;
+            u[1] += (float) c[alpha][1] * f_alpha;
+        }
+
+        rho /= rho0;
+        u[0] = uref / lat_uref * (u[0] / rho);
+        u[1] = uref / lat_uref * (u[1] / rho);
+        rho *= rho0;
+
+        float force_x = *(const_props[0].force_grid  + grid_size * 2 * j + 2 * i + 0);
+        u[0] += force_x * const_props[0].dt / (2 * rho);
+        float force_y = *(const_props[0].force_grid  + grid_size * 2 * j + 2 * i + 1);
+        u[1] += force_y * const_props[0].dt / (2 * rho);
+
+        *(const_props[0].u_grid + grid_size * 2 * j + 2 * i + 0) = u[0];
+        *(const_props[0].u_grid + grid_size * 2 * j + 2 * i + 1) = u[1];
+#endif
+
     }
 
     __global__

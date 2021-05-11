@@ -92,11 +92,17 @@ namespace jfs {
         __HOST__DEVICE__
         uint Fields() { return fields_; }
 
+        __HOST__
+        void SyncDeviceWithHost();
+
         /// __host__ __device__
         ///
         /// \return pointer to device data
         __HOST__DEVICE__
         float *Data() { return data_; };
+
+        __HOST__
+        void SyncHostWithDevice();
 
         /// __host__
         ///
@@ -127,21 +133,18 @@ namespace jfs {
         void InterpToGrid(float q, float i, float j, uint f, uint d);
 
         // interpolate quantity from grid
-//            __HOST__DEVICE__
-//            float InterpFromGrid(float i, float j, uint f, uint d);
+        __HOST__DEVICE__
+        float InterpFromGrid(float i, float j, uint f, uint d);
 
         // overloaded operators
         __HOST__DEVICE__
         CudaGrid2D<Options> &operator=(const CudaGrid2D<Options> &src);
+
         /*!
          * \overload template <uint Options> float& CudaGrid2D<Options>::operator()(int i, int j, int f, int d)
          */
         __HOST__DEVICE__
-#if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
-        float operator()(int i, int j, int f, int d);
-#else
         float &operator()(int i, int j, int f, int d);
-#endif
 
         __HOST__DEVICE__
         ~CudaGrid2D() { FreeGridData(); }

@@ -19,8 +19,6 @@ namespace jfs {
         BoundType btype;
 
         float rho0;
-        float visc;
-        float lat_visc;
         float lat_tau;
         float uref;
         float dt;
@@ -52,16 +50,21 @@ namespace jfs {
 
         // do next simulation steps
         bool CalcNextStep(const std::vector<Force> &forces);
+        void SyncHostWithDevice(){rho_grid_.SyncHostWithDevice(); u_grid_.SyncHostWithDevice();}
 
         // apply force to reach velocity
         void ForceVelocity(int i, int j, float ux, float uy);
 
+        void AddMassSource(int i, int j, float rho);
+
         // density mapping
+
         void SetDensityMapping(float min_rho, float max_rho);
 
         void DensityExtrema(float minmax_rho[2]);
 
         // inline getters:
+
         float TimeStep() { return dt_; }
 
         float Time() { return time_; }
@@ -72,11 +75,13 @@ namespace jfs {
 
         float Rho0() { return rho0_; }
 
+        float Viscosity() { return visc_; }
+
         float *RhoData() { return rho_grid_.HostData(); }
 
         float *MappedRhoData() {
             MapDensity();
-            return rho_grid_mapped_.HostData();
+            return mapped_rho_grid_.HostData();
         }
 
         float *VelocityData() { return u_grid_.HostData(); }
@@ -84,6 +89,8 @@ namespace jfs {
         // inline indexers:
 
         float IndexRhoData(int i, int j) { return rho_grid_(i, j, 0, 0); }
+
+        float IndexVelocityData(int i, int j, int d) { return u_grid_(i, j, 0, d); }
 
         //destructor
         ~CudaLBMSolver() {}
@@ -105,7 +112,7 @@ namespace jfs {
         CudaGrid2D<FieldType2D::Scalar> rho_grid_; // calculated rho from distribution function
         float min_rho_{};
         float max_rho_{};
-        CudaGrid2D<FieldType2D::Scalar> rho_grid_mapped_; // rho_, but mapped to [0,1] with min/max_rho_
+        CudaGrid2D<FieldType2D::Scalar> mapped_rho_grid_; // rho_, but mapped to [0,1] with min/max_rho_
 
         CudaGrid2D<FieldType2D::Vector> u_grid_;
 
@@ -126,13 +133,12 @@ namespace jfs {
         float time_{}; // current simulation time
 
         float visc_{}; // fluid viscosity
-        float lat_visc_{}; // lattice viscosity
         float lat_tau_{}; // relaxation time in lattice units
 
     private:
         bool CalcNextStep();
 
-        void MapDensity(); // used by cuda kernel, must be public
+        void MapDensity();
 
         LBMSolverProps SolverProps();
     };

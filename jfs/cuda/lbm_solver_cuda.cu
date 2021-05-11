@@ -1,8 +1,7 @@
 #include "lbm_solver_cuda.h"
 
-#include <jfs/cuda/lbm_cuda_kernels.h>
+#include <jfs/cuda/lbm_cuda_kernels.cu>
 
-#include <cstring>
 #include <iostream>
 
 namespace jfs {
@@ -28,15 +27,15 @@ namespace jfs {
         us_ = cs_ / lat_uref_ * uref_;
 
         dx_ = grid_length_ / (float) (grid_size_ - 1);
-        lat_visc_ = lat_uref_ / (uref_ * dx_) * visc;
-        lat_tau_ = (3.f * lat_visc_ + .5f);
+        float lat_visc = lat_uref_ / (uref_ * dx_) * visc;
+        lat_tau_ = (3.f * lat_visc + .5f);
         dt_ = lat_uref_ / uref_ * dx_ * lat_dt_;
 
         f_grid_.Resize(grid_size_, 9);
         f0_grid_.Resize(grid_size_, 9);
 
         rho_grid_.Resize(grid_size_, 1);
-        rho_grid_mapped_.Resize(grid_size_, 3);
+        mapped_rho_grid_.Resize(grid_size_, 3);
 
         u_grid_.Resize(grid_size_, 1);
 
@@ -62,11 +61,18 @@ namespace jfs {
         resetDistributionKernel <<<num_blocks, threads_per_block>>>(f_grid_.Data());
         cudaDeviceSynchronize();
 
+        f0_grid_ = f_grid_;
+
         time_ = 0;
     }
 
     JFS_INLINE bool CudaLBMSolver::CalcNextStep(const std::vector<Force> &forces) {
         bool failed_step = false;
+
+        for (int d = 0; d < 2; d++) {
+            force_grid_.SetGridToValue(0, 0, d);
+        }
+
         try {
             for (const auto &i : forces) {
                 float force[3] = {
@@ -91,9 +97,6 @@ namespace jfs {
             std::cerr << e.what() << '\n';
             failed_step = true;
         }
-        for (int d = 0; d < 2; d++) {
-            force_grid_.SetGridToValue(0, 0, d);
-        }
 
         if (failed_step) ResetFluid();
 
@@ -108,6 +111,17 @@ namespace jfs {
         }
 
         forceVelocityKernel <<<1, 1>>>(i, j, ux, uy);
+        cudaDeviceSynchronize();
+    }
+
+    JFS_INLINE void CudaLBMSolver::AddMassSource(int i, int j, float rho) {
+        if (current_cuda_lbm_solver != this) {
+            LBMSolverProps props = SolverProps();
+            cudaMemcpyToSymbol(const_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
+            current_cuda_lbm_solver = this;
+        }
+
+        addMassKernel <<<1, 1>>>(i, j, rho);
         cudaDeviceSynchronize();
     }
 
@@ -146,57 +160,62 @@ namespace jfs {
 
         bool failed_step = false;
         bool *flag_ptr;
-        cudaMalloc(&flag_ptr, sizeof (bool) );
+        cudaMalloc(&flag_ptr, sizeof(bool));
         cudaMemcpy(flag_ptr, &failed_step, sizeof(bool), cudaMemcpyHostToDevice);
 
         int threads_per_block = 256;
-        int num_blocks = (9 * (int) grid_size_ * (int) grid_size_) / threads_per_block + 1;
+        int num_blocks = (9 * (int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
 
-        cudaDeviceSynchronize();
-        collideKernel <<<num_blocks, threads_per_block>>>(flag_ptr);
-        cudaDeviceSynchronize();
-
+        cudaMemcpy(f0_grid_.Data(), f_grid_.Data(), 9*grid_size_*grid_size_*sizeof(float), cudaMemcpyDeviceToDevice);
         streamKernel <<<num_blocks, threads_per_block>>>(flag_ptr);
         cudaDeviceSynchronize();
 
-        num_blocks = ((int) grid_size_ * (int) grid_size_) / threads_per_block + 1;
-        calcPhysicalKernel <<<num_blocks, threads_per_block>>>();
+        num_blocks = ((int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
+        calcRhoKernel <<<num_blocks, threads_per_block>>>();
+        cudaDeviceSynchronize();
+        calcVelocityKernel <<<num_blocks, threads_per_block>>>();
         cudaDeviceSynchronize();
 
         // do any field manipulations before next step
         if (btype_ == DAMPED) {
-            boundaryDampKernel <<<grid_size_ / threads_per_block + 1, threads_per_block>>>();
+            boundaryDampKernel <<<(grid_size_ + threads_per_block - 1) / threads_per_block, threads_per_block>>>();
+            cudaDeviceSynchronize();
         }
+
+        num_blocks = (9 * (int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
+        collideKernel <<<num_blocks, threads_per_block>>>(flag_ptr);
+        cudaDeviceSynchronize();
 
         time_ += dt_;
 
         cudaMemcpy(&failed_step, flag_ptr, sizeof(bool), cudaMemcpyDeviceToHost);
+        cudaDeviceSynchronize();
         cudaFree(flag_ptr);
         return failed_step;
     }
 
     __host__
     JFS_INLINE void CudaLBMSolver::MapDensity() {
-        float *host_rho_grid = RhoData();
+        float *host_rho_data = RhoData();
 
-        float min_rho = host_rho_grid[0];
-        float max_rho = host_rho_grid[0];
+        float min_rho = host_rho_data[0];
+        float max_rho = host_rho_data[0];
         float mean_rho = 0;
         for (int i = 0; i < grid_size_ * grid_size_; i++)
-            mean_rho += host_rho_grid[i];
+            mean_rho += host_rho_data[i];
         mean_rho /= (float) grid_size_ * (float) grid_size_;
 
         for (int i = 0; i < grid_size_ * grid_size_ && min_rho_ == -1; i++) {
-            if (host_rho_grid[i] < min_rho)
-                min_rho = host_rho_grid[i];
+            if (host_rho_data[i] < min_rho)
+                min_rho = host_rho_data[i];
         }
 
         if (min_rho_ != -1)
             min_rho = min_rho_;
 
         for (int i = 0; i < grid_size_ * grid_size_ && max_rho_ == -1; i++) {
-            if (host_rho_grid[i] > max_rho)
-                max_rho = host_rho_grid[i];
+            if (host_rho_data[i] > max_rho)
+                max_rho = host_rho_data[i];
         }
 
         if (max_rho_ == -1 && min_rho_ == -1) {
@@ -209,27 +228,25 @@ namespace jfs {
         if (max_rho_ != -1)
             max_rho = max_rho_;
 
-
-        float *rho_grid_mapped_host = rho_grid_mapped_.HostData();
+        float *host_mapped_rho_data = mapped_rho_grid_.HostData();
         for (int i = 0; i < grid_size_; i++)
             for (int j = 0; j < grid_size_; j++) {
-                float rho;
-                rho = host_rho_grid[grid_size_ * j + i];
+                float rho_mapped;
+                rho_mapped = host_rho_data[grid_size_ * j + i];
                 if ((max_rho - min_rho) != 0)
-                    rho = (rho - min_rho) / (max_rho - min_rho);
+                    rho_mapped = (rho_mapped - min_rho) / (max_rho - min_rho);
                 else
-                    rho = 0 * rho;
+                    rho_mapped = 0 * rho_mapped;
 
-                // rho = (rho < 0) ? 0 : rho;
-                // rho = (rho > 1) ? 1 : rho;
+                // rho_mapped = (rho_mapped < 0) ? 0 : rho_mapped;
+                // rho_mapped = (rho_mapped > 1) ? 1 : rho_mapped;
 
-                rho_grid_mapped_host[grid_size_ * 3 * j + 3 * i + 0] = rho;
-                rho_grid_mapped_host[grid_size_ * 3 * j + 3 * i + 1] = rho;
-                rho_grid_mapped_host[grid_size_ * 3 * j + 3 * i + 2] = rho;
+                host_mapped_rho_data[grid_size_ * 3 * j + 3 * i + 0] = rho_mapped;
+                host_mapped_rho_data[grid_size_ * 3 * j + 3 * i + 1] = rho_mapped;
+                host_mapped_rho_data[grid_size_ * 3 * j + 3 * i + 2] = rho_mapped;
             }
 
-        cudaMemcpy(rho_grid_mapped_.Data(), rho_grid_mapped_host, 3 * grid_size_ * grid_size_ * sizeof(float),
-                   cudaMemcpyHostToDevice);
+//        mapped_rho_grid_.SyncDeviceWithHost();
     }
 
     JFS_INLINE LBMSolverProps CudaLBMSolver::SolverProps() {
@@ -239,8 +256,6 @@ namespace jfs {
         props.grid_length = grid_length_;
         props.btype = btype_;
         props.rho0 = rho0_;
-        props.visc = visc_;
-        props.lat_visc = lat_visc_;
         props.lat_tau = lat_tau_;
         props.uref = uref_;
         props.dt = dt_;

@@ -5,11 +5,11 @@
 
 namespace jfs {
 
-    extern __constant__ LBMSolverProps const_props[1];
-    extern CudaLBMSolver *current_cuda_lbm_solver;
-
     __global__
     void forceVelocityKernel(int i, int j, float ux, float uy);
+
+    __global__
+    void addMassKernel(int i, int j, float rho);
 
     __global__
     void resetDistributionKernel(float *f_data);
@@ -21,7 +21,10 @@ namespace jfs {
     void streamKernel(bool *flag_ptr);
 
     __global__
-    void calcPhysicalKernel();
+    void calcRhoKernel();
+
+    __global__
+    void calcVelocityKernel();
 
     __global__
     void boundaryDampKernel();
