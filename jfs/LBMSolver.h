@@ -3,7 +3,7 @@
 
 #include "jfs_inline.h"
 
-#include <jfs/base/grid2D.h>
+#include <jfs/grid/grid2D.h>
 
 #include <vector>
 

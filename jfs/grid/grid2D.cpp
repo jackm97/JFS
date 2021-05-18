@@ -1,4 +1,4 @@
-#include <jfs/base/grid2D.h>
+#include <jfs/grid/grid2D.h>
 
 #include <cmath>
 

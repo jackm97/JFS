@@ -1,4 +1,4 @@
-#include <jfs/base/grid3D.h>
+#include <jfs/grid/grid3D.h>
 
 #include <cmath>
 

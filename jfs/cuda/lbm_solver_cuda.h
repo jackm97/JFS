@@ -97,10 +97,6 @@ namespace jfs {
 
     private:
 
-        // DEV NOTES:
-        // The paper uses fi to represent the discretized distribution function
-        // Because of this, j,k,l are now used to index x,y,z positions on the grid
-
         // grid stuff
         BoundType btype_;
         uint grid_size_{};

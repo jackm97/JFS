@@ -25,8 +25,8 @@ set(JFS_SOURCE_DIR ${PROJECT_SOURCE_DIR}/jfs)
 
 # Source Files
 set(JFS_SRC
-        ${JFS_SOURCE_DIR}/base/grid2D.cpp
-        ${JFS_SOURCE_DIR}/base/grid3D.cpp
+        ${JFS_SOURCE_DIR}/grid/grid2D.cpp
+        ${JFS_SOURCE_DIR}/grid/grid3D.cpp
         ${JFS_SOURCE_DIR}/differential_ops/grid_diff2d.cpp
         ${JFS_SOURCE_DIR}/differential_ops/grid_diff3d.cpp
         ${JFS_SOURCE_DIR}/visualization/grid_smoke2d.cpp
@@ -35,8 +35,8 @@ set(JFS_SRC
         ${JFS_SOURCE_DIR}/JSSFSolver3D.cpp
         ${JFS_SOURCE_DIR}/LBMSolver.cpp)
 set(JFS_HEADERS
-        ${JFS_SOURCE_DIR}/base/grid2D.h
-        ${JFS_SOURCE_DIR}/base/grid3D.h
+        ${JFS_SOURCE_DIR}/grid/grid2D.h
+        ${JFS_SOURCE_DIR}/grid/grid3D.h
         ${JFS_SOURCE_DIR}/differential_ops/grid_diff2d.h
         ${JFS_SOURCE_DIR}/differential_ops/grid_diff3d.h
         ${JFS_SOURCE_DIR}/visualization/grid_smoke2d.h

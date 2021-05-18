@@ -3,7 +3,7 @@
 
 #include "jfs_inline.h"
 
-#include <jfs/base/grid3D.h>
+#include <jfs/grid/grid3D.h>
 #include <Eigen/Eigen>
 
 namespace jfs {

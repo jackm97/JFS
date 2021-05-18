@@ -2,7 +2,7 @@
 #define GRID_DIFF3D_H
 #include "../jfs_inline.h"
 
-#include <jfs/base/grid3D.h>
+#include <jfs/grid/grid3D.h>
 
 namespace jfs {
 

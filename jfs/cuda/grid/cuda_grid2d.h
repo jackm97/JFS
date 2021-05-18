@@ -1,7 +1,7 @@
 #ifndef CUDA_GRID2D_H
 #define CUDA_GRID2D_H
 
-#include "jfs/cuda/cuda_macros.h"
+#include "../cuda_macros.h"
 
 
 namespace jfs {
@@ -17,11 +17,10 @@ namespace jfs {
 
     /// grid can be used in host or device code but cannot be passed between host and device
     ///
-    /// @tparam Options - FieldType2D::Scalar or FieldType2D::Vector
+    /// \tparam Options - FieldType2D::Scalar or FieldType2D::Vector
     template<uint Options>
     class CudaGrid2D {
     public:
-        // constructors
 
         /// __host__ __device__ empty constructor
         __HOST__DEVICE__
@@ -47,14 +46,13 @@ namespace jfs {
         /// \param size - grid size
         /// \param fields - number of fields (i.e. RGB color grid would have 3 fields)
         CudaGrid2D(const float *data, uint size, uint fields);
-        // end constructors
 
         /// __host__ __device__ resize grid
         ///
         /// \param size - grid size
         /// \param fields - number of fields (i.e. RGB color grid would have 3 fields)
         __HOST__DEVICE__
-        void Resize(uint size, uint fields = 0);
+        void Resize(uint size, uint fields);
 
         /// __host__ copy data that is stored on device to grid
         ///
@@ -92,26 +90,31 @@ namespace jfs {
         __HOST__DEVICE__
         uint Fields() { return fields_; }
 
+        /// __host__ syncs device data with host data
         __HOST__
         void SyncDeviceWithHost();
 
         /// __host__ __device__
+        /// \note The device data is not automatically synced with the host data. Make sure to call CudaGrid2D::SyncDeviceWithHost
+        /// if necessary
         ///
         /// \return pointer to device data
         __HOST__DEVICE__
         float *Data() { return data_; };
 
+        /// __host__ syncs host data with device data
         __HOST__
         void SyncHostWithDevice();
 
         /// __host__
+        /// \note The host data is not automatically synced with the device data. Make sure to call CudaGrid2D::SyncHostWithDevice
         ///
         /// \return pointer to host data
         __HOST__
         float *HostData();
 
         /// __host__ insert quantity into grid
-        /// \paragraph  Note that there are no protections against indexing out of bounds of array. It may or may not
+        /// \note There are no protections against indexing out of bounds of array. It may or may not
         /// result in a segfault; behavior is undefined.
         ///
         /// \param val - inserted value
@@ -125,24 +128,43 @@ namespace jfs {
         /// __host__ __device__ linearly interpolate quantity to grid
         ///
         /// \param q - interpolated quantity
-        /// \param i - x index
-        /// \param j - y index
+        /// \param i - x position
+        /// \param j - y position
         /// \param f - field index (i.e. 1 for green in RGB scalar grid)
         /// \param d - field dimension (i.e. 1 for y dimension in vector grid)
         __HOST__DEVICE__
         void InterpToGrid(float q, float i, float j, uint f, uint d);
 
-        // interpolate quantity from grid
+        /// __host__ __device__ interpolate quantity from grid
+        /// \note Make sure to call CudaGrid2D::SyncHostWithDevice before calling on the host.
+        ///
+        /// \param i - x position
+        /// \param j - y position
+        /// \param f - field index (i.e. 1 for green in RGB scalar grid)
+        /// \param d - field dimension (i.e. 1 for y dimension in vector grid)
+        ///
+        /// \return interpolated quantity
         __HOST__DEVICE__
         float InterpFromGrid(float i, float j, uint f, uint d);
 
-        // overloaded operators
+        /// __host__ __device__ overloaded assignment
+        ///
+        /// \param src - const reference to source grid
         __HOST__DEVICE__
         CudaGrid2D<Options> &operator=(const CudaGrid2D<Options> &src);
 
-        /*!
-         * \overload template <uint Options> float& CudaGrid2D<Options>::operator()(int i, int j, int f, int d)
-         */
+        /// __host__ __device__ index grid
+        /// \note This indexing allows for easy modification of the grid on the host or the device, however, once all
+        /// modifications have been made on the host, a call to CudaGrid2D::SyncDeviceWithHost needs to be made. Along
+        /// the same lines, make sure to call CudaGrid2D::SyncHostWithDevice *before* indexing the grid on the host.
+        ///
+        /// \param i - x index
+        /// \param j - y index
+        /// \param f - field index (i.e. 1 for green in RGB scalar grid)
+        /// \param d - field dimension (i.e. 1 for y dimension in vector grid)
+        ///
+        /// \return reference to indexed quantity in grid (reference is from host data if called from host and device
+        /// data if called from device)
         __HOST__DEVICE__
         float &operator()(int i, int j, int f, int d);
 

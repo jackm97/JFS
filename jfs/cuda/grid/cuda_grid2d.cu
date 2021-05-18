@@ -115,7 +115,7 @@ namespace jfs {
         dim3 threads_per_block(16, 16);
         dim3 num_blocks(size_ / threads_per_block.x + 1, size_ / threads_per_block.y + 1);
 
-        setGridKernel < Options > <<<num_blocks, threads_per_block>>>(val, field, dim, data_, size_, fields_);
+        setGridKernel<Options> <<<num_blocks, threads_per_block>>>(val, field, dim, data_, size_, fields_);
 
         cudaDeviceSynchronize();
     }
@@ -192,8 +192,8 @@ namespace jfs {
     */
     template<uint Options>
     __global__
-    void
-    InterpFromGridKernel(float* q_ptr, float i, float j, uint f, uint d, float *grid_data, uint grid_size, uint fields) {
+    void InterpFromGridKernel(float *q_ptr, float i, float j, uint f, uint d, float *grid_data, uint grid_size,
+                              uint fields) {
 #if defined(__CUDA_ARCH__) && !defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
         CudaGrid2D<Options> grid;
         grid.MapData(grid_data, grid_size, fields);
@@ -252,7 +252,8 @@ namespace jfs {
 
     template<uint Options>
     __HOST__DEVICE__
-    CudaGrid2D<Options> &CudaGrid2D<Options>::operator=(const CudaGrid2D<Options> &src) { // NOLINT(bugprone-unhandled-self-assignment)
+    CudaGrid2D<Options> &
+    CudaGrid2D<Options>::operator=(const CudaGrid2D<Options> &src) { // NOLINT(bugprone-unhandled-self-assignment)
         Resize(src.size_, src.fields_);
         int total_size = size_ * size_ * dims_ * fields_;
 
@@ -270,8 +271,7 @@ namespace jfs {
 
     template<uint Options>
     __HOST__DEVICE__
-    float &CudaGrid2D<Options>::operator()(int i, int j, int f, int d)
-    {
+    float &CudaGrid2D<Options>::operator()(int i, int j, int f, int d) {
         int offset = size_ * fields_ * dims_ * j + fields_ * dims_ * i +
                      dims_ * f + d;
 
@@ -323,13 +323,13 @@ namespace jfs {
 #endif
     }
 
-    template __global__ void
-    InterpToGridKernel<FieldType2D::Scalar>(float val, float i, float j, uint f, uint d, float *grid_data,
-                                            uint grid_size, uint fields);
+    template __global__
+    void InterpToGridKernel<FieldType2D::Scalar>(float val, float i, float j, uint f, uint d, float *grid_data,
+                                                 uint grid_size, uint fields);
 
-    template __global__ void
-    InterpToGridKernel<FieldType2D::Vector>(float val, float i, float j, uint f, uint d, float *grid_data,
-                                            uint grid_size, uint fields);
+    template __global__
+    void InterpToGridKernel<FieldType2D::Vector>(float val, float i, float j, uint f, uint d, float *grid_data,
+                                                 uint grid_size, uint fields);
 
     template __global__
     void setGridKernel<FieldType2D::Scalar>(float val, uint f, uint d, float *grid_data, uint grid_size, uint fields);
