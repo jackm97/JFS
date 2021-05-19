@@ -128,38 +128,40 @@ END DEVICE FUNCTIONS
 *
 */
     __global__
-    void forceVelocityKernel(int i, int j, float ux, float uy) {
+    void forceVelocityKernel(int *i, int *j, float *ux, float *uy, int num_points) {
+
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 #ifdef __CUDA_ARCH__
         int grid_size = const_props[0].grid_size;
-        float &ux_old = *(const_props[0].u_grid + grid_size * 2 * j + 2 * i + 0);
-        float &uy_old = *(const_props[0].u_grid + grid_size * 2 * j + 2 * i + 1);
-        float &force_x = *(const_props[0].force_grid + grid_size * 2 * j + 2 * i + 0);
-        float &force_y = *(const_props[0].force_grid + grid_size * 2 * j + 2 * i + 1);
-        float &rho = *(const_props[0].rho_grid + grid_size * j + i);
+        float &ux_old = *(const_props[0].u_grid + grid_size * 2 * j[idx] + 2 * i[idx] + 0);
+        float &uy_old = *(const_props[0].u_grid + grid_size * 2 * j[idx] + 2 * i[idx] + 1);
+        float &force_x = *(const_props[0].force_grid + grid_size * 2 * j[idx] + 2 * i[idx] + 0);
+        float &force_y = *(const_props[0].force_grid + grid_size * 2 * j[idx] + 2 * i[idx] + 1);
+        float &rho = *(const_props[0].rho_grid + grid_size * j[idx] + i[idx]);
 
-        float *f = const_props[0].f_grid + grid_size * 9 * j + 9 * i;
-        float *f0 = const_props[0].f0_grid + grid_size * 9 * j + 9 * i;
+        float *f = const_props[0].f_grid + grid_size * 9 * j[idx] + 9 * i[idx];
+        float *f0 = const_props[0].f0_grid + grid_size * 9 * j[idx] + 9 * i[idx];
 
         for (int alpha = 0; alpha < 9; alpha++) {
-            float lat_force = calcLatticeForce(alpha, i, j);
-            float fbar = calcEquilibrium(alpha, i, j);
+            float lat_force = calcLatticeForce(alpha, i[idx], j[idx]);
+            float fbar = calcEquilibrium(alpha, i[idx], j[idx]);
             f[alpha] -= (lat_force - (f0[alpha] - fbar) / const_props[0].lat_tau);
         }
 
         ux_old -= force_x * const_props[0].dt / (2 * rho);
         uy_old -= force_y * const_props[0].dt / (2 * rho);
 
-        force_x = (ux - ux_old) * rho / const_props[0].dt;
-        force_y = (uy - uy_old) * rho / const_props[0].dt;
+        force_x = (ux[idx] - ux_old) * rho / const_props[0].dt;
+        force_y = (uy[idx] - uy_old) * rho / const_props[0].dt;
 
 
         ux_old += force_x * const_props[0].dt / (2 * rho);
         uy_old += force_y * const_props[0].dt / (2 * rho);
 
         for (int alpha = 0; alpha < 9; alpha++) {
-            float lat_force = calcLatticeForce(alpha, i, j);
-            float fbar = calcEquilibrium(alpha, i, j);
+            float lat_force = calcLatticeForce(alpha, i[idx], j[idx]);
+            float fbar = calcEquilibrium(alpha, i[idx], j[idx]);
             f[alpha] += (lat_force - (f[alpha] - fbar) / const_props[0].lat_tau);
         }
 #endif

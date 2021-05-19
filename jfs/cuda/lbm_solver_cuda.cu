@@ -73,45 +73,58 @@ namespace jfs {
             force_grid_.SetGridToValue(0, 0, d);
         }
 
-        try {
-            for (const auto &i : forces) {
-                float force[3] = {
-                        i.force[0],
-                        i.force[1],
-                        i.force[2]
-                };
-                float point[3] = {
-                        i.pos[0] / dx_,
-                        i.pos[1] / dx_,
-                        i.pos[2] / dx_
-                };
-                if (point[0] < (float) grid_size_ && point[0] >= 0 && point[1] < (float) grid_size_ && point[1] >= 0)
-                    for (int d = 0; d < 2; d++) {
-                        force_grid_.InterpToGrid(force[d], point[0], point[1], 0, d);
-                    }
-            }
+        for (const auto &i : forces) {
+            float force[2] = {
+                    i.force[0],
+                    i.force[1],
+            };
+            float point[2] = {
+                    i.pos[0] / dx_,
+                    i.pos[1] / dx_,
+            };
 
-            failed_step = CalcNextStep();
+            if (point[0] < (float) grid_size_ && point[0] >= 0 && point[1] < (float) grid_size_ && point[1] >= 0)
+                for (int d = 0; d < 2; d++) {
+                    force_grid_.InterpToGrid(force[d], point[0], point[1], 0, d);
+                }
         }
-        catch (const std::exception &e) {
-            std::cerr << e.what() << '\n';
-            failed_step = true;
-        }
+
+        failed_step = CalcNextStep();
 
         if (failed_step) ResetFluid();
+
+        host_synced_ = false;
 
         return failed_step;
     }
 
-    JFS_INLINE void CudaLBMSolver::ForceVelocity(int i, int j, float ux, float uy) {
+    JFS_INLINE void CudaLBMSolver::ForceVelocity(int *i, int *j, float *ux, float *uy, int num_points) {
         if (current_cuda_lbm_solver != this) {
             LBMSolverProps props = SolverProps();
             cudaMemcpyToSymbol(const_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
             current_cuda_lbm_solver = this;
         }
 
-        forceVelocityKernel <<<1, 1>>>(i, j, ux, uy);
+        int *device_i, *device_j;
+        cudaMalloc(&device_i, num_points * sizeof(int));
+        cudaMemcpy(device_i, i, num_points * sizeof(int), cudaMemcpyHostToDevice);
+        cudaMalloc(&device_j, num_points * sizeof(int));
+        cudaMemcpy(device_j, j, num_points * sizeof(int), cudaMemcpyHostToDevice);
+        float *device_ux, *device_uy;
+        cudaMalloc(&device_ux, num_points * sizeof(float));
+        cudaMemcpy(device_ux, ux, num_points * sizeof(int), cudaMemcpyHostToDevice);
+        cudaMalloc(&device_uy, num_points * sizeof(float));
+        cudaMemcpy(device_uy, uy, num_points * sizeof(int), cudaMemcpyHostToDevice);
+
+        int threads_per_block = 16;
+        int num_blocks = (num_points + threads_per_block - 1) / threads_per_block;
+        forceVelocityKernel <<<num_blocks, threads_per_block>>>(device_i, device_j, device_ux, device_uy, 0);
         cudaDeviceSynchronize();
+
+        cudaFree(device_i);
+        cudaFree(device_j);
+        cudaFree(device_ux);
+        cudaFree(device_uy);
     }
 
     JFS_INLINE void CudaLBMSolver::AddMassSource(int i, int j, float rho) {
@@ -166,7 +179,8 @@ namespace jfs {
         int threads_per_block = 256;
         int num_blocks = (9 * (int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
 
-        cudaMemcpy(f0_grid_.Data(), f_grid_.Data(), 9*grid_size_*grid_size_*sizeof(float), cudaMemcpyDeviceToDevice);
+        cudaMemcpy(f0_grid_.Data(), f_grid_.Data(), 9 * grid_size_ * grid_size_ * sizeof(float),
+                   cudaMemcpyDeviceToDevice);
         streamKernel <<<num_blocks, threads_per_block>>>(flag_ptr);
         cudaDeviceSynchronize();
 

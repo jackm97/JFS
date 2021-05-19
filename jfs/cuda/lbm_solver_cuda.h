@@ -50,10 +50,10 @@ namespace jfs {
 
         // do next simulation steps
         bool CalcNextStep(const std::vector<Force> &forces);
-        void SyncHostWithDevice(){rho_grid_.SyncHostWithDevice(); u_grid_.SyncHostWithDevice();}
+        void SyncHostWithDevice(){if (host_synced_) return; rho_grid_.SyncHostWithDevice(); u_grid_.SyncHostWithDevice(); host_synced_ = true;}
 
         // apply force to reach velocity
-        void ForceVelocity(int i, int j, float ux, float uy);
+        void ForceVelocity(int *i, int *j, float *ux, float *uy, int num_points);
 
         void AddMassSource(int i, int j, float rho);
 
@@ -130,6 +130,8 @@ namespace jfs {
 
         float visc_{}; // fluid viscosity
         float lat_tau_{}; // relaxation time in lattice units
+
+        bool host_synced_ = true;
 
     private:
         bool CalcNextStep();
