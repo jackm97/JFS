@@ -29,6 +29,12 @@ namespace jfs {
     __global__
     void boundaryDampKernel();
 
+    __global__
+    void getMinMaxRho(float* min_rho_ptr, float* max_rho_ptr);
+
+    __global__
+    void mapDensityKernel(float *rho_mapped_grid, float min_rho_map, float max_rho_map);
+
 } // namespace jfs
 
 #endif

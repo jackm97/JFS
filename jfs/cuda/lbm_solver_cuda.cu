@@ -46,7 +46,7 @@ namespace jfs {
 
     JFS_INLINE void CudaLBMSolver::ResetFluid() {
         LBMSolverProps props = SolverProps();
-        cudaMemcpyToSymbol(const_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
+        cudaMemcpyToSymbol(device_solver_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
         current_cuda_lbm_solver = this;
         cudaDeviceSynchronize();
 
@@ -101,7 +101,7 @@ namespace jfs {
     JFS_INLINE void CudaLBMSolver::ForceVelocity(int *i, int *j, float *ux, float *uy, int num_points) {
         if (current_cuda_lbm_solver != this) {
             LBMSolverProps props = SolverProps();
-            cudaMemcpyToSymbol(const_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
+            cudaMemcpyToSymbol(device_solver_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
             current_cuda_lbm_solver = this;
         }
 
@@ -110,6 +110,7 @@ namespace jfs {
         cudaMemcpy(device_i, i, num_points * sizeof(int), cudaMemcpyHostToDevice);
         cudaMalloc(&device_j, num_points * sizeof(int));
         cudaMemcpy(device_j, j, num_points * sizeof(int), cudaMemcpyHostToDevice);
+
         float *device_ux, *device_uy;
         cudaMalloc(&device_ux, num_points * sizeof(float));
         cudaMemcpy(device_ux, ux, num_points * sizeof(int), cudaMemcpyHostToDevice);
@@ -130,7 +131,7 @@ namespace jfs {
     JFS_INLINE void CudaLBMSolver::AddMassSource(int i, int j, float rho) {
         if (current_cuda_lbm_solver != this) {
             LBMSolverProps props = SolverProps();
-            cudaMemcpyToSymbol(const_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
+            cudaMemcpyToSymbol(device_solver_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
             current_cuda_lbm_solver = this;
         }
 
@@ -139,35 +140,32 @@ namespace jfs {
     }
 
     JFS_INLINE void CudaLBMSolver::SetDensityMapping(float min_rho, float max_rho) {
-        min_rho_ = min_rho;
-        max_rho_ = max_rho;
+        min_rho_map_ = min_rho;
+        max_rho_map_ = max_rho;
     }
 
     JFS_INLINE void CudaLBMSolver::DensityExtrema(float minmax_rho[2]) {
-        float *rho_grid_host = rho_grid_.HostData();
+        minmax_rho[0] = 1.e20;
+        minmax_rho[1] = -1.e20;
 
-        float min_rho = rho_grid_host[0];
-        float max_rho = rho_grid_host[0];
+        float *device_minmax_rho;
+        cudaMalloc(&device_minmax_rho, 2 * sizeof(float));
+        cudaMemcpy(device_minmax_rho, minmax_rho, 2 * sizeof(float), cudaMemcpyHostToDevice);
 
-        for (int i = 0; i < grid_size_ * grid_size_; i++) {
-            if (rho_grid_host[i] < min_rho)
-                min_rho = rho_grid_host[i];
-        }
+        int threads_per_block = 256;
+        int num_blocks = ((int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
+        getMinMaxRho<<<num_blocks, threads_per_block>>>(device_minmax_rho + 0, device_minmax_rho + 1);
+        cudaDeviceSynchronize();
 
-        for (int i = 0; i < grid_size_ * grid_size_; i++) {
-            if (rho_grid_host[i] > max_rho)
-                max_rho = rho_grid_host[i];
-        }
-
-        minmax_rho[0] = min_rho;
-        minmax_rho[1] = max_rho;
+        cudaMemcpy(minmax_rho, device_minmax_rho, 2 * sizeof(float), cudaMemcpyDeviceToHost);
+        cudaFree(device_minmax_rho);
     }
 
     JFS_INLINE bool CudaLBMSolver::CalcNextStep() {
         LBMSolverProps props{};
         if (current_cuda_lbm_solver != this) {
             props = SolverProps();
-            cudaMemcpyToSymbol(const_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
+            cudaMemcpyToSymbol(device_solver_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
             current_cuda_lbm_solver = this;
         }
 
@@ -210,57 +208,76 @@ namespace jfs {
 
     __host__
     JFS_INLINE void CudaLBMSolver::MapDensity() {
-        float *host_rho_data = RhoData();
+        float minmax_rho[2];
+        DensityExtrema(minmax_rho);
 
-        float min_rho = host_rho_data[0];
-        float max_rho = host_rho_data[0];
-        float mean_rho = 0;
-        for (int i = 0; i < grid_size_ * grid_size_; i++)
-            mean_rho += host_rho_data[i];
-        mean_rho /= (float) grid_size_ * (float) grid_size_;
+        float min_rho_map, max_rho_map;
 
-        for (int i = 0; i < grid_size_ * grid_size_ && min_rho_ == -1; i++) {
-            if (host_rho_data[i] < min_rho)
-                min_rho = host_rho_data[i];
-        }
+        if (min_rho_map_ >= 0)
+            min_rho_map = min_rho_map_;
+        else
+            min_rho_map = minmax_rho[0];
 
-        if (min_rho_ != -1)
-            min_rho = min_rho_;
+        if (max_rho_map_ >= 0)
+            max_rho_map = max_rho_map_;
+        else
+            max_rho_map = minmax_rho[1];
 
-        for (int i = 0; i < grid_size_ * grid_size_ && max_rho_ == -1; i++) {
-            if (host_rho_data[i] > max_rho)
-                max_rho = host_rho_data[i];
-        }
-
-        if (max_rho_ == -1 && min_rho_ == -1) {
-            if (max_rho - mean_rho > mean_rho - min_rho)
-                min_rho = mean_rho - (max_rho - mean_rho);
-            else
-                max_rho = mean_rho - (min_rho - mean_rho);
-        }
-
-        if (max_rho_ != -1)
-            max_rho = max_rho_;
-
-        float *host_mapped_rho_data = mapped_rho_grid_.HostData();
-        for (int i = 0; i < grid_size_; i++)
-            for (int j = 0; j < grid_size_; j++) {
-                float rho_mapped;
-                rho_mapped = host_rho_data[grid_size_ * j + i];
-                if ((max_rho - min_rho) != 0)
-                    rho_mapped = (rho_mapped - min_rho) / (max_rho - min_rho);
-                else
-                    rho_mapped = 0 * rho_mapped;
-
-                // rho_mapped = (rho_mapped < 0) ? 0 : rho_mapped;
-                // rho_mapped = (rho_mapped > 1) ? 1 : rho_mapped;
-
-                host_mapped_rho_data[grid_size_ * 3 * j + 3 * i + 0] = rho_mapped;
-                host_mapped_rho_data[grid_size_ * 3 * j + 3 * i + 1] = rho_mapped;
-                host_mapped_rho_data[grid_size_ * 3 * j + 3 * i + 2] = rho_mapped;
-            }
-
-//        mapped_rho_grid_.SyncDeviceWithHost();
+        int threads_per_block = 256;
+        int num_blocks = ((int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
+        mapDensityKernel<<<num_blocks, threads_per_block>>>(mapped_rho_grid_.Data(), min_rho_map, max_rho_map);
+        cudaDeviceSynchronize();
+//        float *host_rho_data = RhoData();
+//
+//        float min_rho = host_rho_data[0];
+//        float max_rho = host_rho_data[0];
+//        float mean_rho = 0;
+//        for (int i = 0; i < grid_size_ * grid_size_; i++)
+//            mean_rho += host_rho_data[i];
+//        mean_rho /= (float) grid_size_ * (float) grid_size_;
+//
+//        for (int i = 0; i < grid_size_ * grid_size_ && min_rho_map_ == -1; i++) {
+//            if (host_rho_data[i] < min_rho)
+//                min_rho = host_rho_data[i];
+//        }
+//
+//        if (min_rho_map_ != -1)
+//            min_rho = min_rho_map_;
+//
+//        for (int i = 0; i < grid_size_ * grid_size_ && max_rho_map_ == -1; i++) {
+//            if (host_rho_data[i] > max_rho)
+//                max_rho = host_rho_data[i];
+//        }
+//
+//        if (max_rho_map_ == -1 && min_rho_map_ == -1) {
+//            if (max_rho - mean_rho > mean_rho - min_rho)
+//                min_rho = mean_rho - (max_rho - mean_rho);
+//            else
+//                max_rho = mean_rho - (min_rho - mean_rho);
+//        }
+//
+//        if (max_rho_map_ != -1)
+//            max_rho = max_rho_map_;
+//
+//        float *host_mapped_rho_data = mapped_rho_grid_.HostData();
+//        for (int i = 0; i < grid_size_; i++)
+//            for (int j = 0; j < grid_size_; j++) {
+//                float rho_mapped;
+//                rho_mapped = host_rho_data[grid_size_ * j + i];
+//                if ((max_rho - min_rho) != 0)
+//                    rho_mapped = (rho_mapped - min_rho) / (max_rho - min_rho);
+//                else
+//                    rho_mapped = 0 * rho_mapped;
+//
+//                // rho_mapped = (rho_mapped < 0) ? 0 : rho_mapped;
+//                // rho_mapped = (rho_mapped > 1) ? 1 : rho_mapped;
+//
+//                host_mapped_rho_data[grid_size_ * 3 * j + 3 * i + 0] = rho_mapped;
+//                host_mapped_rho_data[grid_size_ * 3 * j + 3 * i + 1] = rho_mapped;
+//                host_mapped_rho_data[grid_size_ * 3 * j + 3 * i + 2] = rho_mapped;
+//            }
+//
+////        mapped_rho_grid_.SyncDeviceWithHost();
     }
 
     JFS_INLINE LBMSolverProps CudaLBMSolver::SolverProps() {

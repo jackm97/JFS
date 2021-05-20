@@ -50,7 +50,6 @@ namespace jfs {
 
         // do next simulation steps
         bool CalcNextStep(const std::vector<Force> &forces);
-        void SyncHostWithDevice(){if (host_synced_) return; rho_grid_.SyncHostWithDevice(); u_grid_.SyncHostWithDevice(); host_synced_ = true;}
 
         // apply force to reach velocity
         void ForceVelocity(int *i, int *j, float *ux, float *uy, int num_points);
@@ -77,20 +76,21 @@ namespace jfs {
 
         float Viscosity() { return visc_; }
 
-        float *RhoData() { return rho_grid_.HostData(); }
+        float *RhoData() {SyncHostWithDevice(); return rho_grid_.HostData(); }
 
         float *MappedRhoData() {
             MapDensity();
+            mapped_rho_grid_.SyncHostWithDevice();
             return mapped_rho_grid_.HostData();
         }
 
-        float *VelocityData() { return u_grid_.HostData(); }
+        float *VelocityData() {SyncHostWithDevice(); return u_grid_.HostData(); }
 
         // inline indexers:
 
-        float IndexRhoData(int i, int j) { return rho_grid_(i, j, 0, 0); }
+        float IndexRhoData(int i, int j) {SyncHostWithDevice(); return rho_grid_(i, j, 0, 0); }
 
-        float IndexVelocityData(int i, int j, int d) { return u_grid_(i, j, 0, d); }
+        float IndexVelocityData(int i, int j, int d) {SyncHostWithDevice(); return u_grid_(i, j, 0, d); }
 
         //destructor
         ~CudaLBMSolver() {}
@@ -106,9 +106,9 @@ namespace jfs {
         CudaGrid2D<FieldType2D::Scalar> f0_grid_; // the distribution function
 
         CudaGrid2D<FieldType2D::Scalar> rho_grid_; // calculated rho from distribution function
-        float min_rho_{};
-        float max_rho_{};
-        CudaGrid2D<FieldType2D::Scalar> mapped_rho_grid_; // rho_, but mapped to [0,1] with min/max_rho_
+        float min_rho_map_{};
+        float max_rho_map_{};
+        CudaGrid2D<FieldType2D::Scalar> mapped_rho_grid_; // rho_, but mapped to [0,1] with min/max_rho_map_
 
         CudaGrid2D<FieldType2D::Vector> u_grid_;
 
@@ -131,10 +131,12 @@ namespace jfs {
         float visc_{}; // fluid viscosity
         float lat_tau_{}; // relaxation time in lattice units
 
-        bool host_synced_ = true;
+        bool host_synced_ = false;
 
     private:
         bool CalcNextStep();
+
+        void SyncHostWithDevice(){if (host_synced_) return; rho_grid_.SyncHostWithDevice(); u_grid_.SyncHostWithDevice(); host_synced_ = true;}
 
         void MapDensity();
 
