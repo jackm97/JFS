@@ -332,6 +332,16 @@ namespace jfs {
                                                  uint grid_size, uint fields);
 
     template __global__
+    void InterpFromGridKernel<FieldType2D::Scalar>(float *q_ptr, float i, float j, uint f, uint d, float *grid_data,
+                                                   uint grid_size,
+                                                   uint fields);
+
+    template __global__
+    void InterpFromGridKernel<FieldType2D::Vector>(float *q_ptr, float i, float j, uint f, uint d, float *grid_data,
+                                                   uint grid_size,
+                                                   uint fields);
+
+    template __global__
     void setGridKernel<FieldType2D::Scalar>(float val, uint f, uint d, float *grid_data, uint grid_size, uint fields);
 
     template __global__
