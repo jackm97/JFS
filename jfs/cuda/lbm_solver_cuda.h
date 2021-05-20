@@ -14,7 +14,7 @@ namespace jfs {
 // kernel that creates gpu copy of
 // the solver
     struct LBMSolverProps {
-        ushort grid_size;
+        uint grid_size;
         float grid_length;
         BoundType btype;
 
@@ -38,11 +38,11 @@ namespace jfs {
         // constructors
         CudaLBMSolver() : cs_{1 / sqrtf(3)} {}
 
-        CudaLBMSolver(ushort grid_size, float grid_length, BoundType btype, float rho0 = 1.3, float visc = 1e-4,
+        CudaLBMSolver(uint grid_size, float grid_length, BoundType btype, float rho0 = 1.3, float visc = 1e-4,
                       float uref = 1);
 
         // initializer
-        void Initialize(ushort grid_size, float grid_length, BoundType btype, float rho0 = 1.3, float visc = 1e-4,
+        void Initialize(uint grid_size, float grid_length, BoundType btype, float rho0 = 1.3, float visc = 1e-4,
                         float uref = 1);
 
         // reset simulation data

@@ -6,14 +6,14 @@
 
 namespace jfs {
 
-    JFS_INLINE CudaLBMSolver::CudaLBMSolver(ushort grid_size, float grid_length, BoundType btype, float rho0,
+    JFS_INLINE CudaLBMSolver::CudaLBMSolver(uint grid_size, float grid_length, BoundType btype, float rho0,
                                             float visc, float uref) :
             cs_{1 / sqrtf(3)} {
         Initialize(grid_size, grid_length, btype, rho0, visc, uref);
     }
 
     JFS_INLINE void
-    CudaLBMSolver::Initialize(ushort grid_size, float grid_length, BoundType btype, float rho0, float visc,
+    CudaLBMSolver::Initialize(uint grid_size, float grid_length, BoundType btype, float rho0, float visc,
                               float uref) {
         grid_size_ = grid_size;
         grid_length_ = grid_length;

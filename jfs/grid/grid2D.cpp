@@ -280,6 +280,8 @@ interpGridToPoint(float* dst, const float* point, const float* field_data, Field
     int i0_ceil = i0_floor + 1;
     int j0_ceil = j0_floor + 1;
     float part;
+
+    float* indexed_quant = new float[fields * dims];
     
 
     for (int i = 0; i < 2; i++)
@@ -300,12 +302,13 @@ interpGridToPoint(float* dst, const float* point, const float* field_data, Field
             indices[0] = i_tmp;
             indices[1] = j_tmp;
 
-            float indexed_quant[fields*dims];
             indexGrid(indexed_quant, indices, field_data, ftype, fields);
             for (int idx = 0; idx < fields*dims; idx++)
                 dst[idx] += part*indexed_quant[idx];
         }
     }
+
+    delete[] indexed_quant;
 }
 
 
