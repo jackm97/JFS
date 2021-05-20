@@ -40,7 +40,7 @@ namespace jfs {
         int total_size = size_ * size_ * dims_ * fields_;
 
 #if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
-        host_data_ = (float*) malloc(total_size*sizeof(float));
+        cudaMallocHost(&host_data_, total_size*sizeof(float));
 #endif
         cudaMalloc(&data_, total_size * sizeof(float));
 
@@ -75,7 +75,7 @@ namespace jfs {
 
 #if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
         int total_size = (int)size_*(int)size_*(int)dims_*(int)fields_;
-        host_data_ = (float*) malloc(total_size*sizeof(float));
+        cudaMallocHost(&host_data_, total_size*sizeof(float));
         cudaMemcpy(host_data_, data_, total_size*sizeof(float), cudaMemcpyDeviceToHost);
 #endif
 
@@ -289,7 +289,7 @@ namespace jfs {
             return;
 
 #if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
-        free(host_data_);
+        cudaFreeHost(host_data_);
 #endif
         if (!mapped_data_)
             cudaFree(data_);
