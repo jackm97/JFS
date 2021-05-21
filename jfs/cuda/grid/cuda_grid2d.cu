@@ -1,5 +1,4 @@
 #include "./cuda_grid2d.h"
-#include <cuda_runtime_api.h>
 
 namespace jfs {
 
@@ -17,13 +16,21 @@ namespace jfs {
 
     template<uint Options>
     __HOST__DEVICE__
-    CudaGrid2D<Options>::CudaGrid2D(const float *data, uint size, uint fields) {
+    CudaGrid2D<Options>::CudaGrid2D(const float *data, uint size, uint fields, uint mode) {
         Resize(size, fields);
         int total_size = size_ * size_ * dims_ * fields_;
 
 #if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
-        memcpy(host_data_, data, total_size*sizeof(float));
-        cudaMemcpy(data_, data, total_size*sizeof(float), cudaMemcpyHostToDevice);
+        switch (mode) {
+            default:
+                break;
+            case CudaGridSync:
+                cudaMemcpy(data_, data, total_size*sizeof(float), cudaMemcpyHostToDevice);
+                break;
+            case CudaGridAsync:
+                cudaMemcpyAsync(data_, data, total_size*sizeof(float), cudaMemcpyHostToDevice);
+                break;
+        }
 #else
         memcpy(data_, data, total_size * sizeof(float));
 #endif
@@ -49,13 +56,21 @@ namespace jfs {
 
     template<uint Options>
     __HOST__
-    void CudaGrid2D<Options>::CopyDeviceData(const float *data, uint size, uint fields) {
+    void CudaGrid2D<Options>::CopyDeviceData(const float *data, uint size, uint fields, uint mode) {
         Resize(size, fields);
         int total_size = size_ * size_ * dims_ * fields_;
 
 #if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
-        cudaMemcpy(host_data_, data, total_size*sizeof(float), cudaMemcpyDeviceToHost);
-        cudaMemcpy(data_, data, total_size*sizeof(float), cudaMemcpyDeviceToDevice);
+        switch (mode) {
+            default:
+                break;
+            case CudaGridSync:
+                cudaMemcpy(data_, data, total_size*sizeof(float), cudaMemcpyDeviceToDevice);
+                break;
+            case CudaGridAsync:
+                cudaMemcpyAsync(data_, data, total_size*sizeof(float), cudaMemcpyDeviceToDevice);
+                break;
+        }
 #else
         memcpy(data_, data, total_size * sizeof(float));
 #endif
@@ -76,7 +91,6 @@ namespace jfs {
 #if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
         int total_size = (int)size_*(int)size_*(int)dims_*(int)fields_;
         cudaMallocHost(&host_data_, total_size*sizeof(float));
-        cudaMemcpy(host_data_, data_, total_size*sizeof(float), cudaMemcpyDeviceToHost);
 #endif
 
         is_allocated_ = true;
@@ -111,13 +125,14 @@ namespace jfs {
 
     template<uint Options>
     __HOST__
-    void CudaGrid2D<Options>::SetGridToValue(float val, uint field, uint dim) {
+    void CudaGrid2D<Options>::SetGridToValue(float val, uint field, uint dim, uint mode) {
         dim3 threads_per_block(16, 16);
         dim3 num_blocks(size_ / threads_per_block.x + 1, size_ / threads_per_block.y + 1);
 
         setGridKernel<Options> <<<num_blocks, threads_per_block>>>(val, field, dim, data_, size_, fields_);
 
-        cudaDeviceSynchronize();
+        if (mode == CudaGridSync)
+            cudaDeviceSynchronize();
     }
 
     template<uint Options>
@@ -154,12 +169,13 @@ namespace jfs {
 
     template<uint Options>
     __HOST__DEVICE__
-    void CudaGrid2D<Options>::InterpToGrid(float q, float i, float j, uint f, uint d) {
+    void CudaGrid2D<Options>::InterpToGrid(float q, float i, float j, uint f, uint d, uint mode) {
 #if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
 
         InterpToGridKernel<Options> <<<1, 1>>>(q, i, j, f, d, data_, size_, fields_);
 
-        cudaDeviceSynchronize();
+        if (mode == CudaGridSync)
+            cudaDeviceSynchronize();
 
 #else
 
@@ -258,7 +274,6 @@ namespace jfs {
         int total_size = size_ * size_ * dims_ * fields_;
 
 #if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
-        memcpy(host_data_, src.host_data_, total_size*sizeof(float));
         cudaMemcpy(data_, src.data_, total_size*sizeof(float), cudaMemcpyDeviceToDevice);
 #else
         memcpy(data_, src.data_, total_size * sizeof(float));
@@ -299,7 +314,7 @@ namespace jfs {
 
     template<uint Options>
     __HOST__
-    void CudaGrid2D<Options>::Insert(float val, uint i, uint j, uint f, uint d) {
+    void CudaGrid2D<Options>::Insert(float val, uint i, uint j, uint f, uint d, uint mode) {
         int offset = size_ * fields_ * dims_ * j + fields_ * dims_ * i +
                      dims_ * f + d;
         cudaMemcpy(data_ + offset, &val, sizeof(float), cudaMemcpyHostToDevice);
@@ -307,7 +322,7 @@ namespace jfs {
 
     template<uint Options>
     __HOST__
-    void CudaGrid2D<Options>::SyncDeviceWithHost() {
+    void CudaGrid2D<Options>::SyncDeviceWithHost(uint mode) {
 
 #if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
         cudaMemcpy(data_, host_data_, size_*size_*fields_*dims_*sizeof(float), cudaMemcpyHostToDevice);
@@ -321,6 +336,16 @@ namespace jfs {
 #if !defined(__CUDA_ARCH__) || defined(__PARSE_HOST__) // __PARSE_HOST__ is used to toggle parse of host code in IDE
         cudaMemcpy(host_data_, data_, size_*size_*fields_*dims_*sizeof(float), cudaMemcpyDeviceToHost);
 #endif
+    }
+
+    template<uint Options>
+    __HOST__
+    float CudaGrid2D<Options>::Index(uint i, uint j, uint f, uint d) {
+        float val;
+        int offset = size_ * fields_ * dims_ * j + fields_ * dims_ * i +
+                     dims_ * f + d;
+        cudaMemcpy(&val, data_ + offset, sizeof(float), cudaMemcpyDeviceToHost);
+        return val;
     }
 
     template __global__

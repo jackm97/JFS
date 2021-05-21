@@ -2,8 +2,6 @@
 
 #include <jfs/cuda/lbm_cuda_kernels.cu>
 
-#include <iostream>
-
 namespace jfs {
 
     JFS_INLINE CudaLBMSolver::CudaLBMSolver(uint grid_size, float grid_length, BoundType btype, float rho0,
@@ -69,8 +67,10 @@ namespace jfs {
     JFS_INLINE bool CudaLBMSolver::CalcNextStep(const std::vector<Force> &forces) {
         bool failed_step = false;
 
-        for (int d = 0; d < 2; d++) {
-            force_grid_.SetGridToValue(0, 0, d);
+        f0_grid_.CopyDeviceData(f_grid_.Data(), grid_size_, 9, CudaGridAsync);
+
+        for (int d = 0; d < 2; d++){
+            force_grid_.SetGridToValue(0, 0, d, CudaGridAsync);
         }
 
         for (const auto &i : forces) {
@@ -85,9 +85,11 @@ namespace jfs {
 
             if (point[0] < (float) grid_size_ && point[0] >= 0 && point[1] < (float) grid_size_ && point[1] >= 0)
                 for (int d = 0; d < 2; d++) {
-                    force_grid_.InterpToGrid(force[d], point[0], point[1], 0, d);
+                    force_grid_.InterpToGrid(force[d], point[0], point[1], 0, d, CudaGridAsync);
                 }
         }
+
+        cudaDeviceSynchronize();
 
         failed_step = CalcNextStep();
 
@@ -148,17 +150,28 @@ namespace jfs {
         minmax_rho[0] = 1.e20;
         minmax_rho[1] = -1.e20;
 
-        float *device_minmax_rho;
-        cudaMalloc(&device_minmax_rho, 2 * sizeof(float));
-        cudaMemcpy(device_minmax_rho, minmax_rho, 2 * sizeof(float), cudaMemcpyHostToDevice);
+        rho_grid_.SyncHostWithDevice();
 
-        int threads_per_block = 256;
-        int num_blocks = ((int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
-        getMinMaxRho<<<num_blocks, threads_per_block>>>(device_minmax_rho + 0, device_minmax_rho + 1);
-        cudaDeviceSynchronize();
+        float* host_rho_data = rho_grid_.HostData();
 
-        cudaMemcpy(minmax_rho, device_minmax_rho, 2 * sizeof(float), cudaMemcpyDeviceToHost);
-        cudaFree(device_minmax_rho);
+        for (int idx = 0; idx < grid_size_*grid_size_; idx++){
+            if (host_rho_data[idx] < minmax_rho[0])
+                minmax_rho[0] = host_rho_data[idx];
+            if (host_rho_data[idx] > minmax_rho[1])
+                minmax_rho[1] = host_rho_data[idx];
+        }
+
+//        float *device_minmax_rho;
+//        cudaMalloc(&device_minmax_rho, 2 * sizeof(float));
+//        cudaMemcpy(device_minmax_rho, minmax_rho, 2 * sizeof(float), cudaMemcpyHostToDevice);
+//
+//        int threads_per_block = 256;
+//        int num_blocks = ((int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
+//        getMinMaxRho<<<num_blocks, threads_per_block>>>(device_minmax_rho + 0, device_minmax_rho + 1);
+//        cudaDeviceSynchronize();
+//
+//        cudaMemcpy(minmax_rho, device_minmax_rho, 2 * sizeof(float), cudaMemcpyDeviceToHost);
+//        cudaFree(device_minmax_rho);
     }
 
     JFS_INLINE bool CudaLBMSolver::CalcNextStep() {
@@ -177,8 +190,6 @@ namespace jfs {
         int threads_per_block = 256;
         int num_blocks = (9 * (int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
 
-        cudaMemcpy(f0_grid_.Data(), f_grid_.Data(), 9 * grid_size_ * grid_size_ * sizeof(float),
-                   cudaMemcpyDeviceToDevice);
         streamKernel <<<num_blocks, threads_per_block>>>(flag_ptr);
         cudaDeviceSynchronize();
 
@@ -188,15 +199,15 @@ namespace jfs {
         calcVelocityKernel <<<num_blocks, threads_per_block>>>();
         cudaDeviceSynchronize();
 
+        num_blocks = (9 * (int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
+        collideKernel <<<num_blocks, threads_per_block>>>(flag_ptr);
+        cudaDeviceSynchronize();
+
         // do any field manipulations before next step
         if (btype_ == DAMPED) {
             boundaryDampKernel <<<(grid_size_ + threads_per_block - 1) / threads_per_block, threads_per_block>>>();
             cudaDeviceSynchronize();
         }
-
-        num_blocks = (9 * (int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
-        collideKernel <<<num_blocks, threads_per_block>>>(flag_ptr);
-        cudaDeviceSynchronize();
 
         time_ += dt_;
 

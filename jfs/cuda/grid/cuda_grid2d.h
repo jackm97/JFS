@@ -15,6 +15,11 @@ namespace jfs {
         };
     };
 
+    enum : uint {
+        CudaGridAsync,
+        CudaGridSync
+    };
+
     /// grid can be used in host or device code but cannot be passed between host and device
     ///
     /// \tparam Options - FieldType2D::Scalar or FieldType2D::Vector
@@ -45,7 +50,7 @@ namespace jfs {
         /// \param data - If called on host, data is on host. If called on device, data is on device.
         /// \param size - grid size
         /// \param fields - number of fields (i.e. RGB color grid would have 3 fields)
-        CudaGrid2D(const float *data, uint size, uint fields);
+        CudaGrid2D(const float *data, uint size, uint fields, uint mode = CudaGridSync);
 
         /// __host__ __device__ resize grid
         ///
@@ -60,7 +65,7 @@ namespace jfs {
         /// \param size - grid size
         /// \param fields - number of fields (i.e. RGB color grid would have 3 fields)
         __HOST__
-        void CopyDeviceData(const float *data, uint size, uint fields);
+        void CopyDeviceData(const float *data, uint size, uint fields, uint mode = CudaGridSync);
 
         /// __host__ __device__ map device data to grid, mapped data is never freed
         ///
@@ -76,7 +81,7 @@ namespace jfs {
         /// \param f - field index (i.e. 1 for green in RGB scalar grid)
         /// \param d - field dimension (i.e. 1 for y dimension in vector grid)
         __HOST__
-        void SetGridToValue(float val, uint f, uint d);
+        void SetGridToValue(float val, uint f, uint d, uint mode = CudaGridSync);
 
         /// __host__ __device__
         ///
@@ -92,7 +97,7 @@ namespace jfs {
 
         /// __host__ syncs device data with host data
         __HOST__
-        void SyncDeviceWithHost();
+        void SyncDeviceWithHost(uint mode = CudaGridSync);
 
         /// __host__ __device__
         /// \note The device data is not automatically synced with the host data. Make sure to call CudaGrid2D::SyncDeviceWithHost
@@ -123,7 +128,10 @@ namespace jfs {
         /// \param f - field index (i.e. 1 for green in RGB scalar grid)
         /// \param d - field dimension (i.e. 1 for y dimension in vector grid)
         __HOST__
-        void Insert(float val, uint i, uint j, uint f, uint d);
+        void Insert(float val, uint i, uint j, uint f, uint d, uint mode = CudaGridSync);
+
+        __HOST__
+        float Index(uint i, uint j, uint f, uint d);
 
         /// __host__ __device__ linearly interpolate quantity to grid
         ///
@@ -133,7 +141,7 @@ namespace jfs {
         /// \param f - field index (i.e. 1 for green in RGB scalar grid)
         /// \param d - field dimension (i.e. 1 for y dimension in vector grid)
         __HOST__DEVICE__
-        void InterpToGrid(float q, float i, float j, uint f, uint d);
+        void InterpToGrid(float q, float i, float j, uint f, uint d, uint mode = CudaGridSync);
 
         /// __host__ __device__ interpolate quantity from grid
         /// \note Make sure to call CudaGrid2D::SyncHostWithDevice before calling on the host.

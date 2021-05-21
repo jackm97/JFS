@@ -88,9 +88,9 @@ namespace jfs {
 
         // inline indexers:
 
-        float IndexRhoData(int i, int j) {SyncHostWithDevice(); return rho_grid_(i, j, 0, 0); }
+        float IndexRhoData(int i, int j) {return rho_grid_.Index(i, j, 0, 0); }
 
-        float IndexVelocityData(int i, int j, int d) {SyncHostWithDevice(); return u_grid_(i, j, 0, d); }
+        float IndexVelocityData(int i, int j, int d) {return u_grid_.Index(i, j, 0, d); }
 
         //destructor
         ~CudaLBMSolver() {}
@@ -136,7 +136,9 @@ namespace jfs {
     private:
         bool CalcNextStep();
 
-        void SyncHostWithDevice(){if (host_synced_) return; rho_grid_.SyncHostWithDevice(); u_grid_.SyncHostWithDevice(); host_synced_ = true;}
+        void SyncHostWithDevice(){if (host_synced_) return;
+            rho_grid_.SyncHostWithDevice();
+            u_grid_.SyncHostWithDevice(); host_synced_ = true;}
 
         void MapDensity();
 
