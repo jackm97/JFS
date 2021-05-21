@@ -67,11 +67,11 @@ namespace jfs {
     JFS_INLINE bool CudaLBMSolver::CalcNextStep(const std::vector<Force> &forces) {
         bool failed_step = false;
 
-        f0_grid_.CopyDeviceData(f_grid_.Data(), grid_size_, 9, CudaGridAsync);
-
         for (int d = 0; d < 2; d++){
             force_grid_.SetGridToValue(0, 0, d, CudaGridAsync);
         }
+
+        cudaDeviceSynchronize();
 
         for (const auto &i : forces) {
             float force[2] = {

@@ -172,7 +172,7 @@ END DEVICE FUNCTIONS
         for (int alpha = 0; alpha < 9; alpha++) {
             float lat_force = calcLatticeForce(alpha, i[idx], j[idx]);
             float fbar = calcEquilibrium(alpha, i[idx], j[idx]);
-            f[alpha] -= (lat_force - (f0[alpha] - fbar) / device_solver_props[0].lat_tau);
+            f0[alpha] -= (lat_force - (f[alpha] - fbar) / device_solver_props[0].lat_tau);
         }
 
         ux_old -= force_x * device_solver_props[0].dt / (2 * rho);
@@ -188,7 +188,7 @@ END DEVICE FUNCTIONS
         for (int alpha = 0; alpha < 9; alpha++) {
             float lat_force = calcLatticeForce(alpha, i[idx], j[idx]);
             float fbar = calcEquilibrium(alpha, i[idx], j[idx]);
-            f[alpha] += (lat_force - (f[alpha] - fbar) / device_solver_props[0].lat_tau);
+            f0[alpha] += (lat_force - (f0[alpha] - fbar) / device_solver_props[0].lat_tau);
         }
 #endif
     }
@@ -198,7 +198,7 @@ END DEVICE FUNCTIONS
 #ifdef __CUDA_ARCH__
         int grid_size = device_solver_props[0].grid_size;
 
-        float *f = device_solver_props[0].f_grid + grid_size * 9 * j + 9 * i;
+        float *f = device_solver_props[0].f0_grid + grid_size * 9 * j + 9 * i;
         rho = rho / device_solver_props[0].rho0;
 
         for (int alpha = 0; alpha < 9; alpha++) {
@@ -246,13 +246,14 @@ END DEVICE FUNCTIONS
             return;
 
         float *f = device_solver_props[0].f_grid + grid_size * 9 * j + 9 * i;
-        *(device_solver_props[0].f0_grid + grid_size * 9 * j + 9 * i + alpha) = f[alpha];
+        float* f0 = device_solver_props[0].f0_grid + grid_size * 9 * j + 9 * i;
+        f0[alpha] = f[alpha];
         float lat_force = calcLatticeForce(alpha, i, j);
         float fbar = calcEquilibrium(alpha, i, j);
 
-        f[alpha] += lat_force - (f[alpha] - fbar) / device_solver_props[0].lat_tau;
+        f0[alpha] += lat_force - (f[alpha] - fbar) / device_solver_props[0].lat_tau;
 
-        if (isnan(f[alpha]) || isinf(f[alpha]))
+        if (isnan(f0[alpha]) || isinf(f0[alpha]))
             *flag_ptr = true;
 #endif
     }
@@ -396,8 +397,8 @@ END DEVICE FUNCTIONS
             i -= step;
 
             for (int alpha = 0; alpha < 9; alpha++) {
-                device_solver_props[0].f_grid[grid_size * 9 * j + 9 * i + alpha] = calcEquilibrium(alpha, i, j);
-                device_solver_props[0].f_grid[grid_size * 9 * i + 9 * j + alpha] = calcEquilibrium(alpha, j, i);
+                device_solver_props[0].f0_grid[grid_size * 9 * j + 9 * i + alpha] = calcEquilibrium(alpha, i, j);
+                device_solver_props[0].f0_grid[grid_size * 9 * i + 9 * j + alpha] = calcEquilibrium(alpha, j, i);
             }
         }
 #endif
