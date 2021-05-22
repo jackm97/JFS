@@ -199,15 +199,15 @@ namespace jfs {
         calcVelocityKernel <<<num_blocks, threads_per_block>>>();
         cudaDeviceSynchronize();
 
+        // do any field manipulations before next step
+        if (btype_ == DAMPED) {
+            boundaryDampKernel << <(grid_size_ + threads_per_block - 1) / threads_per_block, threads_per_block >> > ();
+            cudaDeviceSynchronize();
+        }
+
         num_blocks = (9 * (int) grid_size_ * (int) grid_size_ + threads_per_block - 1) / threads_per_block;
         collideKernel <<<num_blocks, threads_per_block>>>(flag_ptr);
         cudaDeviceSynchronize();
-
-        // do any field manipulations before next step
-        if (btype_ == DAMPED) {
-            boundaryDampKernel <<<(grid_size_ + threads_per_block - 1) / threads_per_block, threads_per_block>>>();
-            cudaDeviceSynchronize();
-        }
 
         time_ += dt_;
 

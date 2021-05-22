@@ -397,8 +397,8 @@ END DEVICE FUNCTIONS
             i -= step;
 
             for (int alpha = 0; alpha < 9; alpha++) {
-                device_solver_props[0].f0_grid[grid_size * 9 * j + 9 * i + alpha] = calcEquilibrium(alpha, i, j);
-                device_solver_props[0].f0_grid[grid_size * 9 * i + 9 * j + alpha] = calcEquilibrium(alpha, j, i);
+                device_solver_props[0].f_grid[grid_size * 9 * j + 9 * i + alpha] = calcEquilibrium(alpha, i, j);
+                device_solver_props[0].f_grid[grid_size * 9 * i + 9 * j + alpha] = calcEquilibrium(alpha, j, i);
             }
         }
 #endif
