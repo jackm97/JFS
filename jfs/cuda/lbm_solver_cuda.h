@@ -138,9 +138,11 @@ namespace jfs {
         bool host_synced_ = false;
 
         // opengl interop
-        void* tex_resource_;
-        void* tex_array_;
-        void* tex_surf_;
+        // note that they are all void* so that this class can be included
+        // in a .cpp file without throwing errors
+        void* tex_resource_; // cast to (cudaGraphicsResource_t)
+        void* tex_array_; // cast to (cudaArray_t)
+        void* tex_surf_; // cast to (cudaSurfaceObject_t)
         bool is_resource_registered_ = false;
 
     private:
