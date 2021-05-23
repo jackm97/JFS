@@ -62,6 +62,10 @@ namespace jfs {
 
         void DensityExtrema(float minmax_rho[2]);
 
+        void RegisterRhoMapTexture(uint tex_id);
+
+        void MapRhoData2Texture();
+
         // inline getters:
 
         float TimeStep() { return dt_; }
@@ -93,7 +97,7 @@ namespace jfs {
         float IndexVelocityData(int i, int j, int d) {return u_grid_.Index(i, j, 0, d); }
 
         //destructor
-        ~CudaLBMSolver() {}
+        ~CudaLBMSolver();
 
     private:
 
@@ -132,6 +136,12 @@ namespace jfs {
         float lat_tau_{}; // relaxation time in lattice units
 
         bool host_synced_ = false;
+
+        // opengl interop
+        void* tex_resource_;
+        void* tex_array_;
+        void* tex_surf_;
+        bool is_resource_registered_ = false;
 
     private:
         bool CalcNextStep();

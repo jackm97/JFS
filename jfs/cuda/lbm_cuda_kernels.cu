@@ -463,4 +463,27 @@ END DEVICE FUNCTIONS
 #endif
     }
 
+    __global__ void mapDensity2TextureKernel(cudaSurfaceObject_t tex_array, float* mapped_rho_grid) {
+
+        int grid_size = device_solver_props[0].grid_size;
+        int i = blockIdx.x * blockDim.x + threadIdx.x;
+        int j = i / (grid_size);
+        i -= grid_size * j;
+
+#ifdef __CUDA_ARCH__
+
+        if (i >= grid_size || j >= grid_size)
+            return;
+
+        float* mapped_rho = mapped_rho_grid + grid_size * 3 * j + 3 * i;
+        uchar4 pixel;
+        pixel.x = unsigned char(mapped_rho[0] * 255);
+        pixel.y = unsigned char(mapped_rho[1] * 255);
+        pixel.z = unsigned char(mapped_rho[2] * 255);
+        pixel.w = 255;
+
+        surf2Dwrite(pixel, tex_array, 4 * i, j);
+#endif
+    }
+
 } // namespace jfs

@@ -35,6 +35,9 @@ namespace jfs {
     __global__
     void mapDensityKernel(float *rho_mapped_grid, float min_rho_map, float max_rho_map);
 
+    __global__
+    void mapDensity2TextureKernel(cudaSurfaceObject_t tex_array);
+
 } // namespace jfs
 
 #endif

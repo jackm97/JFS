@@ -2,6 +2,11 @@
 
 #include <jfs/cuda/lbm_cuda_kernels.cu>
 
+#if _WIN32
+#include <Windows.h>
+#endif
+#include <cuda_gl_interop.h>
+
 namespace jfs {
 
     JFS_INLINE CudaLBMSolver::CudaLBMSolver(uint grid_size, float grid_length, BoundType btype, float rho0,
@@ -174,6 +179,43 @@ namespace jfs {
 //        cudaFree(device_minmax_rho);
     }
 
+    void CudaLBMSolver::RegisterRhoMapTexture(uint tex_id) {
+        if (is_resource_registered_) {
+            cudaGraphicsUnregisterResource((cudaGraphicsResource_t)tex_resource_);
+            cudaDestroySurfaceObject((cudaSurfaceObject_t)tex_surf_);
+        }
+        cudaGraphicsGLRegisterImage((cudaGraphicsResource **)&tex_resource_, tex_id, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsSurfaceLoadStore);
+
+        cudaGraphicsMapResources(1, (cudaGraphicsResource_t*)&tex_resource_);
+        cudaGraphicsSubResourceGetMappedArray((cudaArray_t*)&tex_array_, (cudaGraphicsResource_t)tex_resource_, 0, 0);
+
+        // Specify surface
+        struct cudaResourceDesc resDesc;
+        memset(&resDesc, 0, sizeof(resDesc));
+        resDesc.resType = cudaResourceTypeArray;
+
+        // Create the surface objects
+        resDesc.res.array.array = (cudaArray_t)tex_array_;
+        cudaCreateSurfaceObject((cudaSurfaceObject_t*)&tex_surf_, &resDesc);
+
+        cudaGraphicsUnmapResources(1, (cudaGraphicsResource_t*)&tex_resource_);
+
+        is_resource_registered_ = true;
+    }
+    
+    void CudaLBMSolver::MapRhoData2Texture() {
+        MapDensity();
+
+        cudaGraphicsMapResources(1, (cudaGraphicsResource_t*)&tex_resource_);
+
+        int threads_per_block = 256;
+        int num_blocks = (grid_size_ * grid_size_ + threads_per_block - 1) / threads_per_block;
+        mapDensity2TextureKernel <<<num_blocks, threads_per_block>>> ((cudaSurfaceObject_t) tex_surf_, mapped_rho_grid_.Data());
+        cudaDeviceSynchronize();
+
+        cudaGraphicsUnmapResources(1, (cudaGraphicsResource_t*)&tex_resource_);
+    }
+
     JFS_INLINE bool CudaLBMSolver::CalcNextStep() {
         LBMSolverProps props{};
         if (current_cuda_lbm_solver != this) {
@@ -220,7 +262,8 @@ namespace jfs {
     __host__
     JFS_INLINE void CudaLBMSolver::MapDensity() {
         float minmax_rho[2];
-        DensityExtrema(minmax_rho);
+        if (min_rho_map_ == -1 || max_rho_map_ == -1)
+            DensityExtrema(minmax_rho);
 
         float min_rho_map, max_rho_map;
 
@@ -308,6 +351,12 @@ namespace jfs {
         props.force_grid = force_grid_.Data();
 
         return props;
+    }
+    CudaLBMSolver::~CudaLBMSolver() {
+        if (is_resource_registered_) {
+            cudaGraphicsUnregisterResource((cudaGraphicsResource_t)tex_resource_);
+            cudaDestroySurfaceObject((cudaSurfaceObject_t)tex_surf_);
+        }
     }
 
 } // namespace jfs
