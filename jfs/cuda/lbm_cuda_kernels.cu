@@ -159,6 +159,9 @@ END DEVICE FUNCTIONS
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 #ifdef __CUDA_ARCH__
+        if (idx >= num_points)
+            return;
+
         int grid_size = device_solver_props[0].grid_size;
         float &ux_old = *(device_solver_props[0].u_grid + grid_size * 2 * j[idx] + 2 * i[idx] + 0);
         float &uy_old = *(device_solver_props[0].u_grid + grid_size * 2 * j[idx] + 2 * i[idx] + 1);
@@ -193,17 +196,29 @@ END DEVICE FUNCTIONS
 #endif
     }
     __global__
-    void addMassKernel(int i, int j, float rho) {
+        void forceMassKernel(int* i, int* j, float* rho, int num_points, float drho_scale) {
+
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 #ifdef __CUDA_ARCH__
+        if (idx >= num_points)
+            return;
+
         int grid_size = device_solver_props[0].grid_size;
 
-        float *f = device_solver_props[0].f0_grid + grid_size * 9 * j + 9 * i;
-        rho = rho / device_solver_props[0].rho0;
+        float current_rho = *(device_solver_props[0].rho_grid + grid_size * j[idx] + i[idx]);
+        float new_rho = rho[idx];
+        float drho = (new_rho - current_rho) / device_solver_props[0].rho0;
+        drho *= drho_scale;
+
+        float *f = device_solver_props[0].f0_grid + grid_size * 9 * j[idx] + 9 * i[idx];
 
         for (int alpha = 0; alpha < 9; alpha++) {
-            f[alpha] += w[alpha] * rho;
+            f[alpha] += w[alpha] * drho;
         }
+
+        *(device_solver_props[0].rho_grid + grid_size * j[idx] + i[idx]) = new_rho;
+
 #endif
     }
 

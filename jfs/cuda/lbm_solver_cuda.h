@@ -54,7 +54,7 @@ namespace jfs {
         // apply force to reach velocity
         void ForceVelocity(int *i, int *j, float *ux, float *uy, int num_points);
 
-        void AddMassSource(int i, int j, float rho);
+        void ForceMass(int* i, int* j, float* rho, int num_points, float drho_scale = 1.f);
 
         // density mapping
 

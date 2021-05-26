@@ -9,7 +9,7 @@ namespace jfs {
     void forceVelocityKernel(int *i, int *j, float *ux, float *uy, int num_points);
 
     __global__
-    void addMassKernel(int i, int j, float rho);
+        void addMassKernel(int i, int j, float rho, float drho_scale);
 
     __global__
     void resetDistributionKernel(float *f_data);

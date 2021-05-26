@@ -120,9 +120,9 @@ namespace jfs {
 
         float *device_ux, *device_uy;
         cudaMalloc(&device_ux, num_points * sizeof(float));
-        cudaMemcpy(device_ux, ux, num_points * sizeof(int), cudaMemcpyHostToDevice);
+        cudaMemcpy(device_ux, ux, num_points * sizeof(float), cudaMemcpyHostToDevice);
         cudaMalloc(&device_uy, num_points * sizeof(float));
-        cudaMemcpy(device_uy, uy, num_points * sizeof(int), cudaMemcpyHostToDevice);
+        cudaMemcpy(device_uy, uy, num_points * sizeof(float), cudaMemcpyHostToDevice);
 
         int threads_per_block = 16;
         int num_blocks = (num_points + threads_per_block - 1) / threads_per_block;
@@ -135,15 +135,32 @@ namespace jfs {
         cudaFree(device_uy);
     }
 
-    JFS_INLINE void CudaLBMSolver::AddMassSource(int i, int j, float rho) {
+    JFS_INLINE void CudaLBMSolver::ForceMass(int* i, int* j, float* rho, int num_points, float drho_scale) {
         if (current_cuda_lbm_solver != this) {
             LBMSolverProps props = SolverProps();
             cudaMemcpyToSymbol(device_solver_props, &props, sizeof(LBMSolverProps), 0, cudaMemcpyHostToDevice);
             current_cuda_lbm_solver = this;
         }
 
-        addMassKernel <<<1, 1>>>(i, j, rho);
+        int* device_i, * device_j;
+        cudaMalloc(&device_i, num_points * sizeof(int));
+        cudaMemcpy(device_i, i, num_points * sizeof(int), cudaMemcpyHostToDevice);
+        cudaMalloc(&device_j, num_points * sizeof(int));
+        cudaMemcpy(device_j, j, num_points * sizeof(int), cudaMemcpyHostToDevice);
+
+        float* device_rho;
+        cudaMalloc(&device_rho, num_points * sizeof(float));
+        cudaMemcpy(device_rho, rho, num_points * sizeof(float), cudaMemcpyHostToDevice);
+
+        int threads_per_block = 16;
+        int num_blocks = (num_points + threads_per_block - 1) / threads_per_block;
+
+        forceMassKernel <<<num_blocks, threads_per_block>>>(device_i, device_j, device_rho, num_points, drho_scale);
         cudaDeviceSynchronize();
+
+        cudaFree(device_i);
+        cudaFree(device_j);
+        cudaFree(device_rho);
     }
 
     JFS_INLINE void CudaLBMSolver::SetDensityMapping(float min_rho, float max_rho) {
