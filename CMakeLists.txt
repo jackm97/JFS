@@ -68,5 +68,5 @@ set_property(TARGET jfs PROPERTY CUDA_ARCHITECTURES 86)
 find_package(CUDAToolkit REQUIRED)
 find_library(CUDADEVRT cudadevrt "${CUDAToolkit_LIBRARY_DIR}")
 
-target_link_libraries(jfs PRIVATE CUDA::cudart_static CUDADEVRT)
+target_link_libraries(jfs PRIVATE CUDA::cudart_static "${CUDADEVRT}")
     
