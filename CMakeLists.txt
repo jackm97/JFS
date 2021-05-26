@@ -66,4 +66,7 @@ set_property(TARGET jfs PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 set_property(TARGET jfs PROPERTY CUDA_ARCHITECTURES 86)
 
 find_package(CUDAToolkit REQUIRED)
-target_link_libraries(jfs PRIVATE CUDA::cudart -L"${CUDAToolkit_LIBRARY_DIR}" -lcudadevrt)
+find_library(CUDADEVRT cudadevrt "${CUDAToolkit_LIBRARY_DIR}")
+
+target_link_libraries(jfs PRIVATE CUDA::cudart_static CUDADEVRT)
+    
