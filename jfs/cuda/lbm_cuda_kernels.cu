@@ -5,7 +5,6 @@ namespace jfs {
     using FieldType2D::Vector;
     using FieldType2D::Scalar;
 
-    __constant__ float cs = 0.57735026919;
     __constant__ float lat_uref = .2;
     __constant__ int c[9][2]{ // D2Q9 velocity discretization
             {0,  0},                                // i = 0
@@ -86,11 +85,11 @@ DEVICE FUNCTIONS
         u_cpy[0] *= lat_uref / uref;
         u_cpy[1] *= lat_uref / uref;
 
-        float ci_dot_u = ci[0] * u_cpy[0] * +ci[1] * u_cpy[1];
+        float ci_dot_u = ci[0] * u_cpy[0] + ci[1] * u_cpy[1];
 
         return (1 - device_solver_props[0].lat_tau / 2) * w[alpha] * (
-                ((1 / powf(cs, 2)) * (ci[0] - u_cpy[0]) + (ci_dot_u / powf(cs, 4)) * ci[0]) * force_cpy[0] +
-                ((1 / powf(cs, 2)) * (ci[1] - u_cpy[1]) + (ci_dot_u / powf(cs, 4)) * ci[1]) * force_cpy[1]
+                ((1 / powf(1.f/sqrt(3.f), 2)) * (ci[0] - u_cpy[0]) + (ci_dot_u / powf(1.f/sqrt(3.f), 4)) * ci[0]) * force_cpy[0] +
+                ((1 / powf(1.f/sqrt(3.f), 2)) * (ci[1] - u_cpy[1]) + (ci_dot_u / powf(1.f/sqrt(3.f), 4)) * ci[1]) * force_cpy[1]
         );
 #endif
     }
@@ -165,34 +164,49 @@ END DEVICE FUNCTIONS
         int grid_size = device_solver_props[0].grid_size;
         float &ux_old = *(device_solver_props[0].u_grid + grid_size * 2 * j[idx] + 2 * i[idx] + 0);
         float &uy_old = *(device_solver_props[0].u_grid + grid_size * 2 * j[idx] + 2 * i[idx] + 1);
+        float uref = device_solver_props[0].uref;
         float &force_x = *(device_solver_props[0].force_grid + grid_size * 2 * j[idx] + 2 * i[idx] + 0);
         float &force_y = *(device_solver_props[0].force_grid + grid_size * 2 * j[idx] + 2 * i[idx] + 1);
         float &rho = *(device_solver_props[0].rho_grid + grid_size * j[idx] + i[idx]);
+        float rho0 = device_solver_props[0].rho0;
 
-        float *f = device_solver_props[0].f_grid + grid_size * 9 * j[idx] + 9 * i[idx];
         float *f0 = device_solver_props[0].f0_grid + grid_size * 9 * j[idx] + 9 * i[idx];
 
+        float u[2]{0.f, 0.f};
+
         for (int alpha = 0; alpha < 9; alpha++) {
-            float lat_force = calcLatticeForce(alpha, i[idx], j[idx]);
-            float fbar = calcEquilibrium(alpha, i[idx], j[idx]);
-            f0[alpha] -= (lat_force - (f[alpha] - fbar) / device_solver_props[0].lat_tau);
+            float f_alpha = f0[alpha];
+            u[0] += (float) c[alpha][0] * f_alpha;
+            u[1] += (float) c[alpha][1] * f_alpha;
         }
 
-        ux_old -= force_x * device_solver_props[0].dt / (2 * rho);
-        uy_old -= force_y * device_solver_props[0].dt / (2 * rho);
+        rho /= rho0;
+        u[0] = uref / lat_uref * (u[0] / rho);
+        u[1] = uref / lat_uref * (u[1] / rho);
+        rho *= rho0;
+        ux_old = u[0];
+        uy_old = u[1];
 
-        force_x = (ux[idx] - ux_old) * rho / device_solver_props[0].dt;
-        force_y = (uy[idx] - uy_old) * rho / device_solver_props[0].dt;
-
+        force_x = (ux[idx] - u[0]) * rho / device_solver_props[0].dt;
+        force_y = (uy[idx] - u[1]) * rho / device_solver_props[0].dt;
 
         ux_old += force_x * device_solver_props[0].dt / (2 * rho);
         uy_old += force_y * device_solver_props[0].dt / (2 * rho);
+
+        float rho_new = 0;
 
         for (int alpha = 0; alpha < 9; alpha++) {
             float lat_force = calcLatticeForce(alpha, i[idx], j[idx]);
             float fbar = calcEquilibrium(alpha, i[idx], j[idx]);
             f0[alpha] += (lat_force - (f0[alpha] - fbar) / device_solver_props[0].lat_tau);
+            rho_new += f0[alpha] * device_solver_props[0].rho0;
         }
+
+        ux_old = ux[idx];
+        uy_old = uy[idx];
+
+        rho = rho_new;
+
 #endif
     }
     __global__
@@ -492,9 +506,9 @@ END DEVICE FUNCTIONS
 
         float* mapped_rho = mapped_rho_grid + grid_size * 3 * j + 3 * i;
         uchar4 pixel;
-        pixel.x = unsigned char(mapped_rho[0] * 255);
-        pixel.y = unsigned char(mapped_rho[1] * 255);
-        pixel.z = unsigned char(mapped_rho[2] * 255);
+        pixel.x = (unsigned char)(mapped_rho[0] * 255);
+        pixel.y = (unsigned char)(mapped_rho[1] * 255);
+        pixel.z = (unsigned char)(mapped_rho[2] * 255);
         pixel.w = 255;
 
         surf2Dwrite(pixel, tex_array, 4 * i, j);

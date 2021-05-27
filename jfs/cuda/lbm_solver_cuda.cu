@@ -126,7 +126,7 @@ namespace jfs {
 
         int threads_per_block = 16;
         int num_blocks = (num_points + threads_per_block - 1) / threads_per_block;
-        forceVelocityKernel <<<num_blocks, threads_per_block>>>(device_i, device_j, device_ux, device_uy, 0);
+        forceVelocityKernel <<<num_blocks, threads_per_block>>>(device_i, device_j, device_ux, device_uy, num_points);
         cudaDeviceSynchronize();
 
         cudaFree(device_i);
