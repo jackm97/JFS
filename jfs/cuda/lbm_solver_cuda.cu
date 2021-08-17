@@ -260,7 +260,7 @@ namespace jfs {
 
         // do any field manipulations before next step
         if (btype_ == DAMPED) {
-            boundaryDampKernel << <(grid_size_ + threads_per_block - 1) / threads_per_block, threads_per_block >> > ();
+            boundaryDampKernel <<<(grid_size_ + threads_per_block - 1) / threads_per_block, threads_per_block >>> ();
             cudaDeviceSynchronize();
         }
 
