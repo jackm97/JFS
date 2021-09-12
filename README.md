@@ -9,7 +9,7 @@ All the dependencies are included as git submodules in the `extern` folder of th
 - [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page):  If you're project already includes Eigen, you will 
   need to change their locations in the [CMakeLists.txt](./CMakeLists.txt).
 - [CUDA 11+](https://developer.nvidia.com/cuda-toolkit)
-- [CMake](https://cmake.org/) - not a submodule, just needed to build the library
+- [CMake3.19+](https://cmake.org/) - not a submodule, just needed to build the library
 
 
 ## Building the Library
